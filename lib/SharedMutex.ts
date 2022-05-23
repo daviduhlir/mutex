@@ -38,18 +38,6 @@ class SharedMutexUtils {
 }
 
 /**
- * Handlers for master process to work
- * with mutexes
- */
-const MasterHandler: {
-    masterIncomingMessage: (message: any) => void;
-    emitter: EventEmitter;
-} = {
-    masterIncomingMessage: null,
-    emitter: new EventEmitter(),
-};
-
-/**
  * Unlock handler
  */
 export class SharedMutexUnlockHandler {
@@ -116,7 +104,7 @@ export class SharedMutex {
     static async lock(key: string, singleAccess?: boolean, maxLockingTime?: number): Promise<SharedMutexUnlockHandler> {
         const hash = SharedMutexUtils.randomHash();
 
-        const eventHandler = cluster.isWorker ? process : MasterHandler.emitter;
+        const eventHandler = cluster.isWorker ? process : SharedMutexSynchronizer.masterHandler.emitter;
 
         // waiter function
         const waiter = new Promise((resolve: (value: any) => void) => {
@@ -167,7 +155,7 @@ export class SharedMutex {
                 workerId: cluster.worker?.id,
             });
         } else {
-            MasterHandler.masterIncomingMessage({
+            SharedMutexSynchronizer.masterHandler.masterIncomingMessage({
                 ...message,
                 workerId: 'master',
             });
@@ -189,47 +177,47 @@ interface LocalLockItem {
     key: string;
 }
 
-if (cluster.isMaster) {
-    let localLocksQueue: LocalLockItem[] = [];
+class SharedMutexSynchronizer {
+    protected static localLocksQueue: LocalLockItem[] = [];
 
     /**
-     * Tick of mutex run, it will continue next mutex(es) in queue
+    * Handlers for master process to work
+    * with mutexes
+    */
+    static readonly masterHandler: {
+       masterIncomingMessage: (message: any) => void;
+       emitter: EventEmitter;
+    } = {
+        masterIncomingMessage: null,
+        emitter: new EventEmitter(),
+    };
+
+    /**
+     * Initialize master handler
      */
-    function mutexTickNext() {
-        const allKeys = localLocksQueue.reduce((acc, i) => {
-            return [...acc, i.key].filter((value, ind, self) => self.indexOf(value) === ind)
-        }, [])
-
-        for(const key of allKeys) {
-            const queue = localLocksQueue.filter(i => i.key === key)
-            const runnings = queue.filter(i => i.isRunning)
-
-            const allKeys = SharedMutexUtils.getAllKeys(key)
-            const posibleBlockingItem = localLocksQueue.find(i => i.isRunning && allKeys.includes(i.key) || SharedMutexUtils.isChildOf(i.key, key))
-
-            // if there is something to continue
-            if (queue?.length) {
-                // if next is for single access
-                if (queue[0].singleAccess && !runnings?.length && !posibleBlockingItem) {
-                    mutexContinue(queue[0])
-
-                // or run all multiple access together
-                } else if (runnings.every(i => !i.singleAccess) && !posibleBlockingItem?.singleAccess) {
-                    for (const item of queue) {
-                        if (item.singleAccess) {
-                            break;
-                        }
-                        mutexContinue(item);
-                    }
-                }
-            }
+    static initializeMaster() {
+        // if we are using clusters at all
+        if (cluster && typeof cluster.on === 'function') {
+                // listen worker events
+            Object.keys(cluster.workers).forEach(workerId => {
+                cluster.workers[workerId].on('message', SharedMutexSynchronizer.masterIncomingMessage);
+            })
+            cluster.on('fork', worker => {
+                worker.on('message', SharedMutexSynchronizer.masterIncomingMessage);
+            })
+            cluster.on('exit', worker => {
+                SharedMutexSynchronizer.workerUnlockForced(worker.id);
+            })
         }
+
+        // setup functions for master
+        SharedMutexSynchronizer.masterHandler.masterIncomingMessage = SharedMutexSynchronizer.masterIncomingMessage;
     }
 
     /**
      * Lock mutex
      */
-    function lock(key: string, workerId: number, singleAccess: boolean, hash: string, maxLockingTime: number) {
+    protected static lock(key: string, workerId: number, singleAccess: boolean, hash: string, maxLockingTime: number) {
         // prepare new lock item
         const item: LocalLockItem = {
             workerId,
@@ -239,32 +227,13 @@ if (cluster.isMaster) {
         }
 
         // add it to locks
-        localLocksQueue.push(item);
+        SharedMutexSynchronizer.localLocksQueue.push(item);
 
         // set timeout if provided
         if (maxLockingTime) {
-            item.timeout = setTimeout(() => unlock(hash), maxLockingTime);
+            item.timeout = setTimeout(() => SharedMutexSynchronizer.unlock(hash), maxLockingTime);
         }
-        mutexTickNext()
-    }
-
-    /**
-     * Continue worker in queue
-     * @param key
-     */
-    function mutexContinue(workerIitem: LocalLockItem) {
-        workerIitem.isRunning = true;
-
-        const message = {
-            __mutexMessage__: true,
-            hash: workerIitem.hash,
-        };
-
-        if (workerIitem.workerId === 'master') {
-            MasterHandler.emitter.emit('message', message);
-        } else {
-            cluster.workers[workerIitem.workerId].send(message);
-        }
+        SharedMutexSynchronizer.mutexTickNext()
     }
 
     /**
@@ -272,9 +241,9 @@ if (cluster.isMaster) {
      * @param key
      * @param workerId
      */
-    function unlock(hash?: string) {
+    protected static unlock(hash?: string) {
         // clear timeout, if exists
-        const f = localLocksQueue.find(foundItem => foundItem.hash === hash);
+        const f = SharedMutexSynchronizer.localLocksQueue.find(foundItem => foundItem.hash === hash);
         if (!f) {
             return;
         }
@@ -284,27 +253,80 @@ if (cluster.isMaster) {
         }
 
         // remove from queue
-        localLocksQueue = localLocksQueue.filter(item => item.hash !== hash);
+        SharedMutexSynchronizer.localLocksQueue = SharedMutexSynchronizer.localLocksQueue.filter(item => item.hash !== hash);
 
         // next tick... unlock something, if waiting
-        mutexTickNext()
+        SharedMutexSynchronizer.mutexTickNext()
+    }
+
+    /**
+     * Tick of mutex run, it will continue next mutex(es) in queue
+     */
+    protected static mutexTickNext() {
+        const allKeys = SharedMutexSynchronizer.localLocksQueue.reduce((acc, i) => {
+            return [...acc, i.key].filter((value, ind, self) => self.indexOf(value) === ind)
+        }, [])
+
+        for(const key of allKeys) {
+            const queue = SharedMutexSynchronizer.localLocksQueue.filter(i => i.key === key)
+            const runnings = queue.filter(i => i.isRunning)
+
+            const allKeys = SharedMutexUtils.getAllKeys(key)
+            const posibleBlockingItem = SharedMutexSynchronizer.localLocksQueue.find(i => i.isRunning && allKeys.includes(i.key) || SharedMutexUtils.isChildOf(i.key, key))
+
+            // if there is something to continue
+            if (queue?.length) {
+                // if next is for single access
+                if (queue[0].singleAccess && !runnings?.length && !posibleBlockingItem) {
+                    SharedMutexSynchronizer.mutexContinue(queue[0])
+
+                // or run all multiple access together
+                } else if (runnings.every(i => !i.singleAccess) && !posibleBlockingItem?.singleAccess) {
+                    for (const item of queue) {
+                        if (item.singleAccess) {
+                            break;
+                        }
+                        SharedMutexSynchronizer.mutexContinue(item);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Continue worker in queue
+     * @param key
+     */
+    protected static mutexContinue(workerIitem: LocalLockItem) {
+        workerIitem.isRunning = true;
+
+        const message = {
+            __mutexMessage__: true,
+            hash: workerIitem.hash,
+        };
+
+        if (workerIitem.workerId === 'master') {
+            SharedMutexSynchronizer.masterHandler.emitter.emit('message', message);
+        } else {
+            cluster.workers[workerIitem.workerId].send(message);
+        }
     }
 
     /**
      * Handle master incomming message
      * @param message
      */
-    function masterIncomingMessage(message: any) {
+    protected static masterIncomingMessage(message: any) {
         if (!(message as any).__mutexMessage__ || !message.action) {
             return;
         }
 
         // lock
         if (message.action === 'lock') {
-           lock(message.key, message.workerId, message.singleAccess, message.hash, message.maxLockingTime);
+            SharedMutexSynchronizer.lock(message.key, message.workerId, message.singleAccess, message.hash, message.maxLockingTime);
         // unlock
         } else if (message.action === 'unlock') {
-            unlock(message.hash);
+            SharedMutexSynchronizer.unlock(message.hash);
         }
     }
 
@@ -312,26 +334,13 @@ if (cluster.isMaster) {
      * Forced unlock of worker
      * @param id
      */
-    function workerUnlockForced(workerId: number) {
-        localLocksQueue
+    protected static workerUnlockForced(workerId: number) {
+        SharedMutexSynchronizer.localLocksQueue
             .filter(i => i.workerId === workerId)
-            .forEach(i => unlock(i.hash));
+            .forEach(i => SharedMutexSynchronizer.unlock(i.hash));
     }
+}
 
-    // if we are using clusters at all
-    if (cluster && typeof cluster.on === 'function') {
-            // listen worker events
-        Object.keys(cluster.workers).forEach(workerId => {
-            cluster.workers[workerId].on('message', masterIncomingMessage);
-        })
-        cluster.on('fork', worker => {
-            worker.on('message', masterIncomingMessage);
-        })
-        cluster.on('exit', worker => {
-            workerUnlockForced(worker.id);
-        })
-    }
-
-    // setup functions for master
-    MasterHandler.masterIncomingMessage = masterIncomingMessage;
+if (cluster.isMaster) {
+    SharedMutexSynchronizer.initializeMaster();
 }

@@ -31,10 +31,6 @@ class SharedMutexUtils {
         return false;
     }
 }
-const MasterHandler = {
-    masterIncomingMessage: null,
-    emitter: new events_1.EventEmitter(),
-};
 class SharedMutexUnlockHandler {
     constructor(key, hash) {
         this.key = key;
@@ -74,7 +70,7 @@ class SharedMutex {
     }
     static async lock(key, singleAccess, maxLockingTime) {
         const hash = SharedMutexUtils.randomHash();
-        const eventHandler = cluster.isWorker ? process : MasterHandler.emitter;
+        const eventHandler = cluster.isWorker ? process : SharedMutexSynchronizer.masterHandler.emitter;
         const waiter = new Promise((resolve) => {
             const handler = message => {
                 if (message.__mutexMessage__ && message.hash === hash) {
@@ -109,7 +105,7 @@ class SharedMutex {
             });
         }
         else {
-            MasterHandler.masterIncomingMessage({
+            SharedMutexSynchronizer.masterHandler.masterIncomingMessage({
                 ...message,
                 workerId: 'master',
             });
@@ -117,96 +113,105 @@ class SharedMutex {
     }
 }
 exports.SharedMutex = SharedMutex;
-if (cluster.isMaster) {
-    let localLocksQueue = [];
-    function mutexTickNext() {
-        const allKeys = localLocksQueue.reduce((acc, i) => {
-            return [...acc, i.key].filter((value, ind, self) => self.indexOf(value) === ind);
-        }, []);
-        for (const key of allKeys) {
-            const queue = localLocksQueue.filter(i => i.key === key);
-            const runnings = queue.filter(i => i.isRunning);
-            const allKeys = SharedMutexUtils.getAllKeys(key);
-            const posibleBlockingItem = localLocksQueue.find(i => i.isRunning && allKeys.includes(i.key) || SharedMutexUtils.isChildOf(i.key, key));
-            if (queue?.length) {
-                if (queue[0].singleAccess && !runnings?.length && !posibleBlockingItem) {
-                    mutexContinue(queue[0]);
-                }
-                else if (runnings.every(i => !i.singleAccess) && !posibleBlockingItem?.singleAccess) {
-                    for (const item of queue) {
-                        if (item.singleAccess) {
-                            break;
-                        }
-                        mutexContinue(item);
-                    }
-                }
-            }
+class SharedMutexSynchronizer {
+    static initializeMaster() {
+        if (cluster && typeof cluster.on === 'function') {
+            Object.keys(cluster.workers).forEach(workerId => {
+                cluster.workers[workerId].on('message', SharedMutexSynchronizer.masterIncomingMessage);
+            });
+            cluster.on('fork', worker => {
+                worker.on('message', SharedMutexSynchronizer.masterIncomingMessage);
+            });
+            cluster.on('exit', worker => {
+                SharedMutexSynchronizer.workerUnlockForced(worker.id);
+            });
         }
+        SharedMutexSynchronizer.masterHandler.masterIncomingMessage = SharedMutexSynchronizer.masterIncomingMessage;
     }
-    function lock(key, workerId, singleAccess, hash, maxLockingTime) {
+    static lock(key, workerId, singleAccess, hash, maxLockingTime) {
         const item = {
             workerId,
             singleAccess,
             hash,
             key,
         };
-        localLocksQueue.push(item);
+        SharedMutexSynchronizer.localLocksQueue.push(item);
         if (maxLockingTime) {
-            item.timeout = setTimeout(() => unlock(hash), maxLockingTime);
+            item.timeout = setTimeout(() => SharedMutexSynchronizer.unlock(hash), maxLockingTime);
         }
-        mutexTickNext();
+        SharedMutexSynchronizer.mutexTickNext();
     }
-    function mutexContinue(workerIitem) {
-        workerIitem.isRunning = true;
-        const message = {
-            __mutexMessage__: true,
-            hash: workerIitem.hash,
-        };
-        if (workerIitem.workerId === 'master') {
-            MasterHandler.emitter.emit('message', message);
-        }
-        else {
-            cluster.workers[workerIitem.workerId].send(message);
-        }
-    }
-    function unlock(hash) {
-        const f = localLocksQueue.find(foundItem => foundItem.hash === hash);
+    static unlock(hash) {
+        const f = SharedMutexSynchronizer.localLocksQueue.find(foundItem => foundItem.hash === hash);
         if (!f) {
             return;
         }
         if (f.timeout) {
             clearTimeout(f.timeout);
         }
-        localLocksQueue = localLocksQueue.filter(item => item.hash !== hash);
-        mutexTickNext();
+        SharedMutexSynchronizer.localLocksQueue = SharedMutexSynchronizer.localLocksQueue.filter(item => item.hash !== hash);
+        SharedMutexSynchronizer.mutexTickNext();
     }
-    function masterIncomingMessage(message) {
+    static mutexTickNext() {
+        const allKeys = SharedMutexSynchronizer.localLocksQueue.reduce((acc, i) => {
+            return [...acc, i.key].filter((value, ind, self) => self.indexOf(value) === ind);
+        }, []);
+        for (const key of allKeys) {
+            const queue = SharedMutexSynchronizer.localLocksQueue.filter(i => i.key === key);
+            const runnings = queue.filter(i => i.isRunning);
+            const allKeys = SharedMutexUtils.getAllKeys(key);
+            const posibleBlockingItem = SharedMutexSynchronizer.localLocksQueue.find(i => i.isRunning && allKeys.includes(i.key) || SharedMutexUtils.isChildOf(i.key, key));
+            if (queue?.length) {
+                if (queue[0].singleAccess && !runnings?.length && !posibleBlockingItem) {
+                    SharedMutexSynchronizer.mutexContinue(queue[0]);
+                }
+                else if (runnings.every(i => !i.singleAccess) && !posibleBlockingItem?.singleAccess) {
+                    for (const item of queue) {
+                        if (item.singleAccess) {
+                            break;
+                        }
+                        SharedMutexSynchronizer.mutexContinue(item);
+                    }
+                }
+            }
+        }
+    }
+    static mutexContinue(workerIitem) {
+        workerIitem.isRunning = true;
+        const message = {
+            __mutexMessage__: true,
+            hash: workerIitem.hash,
+        };
+        if (workerIitem.workerId === 'master') {
+            SharedMutexSynchronizer.masterHandler.emitter.emit('message', message);
+        }
+        else {
+            cluster.workers[workerIitem.workerId].send(message);
+        }
+    }
+    static masterIncomingMessage(message) {
         if (!message.__mutexMessage__ || !message.action) {
             return;
         }
         if (message.action === 'lock') {
-            lock(message.key, message.workerId, message.singleAccess, message.hash, message.maxLockingTime);
+            SharedMutexSynchronizer.lock(message.key, message.workerId, message.singleAccess, message.hash, message.maxLockingTime);
         }
         else if (message.action === 'unlock') {
-            unlock(message.hash);
+            SharedMutexSynchronizer.unlock(message.hash);
         }
     }
-    function workerUnlockForced(workerId) {
-        localLocksQueue
+    static workerUnlockForced(workerId) {
+        SharedMutexSynchronizer.localLocksQueue
             .filter(i => i.workerId === workerId)
-            .forEach(i => unlock(i.hash));
+            .forEach(i => SharedMutexSynchronizer.unlock(i.hash));
     }
-    if (cluster && typeof cluster.on === 'function') {
-        Object.keys(cluster.workers).forEach(workerId => {
-            cluster.workers[workerId].on('message', masterIncomingMessage);
-        });
-        cluster.on('fork', worker => {
-            worker.on('message', masterIncomingMessage);
-        });
-        cluster.on('exit', worker => {
-            workerUnlockForced(worker.id);
-        });
-    }
-    MasterHandler.masterIncomingMessage = masterIncomingMessage;
+}
+SharedMutexSynchronizer.localLocksQueue = [];
+SharedMutexSynchronizer.masterHandler = {
+    masterIncomingMessage: null,
+    emitter: new events_1.EventEmitter(),
+};
+if (cluster.isMaster) {
+    SharedMutexSynchronizer.initializeMaster();
 }
 //# sourceMappingURL=SharedMutex.js.map

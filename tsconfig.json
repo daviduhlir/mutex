@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "es6",
+    "target": "es2020",
     "module": "commonjs",
     "noImplicitAny": false,
     "removeComments": true,
@@ -10,11 +10,15 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "suppressImplicitAnyIndexErrors": true,
-    "outDir": "./build"
+    "outDir": "./dist",
+    "sourceMap": true,
   },
+  "files": [
+    "./lib/index.ts",
+    "./lib/examples/index.ts"
+  ],
   "filesGlob": [
-    "./**/*.ts",
-    "!./build/**/*.ts",
+    "./lib/**/*.ts",
     "!./node_modules/**/*.ts"
   ],
   "lib": [

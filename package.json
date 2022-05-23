@@ -1,12 +1,16 @@
 {
   "name": "@david.uhlir/mutex",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "description": "Mutex for node.js apllications",
-  "main": "build/index.js",
-  "types": "build/index.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "build": "rimraf ./build && tsc",
-    "start": "npm run build && node ./build/examples/index.js"
+    "build": "rimraf ./dist && tsc",
+    "start": "npm run build && node ./dist/examples/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/daviduhlir/mutex.git"
   },
   "author": "David Uhlíř",
   "license": "ISC",

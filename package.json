@@ -1,0 +1,21 @@
+{
+  "name": "@david.uhlir/mutex",
+  "version": "1.0.1",
+  "description": "Mutex for node.js apllications",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "scripts": {
+    "build": "rimraf ./build && tsc",
+    "start": "npm run build && node ./build/examples/index.js"
+  },
+  "author": "David Uhlíř",
+  "license": "ISC",
+  "dependencies": {
+    "@types/npm": "^2.0.29",
+    "rimraf": "^2.6.2",
+    "typescript": "^3.8.3"
+  },
+  "devDependencies": {
+    "@types/node": "^13.11.1"
+  }
+}

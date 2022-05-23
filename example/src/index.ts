@@ -1,4 +1,4 @@
-import { SharedMutex } from '../SharedMutex';
+import { SharedMutex } from '@david.uhlir/mutex';
 import * as cluster from 'cluster'
 
 function delay(time: number) {

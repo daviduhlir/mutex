@@ -10,14 +10,14 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "suppressImplicitAnyIndexErrors": true,
-    "outDir": "./dist",
+    "outDir": "./build",
     "sourceMap": true,
   },
   "files": [
-    "./lib/index.ts"
+    "./src/index.ts"
   ],
   "filesGlob": [
-    "./lib/**/*.ts",
+    "./src/**/*.ts",
     "!./node_modules/**/*.ts"
   ],
   "lib": [

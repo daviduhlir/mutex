@@ -1,0 +1,21 @@
+{
+  "name": "cluster-example",
+  "version": "1.0.0",
+  "description": "",
+  "main": "./build/index.js",
+  "scripts": {
+    "build": "rimraf ./build && tsc",
+    "start": "npm run build && node --enable-source-maps ./build/index.js",
+    "inspect": "npm run build && node --enable-source-maps --inspect ./build/index.js"
+  },
+  "author": "David Uhlíř",
+  "license": "ISC",
+  "dependencies": {
+    "@david.uhlir/mutex": "file:..",
+    "rimraf": "^2.6.2",
+    "typescript": "^3.8.3"
+  },
+  "devDependencies": {
+    "@types/node": "^13.11.1"
+  }
+}

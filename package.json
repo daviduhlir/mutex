@@ -6,7 +6,8 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "rimraf ./dist && tsc",
-    "start": "npm run build && node ./dist/examples/index.js"
+    "start": "npm run build && node ./dist/examples/index.js",
+    "prettier-format": "prettier --config .prettierrc.json 'lib/**/*.ts' --write"
   },
   "repository": {
     "type": "git",
@@ -20,6 +21,7 @@
     "typescript": "^3.8.3"
   },
   "devDependencies": {
-    "@types/node": "^13.11.1"
+    "@types/node": "^13.11.1",
+    "prettier": "^2.6.2"
   }
 }

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SharedMutex = exports.SharedMutexUnlockHandler = void 0;
+exports.SharedMutex = exports.SharedMutexDecorators = exports.SharedMutexUnlockHandler = void 0;
 const events_1 = require("events");
 let cluster = {
     isMaster: true,
@@ -15,10 +15,16 @@ try {
 catch (e) { }
 class SharedMutexUtils {
     static randomHash() {
-        return [...Array(10)].map(x => 0).map(() => Math.random().toString(36).slice(2)).join('');
+        return [...Array(10)]
+            .map(x => 0)
+            .map(() => Math.random().toString(36).slice(2))
+            .join('');
     }
     static getAllKeys(key) {
-        return key.split('/').filter(Boolean).reduce((acc, item, index, array) => {
+        return key
+            .split('/')
+            .filter(Boolean)
+            .reduce((acc, item, index, array) => {
             return [...acc, array.slice(0, index + 1).join('/')];
         }, []);
     }
@@ -41,22 +47,35 @@ class SharedMutexUnlockHandler {
     }
 }
 exports.SharedMutexUnlockHandler = SharedMutexUnlockHandler;
+class SharedMutexDecorators {
+    static lockSingleAccessDecorator(key, maxLockingTime) {
+        return SharedMutexDecorators.lockAccessDecorator(key, true, maxLockingTime);
+    }
+    static lockMultiAccessDecorator(key, maxLockingTime) {
+        return SharedMutexDecorators.lockAccessDecorator(key, false, maxLockingTime);
+    }
+    static lockAccessDecorator(key, singleAccess, maxLockingTime) {
+        return (_target, _name, descriptor) => {
+            if (typeof descriptor.value === 'function') {
+                const original = descriptor.value;
+                descriptor.value = function (...args) {
+                    return SharedMutex.lockAccess(key, () => original(...args), singleAccess, maxLockingTime);
+                };
+            }
+            return descriptor;
+        };
+    }
+}
+exports.SharedMutexDecorators = SharedMutexDecorators;
 class SharedMutex {
     static async lockSingleAccess(key, fnc, maxLockingTime) {
-        const m = await SharedMutex.lock(key, true, maxLockingTime);
-        let r;
-        try {
-            r = await fnc();
-        }
-        catch (e) {
-            m.unlock();
-            throw e;
-        }
-        m.unlock();
-        return r;
+        return this.lockAccess(key, fnc, true, maxLockingTime);
     }
     static async lockMultiAccess(key, fnc, maxLockingTime) {
-        const m = await SharedMutex.lock(key, false, maxLockingTime);
+        return this.lockAccess(key, fnc, false, maxLockingTime);
+    }
+    static async lockAccess(key, fnc, singleAccess, maxLockingTime) {
+        const m = await SharedMutex.lock(key, singleAccess, maxLockingTime);
         let r;
         try {
             r = await fnc();
@@ -160,7 +179,7 @@ class SharedMutexSynchronizer {
             const queue = SharedMutexSynchronizer.localLocksQueue.filter(i => i.key === key);
             const runnings = queue.filter(i => i.isRunning);
             const allKeys = SharedMutexUtils.getAllKeys(key);
-            const posibleBlockingItem = SharedMutexSynchronizer.localLocksQueue.find(i => i.isRunning && allKeys.includes(i.key) || SharedMutexUtils.isChildOf(i.key, key));
+            const posibleBlockingItem = SharedMutexSynchronizer.localLocksQueue.find(i => (i.isRunning && allKeys.includes(i.key)) || SharedMutexUtils.isChildOf(i.key, key));
             if (queue?.length) {
                 if (queue[0].singleAccess && !runnings?.length && !posibleBlockingItem) {
                     SharedMutexSynchronizer.mutexContinue(queue[0]);
@@ -201,9 +220,7 @@ class SharedMutexSynchronizer {
         }
     }
     static workerUnlockForced(workerId) {
-        SharedMutexSynchronizer.localLocksQueue
-            .filter(i => i.workerId === workerId)
-            .forEach(i => SharedMutexSynchronizer.unlock(i.hash));
+        SharedMutexSynchronizer.localLocksQueue.filter(i => i.workerId === workerId).forEach(i => SharedMutexSynchronizer.unlock(i.hash));
     }
 }
 SharedMutexSynchronizer.localLocksQueue = [];

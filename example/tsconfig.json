@@ -13,9 +13,6 @@
     "outDir": "./build",
     "sourceMap": true,
   },
-  "files": [
-    "./src/index.ts"
-  ],
   "filesGlob": [
     "./src/**/*.ts",
     "!./node_modules/**/*.ts"

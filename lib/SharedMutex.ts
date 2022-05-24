@@ -244,12 +244,17 @@ export class SharedMutexSynchronizer {
    * Timeout handler, for handling if lock was freezed for too long time
    * You can set this handler to your own, to make decision what to do in this case
    * You can use methods like getLockInfo or resetLockTimeout to get info and dealt with this situation
-   * Default behaviour is to log it, but unlock this mutex - it can be kindly dangerous
+   * Default behaviour is to log it, if it's on master, it will throws error. If it's fork, it will kill it.
    * @param hash
    */
   static timeoutHandler: (hash: string) => void = (hash: string) => {
-    console.error('MUTEX_LOCK_TIMEOUT', SharedMutexSynchronizer.getLockInfo(hash))
-    SharedMutexSynchronizer.unlock(hash)
+    const info = SharedMutexSynchronizer.getLockInfo(hash)
+    console.error('MUTEX_LOCK_TIMEOUT', info)
+    if (info.workerId === 'master') {
+      throw new Error('MUTEX_LOCK_TIMEOUT')
+    } else {
+      process.kill(cluster.workers[info.workerId].process.pid, 9)
+    }
   }
 
   /**
@@ -408,6 +413,10 @@ export class SharedMutexSynchronizer {
     if (workerIitem.workerId === 'master') {
       SharedMutexSynchronizer.masterHandler.emitter.emit('message', message)
     } else {
+      if (!cluster.workers[workerIitem.workerId].isConnected()) {
+        console.error(`Worker ${workerIitem.workerId} is not longer connected. Mutex continue can't be send. Worker probably died.`)
+        return
+      }
       cluster.workers[workerIitem.workerId].send(message)
     }
   }

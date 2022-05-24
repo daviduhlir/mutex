@@ -1,5 +1,10 @@
 import { SharedMutex, SharedMutexDecorators } from '@david.uhlir/mutex'
 
+/**
+ * This test will generaly show, how can you use locks and decorators
+ * This test is working only under master (no forks will be launched)
+ */
+
 function delay(time: number) {
   return new Promise(resolve => setTimeout(resolve, time))
 }

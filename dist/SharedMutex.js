@@ -231,6 +231,10 @@ class SharedMutexSynchronizer {
             SharedMutexSynchronizer.masterHandler.emitter.emit('message', message);
         }
         else {
+            if (!cluster.workers[workerIitem.workerId].isConnected()) {
+                console.error(`Worker ${workerIitem.workerId} is not longer connected. Mutex continue can't be send. Worker probably died.`);
+                return;
+            }
             cluster.workers[workerIitem.workerId].send(message);
         }
     }
@@ -256,8 +260,14 @@ SharedMutexSynchronizer.masterHandler = {
     emitter: new events_1.EventEmitter(),
 };
 SharedMutexSynchronizer.timeoutHandler = (hash) => {
-    console.error('MUTEX_LOCK_TIMEOUT', SharedMutexSynchronizer.getLockInfo(hash));
-    SharedMutexSynchronizer.unlock(hash);
+    const info = SharedMutexSynchronizer.getLockInfo(hash);
+    console.error('MUTEX_LOCK_TIMEOUT', info);
+    if (info.workerId === 'master') {
+        throw new Error('MUTEX_LOCK_TIMEOUT');
+    }
+    else {
+        process.kill(cluster.workers[info.workerId].process.pid, 9);
+    }
 };
 if (cluster.isMaster) {
     SharedMutexSynchronizer.initializeMaster();

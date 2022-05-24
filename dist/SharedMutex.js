@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SharedMutex = exports.SharedMutexDecorators = exports.SharedMutexUnlockHandler = void 0;
+exports.SharedMutexSynchronizer = exports.SharedMutex = exports.SharedMutexDecorators = exports.SharedMutexUnlockHandler = void 0;
 const events_1 = require("events");
 let cluster = {
     isMaster: true,
@@ -133,6 +133,31 @@ class SharedMutex {
 }
 exports.SharedMutex = SharedMutex;
 class SharedMutexSynchronizer {
+    static getLockInfo(hash) {
+        const item = this.localLocksQueue.find(i => i.hash === hash);
+        if (item) {
+            return {
+                workerId: item.workerId,
+                singleAccess: item.singleAccess,
+                hash: item.hash,
+                key: item.key,
+            };
+        }
+    }
+    static resetLockTimeout(hash, newMaxLockingTime) {
+        const item = this.localLocksQueue.find(i => i.hash === hash);
+        if (item) {
+            if (typeof newMaxLockingTime === 'number') {
+                item.maxLockingTime = newMaxLockingTime;
+            }
+            if (item.timeout) {
+                clearTimeout(item.timeout);
+            }
+            if (item.maxLockingTime) {
+                item.timeout = setTimeout(() => SharedMutexSynchronizer.timeoutHandler(hash), item.maxLockingTime);
+            }
+        }
+    }
     static initializeMaster() {
         if (cluster && typeof cluster.on === 'function') {
             Object.keys(cluster.workers).forEach(workerId => {
@@ -153,10 +178,11 @@ class SharedMutexSynchronizer {
             singleAccess,
             hash,
             key,
+            maxLockingTime,
         };
         SharedMutexSynchronizer.localLocksQueue.push(item);
         if (maxLockingTime) {
-            item.timeout = setTimeout(() => SharedMutexSynchronizer.unlock(hash), maxLockingTime);
+            item.timeout = setTimeout(() => SharedMutexSynchronizer.timeoutHandler(hash), maxLockingTime);
         }
         SharedMutexSynchronizer.mutexTickNext();
     }
@@ -223,10 +249,15 @@ class SharedMutexSynchronizer {
         SharedMutexSynchronizer.localLocksQueue.filter(i => i.workerId === workerId).forEach(i => SharedMutexSynchronizer.unlock(i.hash));
     }
 }
+exports.SharedMutexSynchronizer = SharedMutexSynchronizer;
 SharedMutexSynchronizer.localLocksQueue = [];
 SharedMutexSynchronizer.masterHandler = {
     masterIncomingMessage: null,
     emitter: new events_1.EventEmitter(),
+};
+SharedMutexSynchronizer.timeoutHandler = (hash) => {
+    console.error('MUTEX_LOCK_TIMEOUT', SharedMutexSynchronizer.getLockInfo(hash));
+    SharedMutexSynchronizer.unlock(hash);
 };
 if (cluster.isMaster) {
     SharedMutexSynchronizer.initializeMaster();

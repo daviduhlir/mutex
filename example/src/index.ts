@@ -63,4 +63,14 @@ class Test {
   console.log('\n----Running decorators  multi access test----\n')
 
   await Promise.all([Test.multiAccessTest('test 1'), Test.multiAccessTest('test 2'), Test.singleAccessTest('test 3')])
+
+  console.log('\n----Timeout test----\n')
+
+  await Promise.all([
+    SharedMutex.lockSingleAccess('mutex', async () => {
+      console.log('Lock single test 2')
+      await delay(10000)
+      console.log('Unlock single test 2')
+    }, 100),
+  ])
 })()

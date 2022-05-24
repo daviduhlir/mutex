@@ -211,16 +211,21 @@ export class SharedMutex {
  * cluster synchronizer
  *
  ***********************************/
-interface LocalLockItem {
+export interface LockDescriptor {
   workerId: number | 'master'
   singleAccess: boolean
   hash: string
-  timeout?: any
-  isRunning?: boolean
   key: string
+  maxLockingTime?: number
 }
 
-class SharedMutexSynchronizer {
+export interface LocalLockItem extends LockDescriptor {
+  timeout?: any
+  isRunning?: boolean
+}
+
+export class SharedMutexSynchronizer {
+  // internal locks array
   protected static localLocksQueue: LocalLockItem[] = []
 
   /**
@@ -233,6 +238,55 @@ class SharedMutexSynchronizer {
   } = {
     masterIncomingMessage: null,
     emitter: new EventEmitter(),
+  }
+
+  /**
+   * Timeout handler, for handling if lock was freezed for too long time
+   * You can set this handler to your own, to make decision what to do in this case
+   * You can use methods like getLockInfo or resetLockTimeout to get info and dealt with this situation
+   * Default behaviour is to log it, but unlock this mutex - it can be kindly dangerous
+   * @param hash
+   */
+  static timeoutHandler: (hash: string) => void = (hash: string) => {
+    console.error('MUTEX_LOCK_TIMEOUT', SharedMutexSynchronizer.getLockInfo(hash))
+    SharedMutexSynchronizer.unlock(hash)
+  }
+
+  /**
+   * Get info about lock by hash
+   * @param hash
+   * @returns
+   */
+  static getLockInfo(hash: string): LockDescriptor {
+    const item = this.localLocksQueue.find(i => i.hash === hash)
+    if (item) {
+      return {
+        workerId: item.workerId,
+        singleAccess: item.singleAccess,
+        hash: item.hash,
+        key: item.key,
+      }
+    }
+  }
+
+  /**
+   * Reset watchdog for lock
+   * @param hash
+   * @returns
+   */
+  static resetLockTimeout(hash: string, newMaxLockingTime?: number) {
+    const item = this.localLocksQueue.find(i => i.hash === hash)
+    if (item) {
+      if (typeof newMaxLockingTime === 'number') {
+        item.maxLockingTime = newMaxLockingTime
+      }
+      if (item.timeout) {
+        clearTimeout(item.timeout)
+      }
+      if (item.maxLockingTime) {
+        item.timeout = setTimeout(() => SharedMutexSynchronizer.timeoutHandler(hash), item.maxLockingTime)
+      }
+    }
   }
 
   /**
@@ -267,6 +321,7 @@ class SharedMutexSynchronizer {
       singleAccess,
       hash,
       key,
+      maxLockingTime,
     }
 
     // add it to locks
@@ -274,7 +329,7 @@ class SharedMutexSynchronizer {
 
     // set timeout if provided
     if (maxLockingTime) {
-      item.timeout = setTimeout(() => SharedMutexSynchronizer.unlock(hash), maxLockingTime)
+      item.timeout = setTimeout(() => SharedMutexSynchronizer.timeoutHandler(hash), maxLockingTime)
     }
     SharedMutexSynchronizer.mutexTickNext()
   }

@@ -345,12 +345,12 @@ export class SharedMutexSynchronizer {
    * @param workerId
    */
   protected static unlock(hash?: string) {
-    // clear timeout, if exists
     const f = SharedMutexSynchronizer.localLocksQueue.find(foundItem => foundItem.hash === hash)
     if (!f) {
       return
     }
 
+    // clear timeout, if exists
     if (f.timeout) {
       clearTimeout(f.timeout)
     }

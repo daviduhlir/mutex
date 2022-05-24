@@ -46,4 +46,4 @@ SharedMutex.lockMultiAccess('test', async () => {
 
 ```
 
-MIT
+ISC

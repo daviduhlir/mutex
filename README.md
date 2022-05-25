@@ -8,8 +8,8 @@ Single-access means, only one scope can be opened in time, all other locks with 
 
 If you wan't to use it with workers in cluster, keep in mind this module needs to be imported to master process to initialize synchronizer. Best way how to do it is to call initialize in master like shown in this example:
 ```ts
-import { SharedMutexSynchronizer } from '@david.uhlir/mutex';
-import * as cluster from 'cluster
+import { SharedMutexSynchronizer } from '@david.uhlir/mutex'
+import * as cluster from 'cluster'
 
 if (cluster.isMaster) {
     SharedMutexSynchronizer.initializeMaster()
@@ -20,7 +20,7 @@ if (cluster.isMaster) {
 ## Usage
 
 ``` ts
-import { SharedMutex } from '@david.uhlir/mutex';
+import { SharedMutex } from '@david.uhlir/mutex'
 
 SharedMutex.lockSingleAccess('test', async () => {
     console.log('Lock test 1')
@@ -37,7 +37,7 @@ SharedMutex.lockSingleAccess('test', async () => {
 ```
 
 ``` ts
-import { SharedMutex } from '@david.uhlir/mutex';
+import { SharedMutex } from '@david.uhlir/mutex'
 
 SharedMutex.lockMultiAccess('test', async () => {
     console.log('Lock test 1')

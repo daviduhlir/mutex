@@ -9,7 +9,7 @@
     "start:forks": "npm run build && node --enable-source-maps ./build/forks.js",
     "start:forksTimeout": "npm run build && node --enable-source-maps ./build/forksTimeout.js",
     "start:main": "npm run build && node --enable-source-maps ./build/master.js",
-    "inspect": "npm run build && node --enable-source-maps --inspect ./build/index.js"
+    "inspect": "npm run build && node --enable-source-maps --inspect ./build/master.js"
   },
   "author": "David Uhlíř",
   "license": "ISC",

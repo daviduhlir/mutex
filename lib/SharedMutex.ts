@@ -242,7 +242,7 @@ export class SharedMutexSynchronizer {
     if (info.workerId === 'master') {
       throw new Error('MUTEX_LOCK_TIMEOUT')
     } else {
-      process.kill(cluster.workers[info.workerId].process.pid, 9)
+      process.kill(cluster.workers?.[info.workerId]?.process.pid, 9)
     }
   }
 
@@ -295,12 +295,12 @@ export class SharedMutexSynchronizer {
     if (cluster && typeof cluster.on === 'function') {
       // listen worker events
       Object.keys(cluster.workers).forEach(workerId => {
-        cluster.workers[workerId].on('message', SharedMutexSynchronizer.masterIncomingMessage)
+        cluster.workers?.[workerId]?.on('message', SharedMutexSynchronizer.masterIncomingMessage)
       })
-      cluster.on('fork', worker => {
+      cluster?.on('fork', worker => {
         worker.on('message', SharedMutexSynchronizer.masterIncomingMessage)
       })
-      cluster.on('exit', worker => {
+      cluster?.on('exit', worker => {
         SharedMutexSynchronizer.workerUnlockForced(worker.id)
       })
     }
@@ -409,11 +409,11 @@ export class SharedMutexSynchronizer {
     if (workerIitem.workerId === 'master') {
       SharedMutexSynchronizer.masterHandler.emitter.emit('message', message)
     } else {
-      if (!cluster.workers[workerIitem.workerId].isConnected()) {
+      if (!cluster.workers?.[workerIitem.workerId]?.isConnected()) {
         console.error(`Worker ${workerIitem.workerId} is not longer connected. Mutex continue can't be send. Worker probably died.`)
         return
       }
-      cluster.workers[workerIitem.workerId].send(message)
+      cluster.workers?.[workerIitem.workerId]?.send(message)
     }
   }
 

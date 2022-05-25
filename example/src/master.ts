@@ -10,14 +10,14 @@ function delay(time: number) {
 }
 
 class Test {
-  @SharedMutexDecorators.lockSingleAccessDecorator('mutex')
+  @SharedMutexDecorators.lockSingleAccess('mutex')
   static async singleAccessTest(name: string, delayTime: number = 1000) {
     console.log(`Lock single ${name}`)
     await delay(delayTime)
     console.log(`Unlock single ${name}`)
   }
 
-  @SharedMutexDecorators.lockMultiAccessDecorator('mutex')
+  @SharedMutexDecorators.lockMultiAccess('mutex')
   static async multiAccessTest(name: string, delayTime: number = 1000) {
     console.log(`Lock multi ${name}`)
     await delay(delayTime)

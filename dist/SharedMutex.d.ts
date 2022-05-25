@@ -7,9 +7,9 @@ export declare class SharedMutexUnlockHandler {
     unlock(): void;
 }
 export declare class SharedMutexDecorators {
-    static lockSingleAccessDecorator(key: string, maxLockingTime?: number): (_target: any, _name: any, descriptor: any) => any;
-    static lockMultiAccessDecorator(key: string, maxLockingTime?: number): (_target: any, _name: any, descriptor: any) => any;
-    static lockAccessDecorator(key: string, singleAccess?: boolean, maxLockingTime?: number): (_target: any, _name: any, descriptor: any) => any;
+    static lockSingleAccess(key: string, maxLockingTime?: number): (_target: any, _name: any, descriptor: any) => any;
+    static lockMultiAccess(key: string, maxLockingTime?: number): (_target: any, _name: any, descriptor: any) => any;
+    static lockAccess(key: string, singleAccess?: boolean, maxLockingTime?: number): (_target: any, _name: any, descriptor: any) => any;
 }
 export declare class SharedMutex {
     static lockSingleAccess<T>(key: string, fnc: () => Promise<T>, maxLockingTime?: number): Promise<T>;

@@ -64,8 +64,8 @@ export class SharedMutexDecorators {
    * @param singleAccess
    * @param maxLockingTime
    */
-  static lockSingleAccessDecorator(key: string, maxLockingTime?: number) {
-    return SharedMutexDecorators.lockAccessDecorator(key, true, maxLockingTime)
+  static lockSingleAccess(key: string, maxLockingTime?: number) {
+    return SharedMutexDecorators.lockAccess(key, true, maxLockingTime)
   }
 
   /**
@@ -74,8 +74,8 @@ export class SharedMutexDecorators {
    * @param singleAccess
    * @param maxLockingTime
    */
-  static lockMultiAccessDecorator(key: string, maxLockingTime?: number) {
-    return SharedMutexDecorators.lockAccessDecorator(key, false, maxLockingTime)
+  static lockMultiAccess(key: string, maxLockingTime?: number) {
+    return SharedMutexDecorators.lockAccess(key, false, maxLockingTime)
   }
 
   /**
@@ -84,7 +84,7 @@ export class SharedMutexDecorators {
    * @param singleAccess
    * @param maxLockingTime
    */
-  static lockAccessDecorator(key: string, singleAccess?: boolean, maxLockingTime?: number) {
+  static lockAccess(key: string, singleAccess?: boolean, maxLockingTime?: number) {
     return (_target, _name, descriptor) => {
       if (typeof descriptor.value === 'function') {
         const original = descriptor.value

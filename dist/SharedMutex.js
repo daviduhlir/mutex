@@ -48,13 +48,13 @@ class SharedMutexUnlockHandler {
 }
 exports.SharedMutexUnlockHandler = SharedMutexUnlockHandler;
 class SharedMutexDecorators {
-    static lockSingleAccessDecorator(key, maxLockingTime) {
-        return SharedMutexDecorators.lockAccessDecorator(key, true, maxLockingTime);
+    static lockSingleAccess(key, maxLockingTime) {
+        return SharedMutexDecorators.lockAccess(key, true, maxLockingTime);
     }
-    static lockMultiAccessDecorator(key, maxLockingTime) {
-        return SharedMutexDecorators.lockAccessDecorator(key, false, maxLockingTime);
+    static lockMultiAccess(key, maxLockingTime) {
+        return SharedMutexDecorators.lockAccess(key, false, maxLockingTime);
     }
-    static lockAccessDecorator(key, singleAccess, maxLockingTime) {
+    static lockAccess(key, singleAccess, maxLockingTime) {
         return (_target, _name, descriptor) => {
             if (typeof descriptor.value === 'function') {
                 const original = descriptor.value;

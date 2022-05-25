@@ -11,7 +11,7 @@ function delay(time: number) {
 }
 
 class Test {
-  @SharedMutexDecorators.lockSingleAccessDecorator('mutex')
+  @SharedMutexDecorators.lockSingleAccess('mutex')
   static async singleAccessTest(delayTime: number = 500) {
     console.log(`Worker: ${process.env.index} Lock`)
     await delay(delayTime)

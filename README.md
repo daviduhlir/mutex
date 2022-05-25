@@ -46,4 +46,23 @@ SharedMutex.lockMultiAccess('test', async () => {
 
 ```
 
+## You can also use it as decorator
+
+``` ts
+import { SharedMutexDecorators } from '@david.uhlir/mutex'
+
+class Test {
+  @SharedMutexDecorators.lockSingleAccess('mutex')
+  static async singleAccessTest(delayTime: number = 500) {
+    console.log(`Lock test`)
+  }
+
+  @SharedMutexDecorators.lockMultiAccess('mutex')
+  static async multiAccessTest(delayTime: number = 500) {
+    console.log(`Lock test`)
+  }
+}
+
+```
+
 ISC

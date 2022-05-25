@@ -1,6 +1,6 @@
 {
   "name": "@david.uhlir/mutex",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Mutex for node.js apllications",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -26,13 +26,11 @@
   ],
   "author": "David Uhlíř",
   "license": "ISC",
-  "dependencies": {
+  "devDependencies": {
+    "@types/node": "^13.11.1",
+    "prettier": "^2.6.2",
     "@types/npm": "^2.0.29",
     "rimraf": "^2.6.2",
     "typescript": "^3.8.3"
-  },
-  "devDependencies": {
-    "@types/node": "^13.11.1",
-    "prettier": "^2.6.2"
   }
 }

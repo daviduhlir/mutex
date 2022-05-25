@@ -60,12 +60,12 @@ import { SharedMutexDecorators } from '@david.uhlir/mutex'
 
 class Test {
   @SharedMutexDecorators.lockSingleAccess('mutex')
-  static async singleAccessTest(delayTime: number = 500) {
+  static async singleAccessTest() {
     console.log(`Lock test`)
   }
 
   @SharedMutexDecorators.lockMultiAccess('mutex')
-  static async multiAccessTest(delayTime: number = 500) {
+  static async multiAccessTest() {
     console.log(`Lock test`)
   }
 }

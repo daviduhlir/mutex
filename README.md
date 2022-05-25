@@ -6,8 +6,15 @@ It provides 2 types of locks, single-access and multi-access.
 Multi-access means, multiple scopes can be opened - it's there for reading. If some part of code will lock same key with single access, all scopes will wait for it.
 Single-access means, only one scope can be opened in time, all other locks with same key will wait until unlock.
 
-```
-npm install @david.uhlir/mutex
+If you wan't to use it with workers in cluster, keep in mind this module needs to be imported to master process to initialize synchronizer. Best way how to do it is to call initialize in master like shown in this example:
+```ts
+import { SharedMutexSynchronizer } from '@david.uhlir/mutex';
+import * as cluster from 'cluster
+
+if (cluster.isMaster) {
+    SharedMutexSynchronizer.initializeMaster()
+}
+
 ```
 
 ## Usage

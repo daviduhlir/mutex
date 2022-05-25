@@ -32,6 +32,7 @@ export interface LocalLockItem extends LockDescriptor {
 }
 export declare class SharedMutexSynchronizer {
     protected static localLocksQueue: LocalLockItem[];
+    protected static alreadyInitialized: boolean;
     static readonly masterHandler: {
         masterIncomingMessage: (message: any) => void;
         emitter: EventEmitter;

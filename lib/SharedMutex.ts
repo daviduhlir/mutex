@@ -1,17 +1,5 @@
 import { EventEmitter } from 'events'
-
-// cluster mock
-let cluster = {
-  isMaster: true,
-  isWorker: false,
-  worker: null,
-  workers: null,
-  on: null,
-}
-
-try {
-  cluster = require('cluster')
-} catch (e) {}
+import cluster from './clutser'
 
 /**
  * Utils class
@@ -227,6 +215,7 @@ export interface LocalLockItem extends LockDescriptor {
 export class SharedMutexSynchronizer {
   // internal locks array
   protected static localLocksQueue: LocalLockItem[] = []
+  protected static alreadyInitialized: boolean = false
 
   /**
    * Handlers for master process to work
@@ -298,6 +287,10 @@ export class SharedMutexSynchronizer {
    * Initialize master handler
    */
   static initializeMaster() {
+    if (SharedMutexSynchronizer.alreadyInitialized) {
+      return
+    }
+
     // if we are using clusters at all
     if (cluster && typeof cluster.on === 'function') {
       // listen worker events
@@ -314,6 +307,9 @@ export class SharedMutexSynchronizer {
 
     // setup functions for master
     SharedMutexSynchronizer.masterHandler.masterIncomingMessage = SharedMutexSynchronizer.masterIncomingMessage
+
+    // already initialized
+    SharedMutexSynchronizer.alreadyInitialized = true
   }
 
   /**
@@ -446,8 +442,4 @@ export class SharedMutexSynchronizer {
   protected static workerUnlockForced(workerId: number) {
     SharedMutexSynchronizer.localLocksQueue.filter(i => i.workerId === workerId).forEach(i => SharedMutexSynchronizer.unlock(i.hash))
   }
-}
-
-if (cluster.isMaster) {
-  SharedMutexSynchronizer.initializeMaster()
 }

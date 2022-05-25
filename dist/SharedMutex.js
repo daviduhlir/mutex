@@ -2,17 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SharedMutexSynchronizer = exports.SharedMutex = exports.SharedMutexDecorators = exports.SharedMutexUnlockHandler = void 0;
 const events_1 = require("events");
-let cluster = {
-    isMaster: true,
-    isWorker: false,
-    worker: null,
-    workers: null,
-    on: null,
-};
-try {
-    cluster = require('cluster');
-}
-catch (e) { }
+const clutser_1 = require("./clutser");
 class SharedMutexUtils {
     static randomHash() {
         return [...Array(10)]
@@ -89,7 +79,7 @@ class SharedMutex {
     }
     static async lock(key, singleAccess, maxLockingTime) {
         const hash = SharedMutexUtils.randomHash();
-        const eventHandler = cluster.isWorker ? process : SharedMutexSynchronizer.masterHandler.emitter;
+        const eventHandler = clutser_1.default.isWorker ? process : SharedMutexSynchronizer.masterHandler.emitter;
         const waiter = new Promise((resolve) => {
             const handler = message => {
                 if (message.__mutexMessage__ && message.hash === hash) {
@@ -117,10 +107,10 @@ class SharedMutex {
             hash,
             ...data,
         };
-        if (cluster.isWorker) {
+        if (clutser_1.default.isWorker) {
             process.send({
                 ...message,
-                workerId: cluster.worker?.id,
+                workerId: clutser_1.default.worker?.id,
             });
         }
         else {
@@ -159,18 +149,22 @@ class SharedMutexSynchronizer {
         }
     }
     static initializeMaster() {
-        if (cluster && typeof cluster.on === 'function') {
-            Object.keys(cluster.workers).forEach(workerId => {
-                cluster.workers[workerId].on('message', SharedMutexSynchronizer.masterIncomingMessage);
+        if (SharedMutexSynchronizer.alreadyInitialized) {
+            return;
+        }
+        if (clutser_1.default && typeof clutser_1.default.on === 'function') {
+            Object.keys(clutser_1.default.workers).forEach(workerId => {
+                clutser_1.default.workers[workerId].on('message', SharedMutexSynchronizer.masterIncomingMessage);
             });
-            cluster.on('fork', worker => {
+            clutser_1.default.on('fork', worker => {
                 worker.on('message', SharedMutexSynchronizer.masterIncomingMessage);
             });
-            cluster.on('exit', worker => {
+            clutser_1.default.on('exit', worker => {
                 SharedMutexSynchronizer.workerUnlockForced(worker.id);
             });
         }
         SharedMutexSynchronizer.masterHandler.masterIncomingMessage = SharedMutexSynchronizer.masterIncomingMessage;
+        SharedMutexSynchronizer.alreadyInitialized = true;
     }
     static lock(key, workerId, singleAccess, hash, maxLockingTime) {
         const item = {
@@ -231,11 +225,11 @@ class SharedMutexSynchronizer {
             SharedMutexSynchronizer.masterHandler.emitter.emit('message', message);
         }
         else {
-            if (!cluster.workers[workerIitem.workerId].isConnected()) {
+            if (!clutser_1.default.workers[workerIitem.workerId].isConnected()) {
                 console.error(`Worker ${workerIitem.workerId} is not longer connected. Mutex continue can't be send. Worker probably died.`);
                 return;
             }
-            cluster.workers[workerIitem.workerId].send(message);
+            clutser_1.default.workers[workerIitem.workerId].send(message);
         }
     }
     static masterIncomingMessage(message) {
@@ -255,6 +249,7 @@ class SharedMutexSynchronizer {
 }
 exports.SharedMutexSynchronizer = SharedMutexSynchronizer;
 SharedMutexSynchronizer.localLocksQueue = [];
+SharedMutexSynchronizer.alreadyInitialized = false;
 SharedMutexSynchronizer.masterHandler = {
     masterIncomingMessage: null,
     emitter: new events_1.EventEmitter(),
@@ -266,10 +261,7 @@ SharedMutexSynchronizer.timeoutHandler = (hash) => {
         throw new Error('MUTEX_LOCK_TIMEOUT');
     }
     else {
-        process.kill(cluster.workers[info.workerId].process.pid, 9);
+        process.kill(clutser_1.default.workers[info.workerId].process.pid, 9);
     }
 };
-if (cluster.isMaster) {
-    SharedMutexSynchronizer.initializeMaster();
-}
 //# sourceMappingURL=SharedMutex.js.map

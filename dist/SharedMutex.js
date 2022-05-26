@@ -154,12 +154,12 @@ class SharedMutexSynchronizer {
         }
         if (clutser_1.default && typeof clutser_1.default.on === 'function') {
             Object.keys(clutser_1.default.workers).forEach(workerId => {
-                clutser_1.default.workers[workerId].on('message', SharedMutexSynchronizer.masterIncomingMessage);
+                clutser_1.default.workers?.[workerId]?.on('message', SharedMutexSynchronizer.masterIncomingMessage);
             });
-            clutser_1.default.on('fork', worker => {
+            clutser_1.default?.on('fork', worker => {
                 worker.on('message', SharedMutexSynchronizer.masterIncomingMessage);
             });
-            clutser_1.default.on('exit', worker => {
+            clutser_1.default?.on('exit', worker => {
                 SharedMutexSynchronizer.workerUnlockForced(worker.id);
             });
         }
@@ -225,11 +225,11 @@ class SharedMutexSynchronizer {
             SharedMutexSynchronizer.masterHandler.emitter.emit('message', message);
         }
         else {
-            if (!clutser_1.default.workers[workerIitem.workerId].isConnected()) {
+            if (!clutser_1.default.workers?.[workerIitem.workerId]?.isConnected()) {
                 console.error(`Worker ${workerIitem.workerId} is not longer connected. Mutex continue can't be send. Worker probably died.`);
                 return;
             }
-            clutser_1.default.workers[workerIitem.workerId].send(message);
+            clutser_1.default.workers?.[workerIitem.workerId]?.send(message);
         }
     }
     static masterIncomingMessage(message) {
@@ -261,7 +261,7 @@ SharedMutexSynchronizer.timeoutHandler = (hash) => {
         throw new Error('MUTEX_LOCK_TIMEOUT');
     }
     else {
-        process.kill(clutser_1.default.workers[info.workerId].process.pid, 9);
+        process.kill(clutser_1.default.workers?.[info.workerId]?.process.pid, 9);
     }
 };
 //# sourceMappingURL=SharedMutex.js.map

@@ -232,7 +232,7 @@ export class SharedMutexSynchronizer {
   /**
    * Timeout handler, for handling if lock was freezed for too long time
    * You can set this handler to your own, to make decision what to do in this case
-   * You can use methods like getLockInfo or resetLockTimeout to get info and dealt with this situation
+   * You can use methods like getLockInfo or resetLockTimeout to get info and deal with this situation
    * Default behaviour is to log it, if it's on master, it will throws error. If it's fork, it will kill it.
    * @param hash
    */
@@ -370,19 +370,20 @@ export class SharedMutexSynchronizer {
       const queue = SharedMutexSynchronizer.localLocksQueue.filter(i => i.key === key)
       const runnings = queue.filter(i => i.isRunning)
 
-      const allKeys = SharedMutexUtils.getAllKeys(key)
-      const posibleBlockingItem = SharedMutexSynchronizer.localLocksQueue.find(
-        i => (i.isRunning && allKeys.includes(i.key)) || SharedMutexUtils.isChildOf(i.key, key),
+      // find posible blocking parents or childs
+      const allSubKeys = SharedMutexUtils.getAllKeys(key)
+      const posibleBlockingItems = SharedMutexSynchronizer.localLocksQueue.filter(
+        i => (i.isRunning && allSubKeys.includes(i.key)) || SharedMutexUtils.isChildOf(i.key, key),
       )
 
       // if there is something to continue
       if (queue?.length) {
         // if next is for single access
-        if (queue[0].singleAccess && !runnings?.length && !posibleBlockingItem) {
+        if (queue[0].singleAccess && !runnings?.length && !posibleBlockingItems.length) {
           SharedMutexSynchronizer.mutexContinue(queue[0])
 
           // or run all multiple access together
-        } else if (runnings.every(i => !i.singleAccess) && !posibleBlockingItem?.singleAccess) {
+        } else if (runnings.every(i => !i.singleAccess) && posibleBlockingItems.every(i => !i?.singleAccess)) {
           for (const item of queue) {
             if (item.singleAccess) {
               break

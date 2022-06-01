@@ -198,13 +198,13 @@ class SharedMutexSynchronizer {
         for (const key of allKeys) {
             const queue = SharedMutexSynchronizer.localLocksQueue.filter(i => i.key === key);
             const runnings = queue.filter(i => i.isRunning);
-            const allKeys = SharedMutexUtils.getAllKeys(key);
-            const posibleBlockingItem = SharedMutexSynchronizer.localLocksQueue.find(i => (i.isRunning && allKeys.includes(i.key)) || SharedMutexUtils.isChildOf(i.key, key));
+            const allSubKeys = SharedMutexUtils.getAllKeys(key);
+            const posibleBlockingItems = SharedMutexSynchronizer.localLocksQueue.filter(i => (i.isRunning && allSubKeys.includes(i.key)) || SharedMutexUtils.isChildOf(i.key, key));
             if (queue?.length) {
-                if (queue[0].singleAccess && !runnings?.length && !posibleBlockingItem) {
+                if (queue[0].singleAccess && !runnings?.length && !posibleBlockingItems.length) {
                     SharedMutexSynchronizer.mutexContinue(queue[0]);
                 }
-                else if (runnings.every(i => !i.singleAccess) && !posibleBlockingItem?.singleAccess) {
+                else if (runnings.every(i => !i.singleAccess) && posibleBlockingItems.every(i => !i?.singleAccess)) {
                     for (const item of queue) {
                         if (item.singleAccess) {
                             break;

@@ -294,12 +294,10 @@ export class SharedMutexSynchronizer {
     // if we are using clusters at all
     if (cluster && typeof cluster.on === 'function') {
       // listen worker events
-      Object.keys(cluster.workers).forEach(workerId => {
-        cluster.workers?.[workerId]?.on('message', SharedMutexSynchronizer.masterIncomingMessage)
-      })
+      SharedMutexSynchronizer.reattachMessageHandlers()
+
       cluster?.on('fork', worker => {
-        // TODO this event should reattach all on message event handlers on workers!!
-        worker.on('message', SharedMutexSynchronizer.masterIncomingMessage)
+        worker.on('message', SharedMutexSynchronizer.reattachMessageHandlers)
       })
       cluster?.on('exit', worker => {
         SharedMutexSynchronizer.workerUnlockForced(worker.id)
@@ -438,10 +436,21 @@ export class SharedMutexSynchronizer {
   }
 
   /**
+   * Reattach all message handlers if new fork or some exited
+   */
+  protected static reattachMessageHandlers() {
+    Object.keys(cluster.workers).forEach(workerId => {
+      cluster.workers?.[workerId]?.removeListener('message', SharedMutexSynchronizer.masterIncomingMessage)
+      cluster.workers?.[workerId]?.addListener('message', SharedMutexSynchronizer.masterIncomingMessage)
+    })
+  }
+
+  /**
    * Forced unlock of worker
    * @param id
    */
   protected static workerUnlockForced(workerId: number) {
+    cluster.workers?.[workerId]?.removeListener('message', SharedMutexSynchronizer.masterIncomingMessage)
     SharedMutexSynchronizer.localLocksQueue.filter(i => i.workerId === workerId).forEach(i => SharedMutexSynchronizer.unlock(i.hash))
   }
 }

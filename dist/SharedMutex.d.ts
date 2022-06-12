@@ -46,5 +46,6 @@ export declare class SharedMutexSynchronizer {
     protected static mutexTickNext(): void;
     protected static mutexContinue(workerIitem: LocalLockItem): void;
     protected static masterIncomingMessage(message: any): void;
+    protected static reattachMessageHandlers(): void;
     protected static workerUnlockForced(workerId: number): void;
 }

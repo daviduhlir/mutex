@@ -153,11 +153,9 @@ class SharedMutexSynchronizer {
             return;
         }
         if (clutser_1.default && typeof clutser_1.default.on === 'function') {
-            Object.keys(clutser_1.default.workers).forEach(workerId => {
-                clutser_1.default.workers?.[workerId]?.on('message', SharedMutexSynchronizer.masterIncomingMessage);
-            });
+            SharedMutexSynchronizer.reattachMessageHandlers();
             clutser_1.default?.on('fork', worker => {
-                worker.on('message', SharedMutexSynchronizer.masterIncomingMessage);
+                worker.on('message', SharedMutexSynchronizer.reattachMessageHandlers);
             });
             clutser_1.default?.on('exit', worker => {
                 SharedMutexSynchronizer.workerUnlockForced(worker.id);
@@ -243,7 +241,15 @@ class SharedMutexSynchronizer {
             SharedMutexSynchronizer.unlock(message.hash);
         }
     }
+    static reattachMessageHandlers() {
+        console.log('Reattaching handlers');
+        Object.keys(clutser_1.default.workers).forEach(workerId => {
+            clutser_1.default.workers?.[workerId]?.removeListener('message', SharedMutexSynchronizer.masterIncomingMessage);
+            clutser_1.default.workers?.[workerId]?.addListener('message', SharedMutexSynchronizer.masterIncomingMessage);
+        });
+    }
     static workerUnlockForced(workerId) {
+        clutser_1.default.workers?.[workerId]?.removeListener('message', SharedMutexSynchronizer.masterIncomingMessage);
         SharedMutexSynchronizer.localLocksQueue.filter(i => i.workerId === workerId).forEach(i => SharedMutexSynchronizer.unlock(i.hash));
     }
 }

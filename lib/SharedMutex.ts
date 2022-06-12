@@ -298,6 +298,7 @@ export class SharedMutexSynchronizer {
         cluster.workers?.[workerId]?.on('message', SharedMutexSynchronizer.masterIncomingMessage)
       })
       cluster?.on('fork', worker => {
+        // TODO this event should reattach all on message event handlers on workers!!
         worker.on('message', SharedMutexSynchronizer.masterIncomingMessage)
       })
       cluster?.on('exit', worker => {

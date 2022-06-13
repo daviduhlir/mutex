@@ -314,22 +314,18 @@ export class SharedMutexSynchronizer {
   /**
    * Lock mutex
    */
-  protected static lock(key: string, workerId: number, singleAccess: boolean, hash: string, maxLockingTime: number) {
+  protected static lock(workerIitem: LocalLockItem) {
     // prepare new lock item
     const item: LocalLockItem = {
-      workerId,
-      singleAccess,
-      hash,
-      key,
-      maxLockingTime,
+      ...workerIitem,
     }
 
     // add it to locks
     SharedMutexSynchronizer.localLocksQueue.push(item)
 
     // set timeout if provided
-    if (maxLockingTime) {
-      item.timeout = setTimeout(() => SharedMutexSynchronizer.timeoutHandler(hash), maxLockingTime)
+    if (item.maxLockingTime) {
+      item.timeout = setTimeout(() => SharedMutexSynchronizer.timeoutHandler(item.hash), item.maxLockingTime)
     }
     SharedMutexSynchronizer.mutexTickNext()
   }
@@ -428,7 +424,7 @@ export class SharedMutexSynchronizer {
 
     // lock
     if (message.action === 'lock') {
-      SharedMutexSynchronizer.lock(message.key, message.workerId, message.singleAccess, message.hash, message.maxLockingTime)
+      SharedMutexSynchronizer.lock(message)
       // unlock
     } else if (message.action === 'unlock') {
       SharedMutexSynchronizer.unlock(message.hash)

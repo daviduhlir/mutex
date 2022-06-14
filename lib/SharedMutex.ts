@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events'
 import cluster from './clutser'
 import { LocalLockItem, LockDescriptor } from './interfaces'
+import { SecondarySynchronizer, SYNC_EVENTS } from './SecondarySynchronizer'
 
 /**
  * Utils class
@@ -204,6 +205,17 @@ export class SharedMutexSynchronizer {
   // internal locks array
   protected static localLocksQueue: LocalLockItem[] = []
   protected static alreadyInitialized: boolean = false
+  protected static secondarySynchronizer: SecondarySynchronizer = null
+
+  /**
+   * Setup secondary synchronizer - prepared for mesh
+   */
+  static setSecondarySynchronizer(secondarySynchronizer: SecondarySynchronizer) {
+    SharedMutexSynchronizer.secondarySynchronizer = secondarySynchronizer
+    SharedMutexSynchronizer.secondarySynchronizer.on(SYNC_EVENTS.LOCK, SharedMutexSynchronizer.lock)
+    SharedMutexSynchronizer.secondarySynchronizer.on(SYNC_EVENTS.UNLOCK, SharedMutexSynchronizer.unlock)
+    SharedMutexSynchronizer.secondarySynchronizer.on(SYNC_EVENTS.CONTINUE, SharedMutexSynchronizer.continue)
+  }
 
   /**
    * Handlers for master process to work
@@ -302,24 +314,22 @@ export class SharedMutexSynchronizer {
   /**
    * Lock mutex
    */
-  protected static lock(key: string, workerId: number, singleAccess: boolean, hash: string, maxLockingTime: number) {
-    // prepare new lock item
-    const item: LocalLockItem = {
-      workerId,
-      singleAccess,
-      hash,
-      key,
-      maxLockingTime,
-    }
-
+  protected static lock(item: LocalLockItem) {
     // add it to locks
-    SharedMutexSynchronizer.localLocksQueue.push(item)
+    SharedMutexSynchronizer.localLocksQueue.push({...item})
 
     // set timeout if provided
-    if (maxLockingTime) {
-      item.timeout = setTimeout(() => SharedMutexSynchronizer.timeoutHandler(hash), maxLockingTime)
+    if (item.maxLockingTime) {
+      item.timeout = setTimeout(() => SharedMutexSynchronizer.timeoutHandler(item.hash), item.maxLockingTime)
     }
-    SharedMutexSynchronizer.mutexTickNext()
+
+    // send to secondary
+    SharedMutexSynchronizer.secondarySynchronizer.lock(item)
+
+    // next tick... unlock something, if waiting
+    if (!SharedMutexSynchronizer.secondarySynchronizer || SharedMutexSynchronizer.secondarySynchronizer?.isArbitter) {
+      SharedMutexSynchronizer.mutexTickNext()
+    }
   }
 
   /**
@@ -341,8 +351,13 @@ export class SharedMutexSynchronizer {
     // remove from queue
     SharedMutexSynchronizer.localLocksQueue = SharedMutexSynchronizer.localLocksQueue.filter(item => item.hash !== hash)
 
+    // send to secondary
+    SharedMutexSynchronizer.secondarySynchronizer.unlock(hash)
+
     // next tick... unlock something, if waiting
-    SharedMutexSynchronizer.mutexTickNext()
+    if (!SharedMutexSynchronizer.secondarySynchronizer || SharedMutexSynchronizer.secondarySynchronizer?.isArbitter) {
+      SharedMutexSynchronizer.mutexTickNext()
+    }
   }
 
   /**
@@ -367,7 +382,7 @@ export class SharedMutexSynchronizer {
       if (queue?.length) {
         // if next is for single access
         if (queue[0].singleAccess && !runnings?.length && !posibleBlockingItems.length) {
-          SharedMutexSynchronizer.mutexContinue(queue[0])
+          SharedMutexSynchronizer.continue(queue[0])
 
           // or run all multiple access together
         } else if (runnings.every(i => !i.singleAccess) && posibleBlockingItems.every(i => !i?.singleAccess)) {
@@ -375,7 +390,7 @@ export class SharedMutexSynchronizer {
             if (item.singleAccess) {
               break
             }
-            SharedMutexSynchronizer.mutexContinue(item)
+            SharedMutexSynchronizer.continue(item)
           }
         }
       }
@@ -386,18 +401,20 @@ export class SharedMutexSynchronizer {
    * Continue worker in queue
    * @param key
    */
-  protected static mutexContinue(workerIitem: LocalLockItem) {
-    workerIitem.isRunning = true
+  protected static continue(item: LocalLockItem) {
+    item.isRunning = true
 
     const message = {
       __mutexMessage__: true,
-      hash: workerIitem.hash,
+      hash: item.hash,
     }
 
+    // emit it
     SharedMutexSynchronizer.masterHandler.emitter.emit('message', message)
-    Object.keys(cluster.workers).forEach(workerId => {
-      cluster.workers?.[workerId]?.send(message)
-    })
+    Object.keys(cluster.workers).forEach(workerId => cluster.workers?.[workerId]?.send(message))
+
+    // just continue - send to secondary
+    SharedMutexSynchronizer.secondarySynchronizer.continue(item)
   }
 
   /**
@@ -411,7 +428,7 @@ export class SharedMutexSynchronizer {
 
     // lock
     if (message.action === 'lock') {
-      SharedMutexSynchronizer.lock(message.key, message.workerId, message.singleAccess, message.hash, message.maxLockingTime)
+      SharedMutexSynchronizer.lock(message)
       // unlock
     } else if (message.action === 'unlock') {
       SharedMutexSynchronizer.unlock(message.hash)

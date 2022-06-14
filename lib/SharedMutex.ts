@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events'
 import cluster from './clutser'
+import { LocalLockItem, LockDescriptor } from './interfaces'
 
 /**
  * Utils class
@@ -199,19 +200,6 @@ export class SharedMutex {
  * cluster synchronizer
  *
  ***********************************/
-export interface LockDescriptor {
-  workerId: number | 'master'
-  singleAccess: boolean
-  hash: string
-  key: string
-  maxLockingTime?: number
-}
-
-export interface LocalLockItem extends LockDescriptor {
-  timeout?: any
-  isRunning?: boolean
-}
-
 export class SharedMutexSynchronizer {
   // internal locks array
   protected static localLocksQueue: LocalLockItem[] = []
@@ -406,15 +394,10 @@ export class SharedMutexSynchronizer {
       hash: workerIitem.hash,
     }
 
-    if (workerIitem.workerId === 'master') {
-      SharedMutexSynchronizer.masterHandler.emitter.emit('message', message)
-    } else {
-      if (!cluster.workers?.[workerIitem.workerId]?.isConnected()) {
-        console.error(`Worker ${workerIitem.workerId} is not longer connected. Mutex continue can't be send. Worker probably died.`)
-        return
-      }
-      cluster.workers?.[workerIitem.workerId]?.send(message)
-    }
+    SharedMutexSynchronizer.masterHandler.emitter.emit('message', message)
+    Object.keys(cluster.workers).forEach(workerId => {
+      cluster.workers?.[workerId]?.send(message)
+    })
   }
 
   /**

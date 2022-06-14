@@ -219,16 +219,10 @@ class SharedMutexSynchronizer {
             __mutexMessage__: true,
             hash: workerIitem.hash,
         };
-        if (workerIitem.workerId === 'master') {
-            SharedMutexSynchronizer.masterHandler.emitter.emit('message', message);
-        }
-        else {
-            if (!clutser_1.default.workers?.[workerIitem.workerId]?.isConnected()) {
-                console.error(`Worker ${workerIitem.workerId} is not longer connected. Mutex continue can't be send. Worker probably died.`);
-                return;
-            }
-            clutser_1.default.workers?.[workerIitem.workerId]?.send(message);
-        }
+        SharedMutexSynchronizer.masterHandler.emitter.emit('message', message);
+        Object.keys(clutser_1.default.workers).forEach(workerId => {
+            clutser_1.default.workers?.[workerId]?.send(message);
+        });
     }
     static masterIncomingMessage(message) {
         if (!message.__mutexMessage__ || !message.action) {
@@ -242,7 +236,6 @@ class SharedMutexSynchronizer {
         }
     }
     static reattachMessageHandlers() {
-        console.log('Reattaching handlers');
         Object.keys(clutser_1.default.workers).forEach(workerId => {
             clutser_1.default.workers?.[workerId]?.removeListener('message', SharedMutexSynchronizer.masterIncomingMessage);
             clutser_1.default.workers?.[workerId]?.addListener('message', SharedMutexSynchronizer.masterIncomingMessage);

@@ -1,5 +1,6 @@
 /// <reference types="node" />
 import { EventEmitter } from 'events';
+import { LocalLockItem, LockDescriptor } from './interfaces';
 export declare class SharedMutexUnlockHandler {
     readonly key: string;
     readonly hash: string;
@@ -18,17 +19,6 @@ export declare class SharedMutex {
     static lock(key: string, singleAccess?: boolean, maxLockingTime?: number): Promise<SharedMutexUnlockHandler>;
     static unlock(key: string, hash: string): void;
     protected static sendAction(key: string, action: string, hash: string, data?: any): void;
-}
-export interface LockDescriptor {
-    workerId: number | 'master';
-    singleAccess: boolean;
-    hash: string;
-    key: string;
-    maxLockingTime?: number;
-}
-export interface LocalLockItem extends LockDescriptor {
-    timeout?: any;
-    isRunning?: boolean;
 }
 export declare class SharedMutexSynchronizer {
     protected static localLocksQueue: LocalLockItem[];

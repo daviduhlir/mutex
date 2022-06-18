@@ -287,7 +287,7 @@ export class SharedMutexSynchronizer {
    * Initialize master handler
    */
   static initializeMaster() {
-    if (SharedMutexSynchronizer.alreadyInitialized) {
+    if (SharedMutexSynchronizer.alreadyInitialized || !cluster.isMaster) {
       return
     }
 

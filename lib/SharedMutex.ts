@@ -324,7 +324,9 @@ export class SharedMutexSynchronizer {
     }
 
     // send to secondary
-    SharedMutexSynchronizer.secondarySynchronizer.lock(item)
+    if (SharedMutexSynchronizer.secondarySynchronizer) {
+      SharedMutexSynchronizer.secondarySynchronizer.lock(item)
+    }
 
     // next tick... unlock something, if waiting
     if (!SharedMutexSynchronizer.secondarySynchronizer || SharedMutexSynchronizer.secondarySynchronizer?.isArbitter) {
@@ -352,7 +354,9 @@ export class SharedMutexSynchronizer {
     SharedMutexSynchronizer.localLocksQueue = SharedMutexSynchronizer.localLocksQueue.filter(item => item.hash !== hash)
 
     // send to secondary
-    SharedMutexSynchronizer.secondarySynchronizer.unlock(hash)
+    if (SharedMutexSynchronizer.secondarySynchronizer) {
+      SharedMutexSynchronizer.secondarySynchronizer.unlock(hash)
+    }
 
     // next tick... unlock something, if waiting
     if (!SharedMutexSynchronizer.secondarySynchronizer || SharedMutexSynchronizer.secondarySynchronizer?.isArbitter) {
@@ -414,7 +418,9 @@ export class SharedMutexSynchronizer {
     Object.keys(cluster.workers).forEach(workerId => cluster.workers?.[workerId]?.send(message))
 
     // just continue - send to secondary
-    SharedMutexSynchronizer.secondarySynchronizer.continue(item)
+    if (SharedMutexSynchronizer.secondarySynchronizer) {
+      SharedMutexSynchronizer.secondarySynchronizer.continue(item)
+    }
   }
 
   /**

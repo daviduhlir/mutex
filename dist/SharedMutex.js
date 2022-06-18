@@ -176,7 +176,9 @@ class SharedMutexSynchronizer {
         if (item.maxLockingTime) {
             item.timeout = setTimeout(() => SharedMutexSynchronizer.timeoutHandler(item.hash), item.maxLockingTime);
         }
-        SharedMutexSynchronizer.secondarySynchronizer.lock(item);
+        if (SharedMutexSynchronizer.secondarySynchronizer) {
+            SharedMutexSynchronizer.secondarySynchronizer.lock(item);
+        }
         if (!SharedMutexSynchronizer.secondarySynchronizer || SharedMutexSynchronizer.secondarySynchronizer?.isArbitter) {
             SharedMutexSynchronizer.mutexTickNext();
         }
@@ -190,7 +192,9 @@ class SharedMutexSynchronizer {
             clearTimeout(f.timeout);
         }
         SharedMutexSynchronizer.localLocksQueue = SharedMutexSynchronizer.localLocksQueue.filter(item => item.hash !== hash);
-        SharedMutexSynchronizer.secondarySynchronizer.unlock(hash);
+        if (SharedMutexSynchronizer.secondarySynchronizer) {
+            SharedMutexSynchronizer.secondarySynchronizer.unlock(hash);
+        }
         if (!SharedMutexSynchronizer.secondarySynchronizer || SharedMutexSynchronizer.secondarySynchronizer?.isArbitter) {
             SharedMutexSynchronizer.mutexTickNext();
         }
@@ -227,7 +231,9 @@ class SharedMutexSynchronizer {
         };
         SharedMutexSynchronizer.masterHandler.emitter.emit('message', message);
         Object.keys(clutser_1.default.workers).forEach(workerId => clutser_1.default.workers?.[workerId]?.send(message));
-        SharedMutexSynchronizer.secondarySynchronizer.continue(item);
+        if (SharedMutexSynchronizer.secondarySynchronizer) {
+            SharedMutexSynchronizer.secondarySynchronizer.continue(item);
+        }
     }
     static masterIncomingMessage(message) {
         if (!message.__mutexMessage__ || !message.action) {

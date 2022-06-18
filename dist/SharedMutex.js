@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SharedMutexSynchronizer = exports.SharedMutex = exports.SharedMutexDecorators = exports.SharedMutexUnlockHandler = void 0;
 const events_1 = require("events");
 const clutser_1 = require("./clutser");
+const SecondarySynchronizer_1 = require("./SecondarySynchronizer");
 class SharedMutexUtils {
     static randomHash() {
         return [...Array(10)]
@@ -123,6 +124,12 @@ class SharedMutex {
 }
 exports.SharedMutex = SharedMutex;
 class SharedMutexSynchronizer {
+    static setSecondarySynchronizer(secondarySynchronizer) {
+        SharedMutexSynchronizer.secondarySynchronizer = secondarySynchronizer;
+        SharedMutexSynchronizer.secondarySynchronizer.on(SecondarySynchronizer_1.SYNC_EVENTS.LOCK, SharedMutexSynchronizer.lock);
+        SharedMutexSynchronizer.secondarySynchronizer.on(SecondarySynchronizer_1.SYNC_EVENTS.UNLOCK, SharedMutexSynchronizer.unlock);
+        SharedMutexSynchronizer.secondarySynchronizer.on(SecondarySynchronizer_1.SYNC_EVENTS.CONTINUE, SharedMutexSynchronizer.continue);
+    }
     static getLockInfo(hash) {
         const item = this.localLocksQueue.find(i => i.hash === hash);
         if (item) {
@@ -149,7 +156,7 @@ class SharedMutexSynchronizer {
         }
     }
     static initializeMaster() {
-        if (SharedMutexSynchronizer.alreadyInitialized) {
+        if (SharedMutexSynchronizer.alreadyInitialized || !clutser_1.default.isMaster) {
             return;
         }
         if (clutser_1.default && typeof clutser_1.default.on === 'function') {
@@ -164,19 +171,15 @@ class SharedMutexSynchronizer {
         SharedMutexSynchronizer.masterHandler.masterIncomingMessage = SharedMutexSynchronizer.masterIncomingMessage;
         SharedMutexSynchronizer.alreadyInitialized = true;
     }
-    static lock(key, workerId, singleAccess, hash, maxLockingTime) {
-        const item = {
-            workerId,
-            singleAccess,
-            hash,
-            key,
-            maxLockingTime,
-        };
-        SharedMutexSynchronizer.localLocksQueue.push(item);
-        if (maxLockingTime) {
-            item.timeout = setTimeout(() => SharedMutexSynchronizer.timeoutHandler(hash), maxLockingTime);
+    static lock(item) {
+        SharedMutexSynchronizer.localLocksQueue.push({ ...item });
+        if (item.maxLockingTime) {
+            item.timeout = setTimeout(() => SharedMutexSynchronizer.timeoutHandler(item.hash), item.maxLockingTime);
         }
-        SharedMutexSynchronizer.mutexTickNext();
+        SharedMutexSynchronizer.secondarySynchronizer.lock(item);
+        if (!SharedMutexSynchronizer.secondarySynchronizer || SharedMutexSynchronizer.secondarySynchronizer?.isArbitter) {
+            SharedMutexSynchronizer.mutexTickNext();
+        }
     }
     static unlock(hash) {
         const f = SharedMutexSynchronizer.localLocksQueue.find(foundItem => foundItem.hash === hash);
@@ -187,7 +190,10 @@ class SharedMutexSynchronizer {
             clearTimeout(f.timeout);
         }
         SharedMutexSynchronizer.localLocksQueue = SharedMutexSynchronizer.localLocksQueue.filter(item => item.hash !== hash);
-        SharedMutexSynchronizer.mutexTickNext();
+        SharedMutexSynchronizer.secondarySynchronizer.unlock(hash);
+        if (!SharedMutexSynchronizer.secondarySynchronizer || SharedMutexSynchronizer.secondarySynchronizer?.isArbitter) {
+            SharedMutexSynchronizer.mutexTickNext();
+        }
     }
     static mutexTickNext() {
         const allKeys = SharedMutexSynchronizer.localLocksQueue.reduce((acc, i) => {
@@ -200,36 +206,35 @@ class SharedMutexSynchronizer {
             const posibleBlockingItems = SharedMutexSynchronizer.localLocksQueue.filter(i => (i.isRunning && allSubKeys.includes(i.key)) || SharedMutexUtils.isChildOf(i.key, key));
             if (queue?.length) {
                 if (queue[0].singleAccess && !runnings?.length && !posibleBlockingItems.length) {
-                    SharedMutexSynchronizer.mutexContinue(queue[0]);
+                    SharedMutexSynchronizer.continue(queue[0]);
                 }
                 else if (runnings.every(i => !i.singleAccess) && posibleBlockingItems.every(i => !i?.singleAccess)) {
                     for (const item of queue) {
                         if (item.singleAccess) {
                             break;
                         }
-                        SharedMutexSynchronizer.mutexContinue(item);
+                        SharedMutexSynchronizer.continue(item);
                     }
                 }
             }
         }
     }
-    static mutexContinue(workerIitem) {
-        workerIitem.isRunning = true;
+    static continue(item) {
+        item.isRunning = true;
         const message = {
             __mutexMessage__: true,
-            hash: workerIitem.hash,
+            hash: item.hash,
         };
         SharedMutexSynchronizer.masterHandler.emitter.emit('message', message);
-        Object.keys(clutser_1.default.workers).forEach(workerId => {
-            clutser_1.default.workers?.[workerId]?.send(message);
-        });
+        Object.keys(clutser_1.default.workers).forEach(workerId => clutser_1.default.workers?.[workerId]?.send(message));
+        SharedMutexSynchronizer.secondarySynchronizer.continue(item);
     }
     static masterIncomingMessage(message) {
         if (!message.__mutexMessage__ || !message.action) {
             return;
         }
         if (message.action === 'lock') {
-            SharedMutexSynchronizer.lock(message.key, message.workerId, message.singleAccess, message.hash, message.maxLockingTime);
+            SharedMutexSynchronizer.lock(message);
         }
         else if (message.action === 'unlock') {
             SharedMutexSynchronizer.unlock(message.hash);
@@ -249,6 +254,7 @@ class SharedMutexSynchronizer {
 exports.SharedMutexSynchronizer = SharedMutexSynchronizer;
 SharedMutexSynchronizer.localLocksQueue = [];
 SharedMutexSynchronizer.alreadyInitialized = false;
+SharedMutexSynchronizer.secondarySynchronizer = null;
 SharedMutexSynchronizer.masterHandler = {
     masterIncomingMessage: null,
     emitter: new events_1.EventEmitter(),

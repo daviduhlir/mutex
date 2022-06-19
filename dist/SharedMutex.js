@@ -161,12 +161,8 @@ class SharedMutexSynchronizer {
         }
         if (clutser_1.default && typeof clutser_1.default.on === 'function') {
             SharedMutexSynchronizer.reattachMessageHandlers();
-            clutser_1.default?.on('fork', worker => {
-                worker.on('message', SharedMutexSynchronizer.reattachMessageHandlers);
-            });
-            clutser_1.default?.on('exit', worker => {
-                SharedMutexSynchronizer.workerUnlockForced(worker.id);
-            });
+            clutser_1.default?.on('fork', _ => SharedMutexSynchronizer.reattachMessageHandlers());
+            clutser_1.default?.on('exit', worker => SharedMutexSynchronizer.workerUnlockForced(worker.id));
         }
         SharedMutexSynchronizer.masterHandler.masterIncomingMessage = SharedMutexSynchronizer.masterIncomingMessage;
         SharedMutexSynchronizer.alreadyInitialized = true;

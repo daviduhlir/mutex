@@ -296,12 +296,8 @@ export class SharedMutexSynchronizer {
       // listen worker events
       SharedMutexSynchronizer.reattachMessageHandlers()
 
-      cluster?.on('fork', worker => {
-        worker.on('message', SharedMutexSynchronizer.reattachMessageHandlers)
-      })
-      cluster?.on('exit', worker => {
-        SharedMutexSynchronizer.workerUnlockForced(worker.id)
-      })
+      cluster?.on('fork', _ => SharedMutexSynchronizer.reattachMessageHandlers())
+      cluster?.on('exit', worker => SharedMutexSynchronizer.workerUnlockForced(worker.id))
     }
 
     // setup functions for master

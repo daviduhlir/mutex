@@ -1,12 +1,13 @@
 {
   "name": "@david.uhlir/mutex",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "description": "Mutex for node.js apllications",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "rimraf ./dist && tsc",
-    "prettier-format": "prettier --config .prettierrc.json 'lib/**/*.ts' --write"
+    "prettier-format": "prettier --config .prettierrc.json 'lib/**/*.ts' --write",
+    "test": "ts-mocha --type-check -p ./tsconfig.json tests/**/*.ts"
   },
   "repository": {
     "type": "git",
@@ -26,9 +27,13 @@
   "author": "David Uhlíř",
   "license": "ISC",
   "devDependencies": {
+    "@types/mocha": "^10.0.0",
     "@types/node": "^13.11.1",
+    "chai": "^4.3.6",
+    "mocha": "^10.0.0",
     "prettier": "^2.6.2",
     "rimraf": "^2.6.2",
+    "ts-mocha": "^10.0.0",
     "typescript": "^3.8.3"
   }
 }

@@ -5,15 +5,12 @@ const events_1 = require("events");
 exports.SYNC_EVENTS = {
     LOCK: 'LOCK',
     UNLOCK: 'UNLOCK',
-    CONTINUE: 'CONTINUE'
+    CONTINUE: 'CONTINUE',
 };
 class SecondarySynchronizer extends events_1.EventEmitter {
-    lock(item) {
-    }
-    unlock(hash) {
-    }
-    continue(item) {
-    }
+    lock(item) { }
+    unlock(hash) { }
+    continue(item) { }
     get isArbitter() {
         return true;
     }

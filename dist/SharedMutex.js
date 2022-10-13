@@ -4,30 +4,7 @@ exports.SharedMutexSynchronizer = exports.SharedMutex = exports.SharedMutexDecor
 const events_1 = require("events");
 const clutser_1 = require("./clutser");
 const SecondarySynchronizer_1 = require("./SecondarySynchronizer");
-class SharedMutexUtils {
-    static randomHash() {
-        return [...Array(10)]
-            .map(x => 0)
-            .map(() => Math.random().toString(36).slice(2))
-            .join('');
-    }
-    static getAllKeys(key) {
-        return key
-            .split('/')
-            .filter(Boolean)
-            .reduce((acc, item, index, array) => {
-            return [...acc, array.slice(0, index + 1).join('/')];
-        }, []);
-    }
-    static isChildOf(key, parentKey) {
-        const childKeys = SharedMutexUtils.getAllKeys(key);
-        const index = childKeys.indexOf(parentKey);
-        if (index !== -1 && index !== childKeys.length - 1) {
-            return true;
-        }
-        return false;
-    }
-}
+const utils_1 = require("./utils");
 class SharedMutexUnlockHandler {
     constructor(key, hash) {
         this.key = key;
@@ -79,7 +56,7 @@ class SharedMutex {
         return r;
     }
     static async lock(key, singleAccess, maxLockingTime) {
-        const hash = SharedMutexUtils.randomHash();
+        const hash = utils_1.randomHash();
         const eventHandler = clutser_1.default.isWorker ? process : SharedMutexSynchronizer.masterHandler.emitter;
         const waiter = new Promise((resolve) => {
             const handler = message => {
@@ -161,7 +138,7 @@ class SharedMutexSynchronizer {
         }
         if (clutser_1.default && typeof clutser_1.default.on === 'function') {
             SharedMutexSynchronizer.reattachMessageHandlers();
-            clutser_1.default?.on('fork', _ => SharedMutexSynchronizer.reattachMessageHandlers());
+            clutser_1.default?.on('fork', () => SharedMutexSynchronizer.reattachMessageHandlers());
             clutser_1.default?.on('exit', worker => SharedMutexSynchronizer.workerUnlockForced(worker.id));
         }
         SharedMutexSynchronizer.masterHandler.masterIncomingMessage = SharedMutexSynchronizer.masterIncomingMessage;
@@ -202,8 +179,8 @@ class SharedMutexSynchronizer {
         for (const key of allKeys) {
             const queue = SharedMutexSynchronizer.localLocksQueue.filter(i => i.key === key);
             const runnings = queue.filter(i => i.isRunning);
-            const allSubKeys = SharedMutexUtils.getAllKeys(key);
-            const posibleBlockingItems = SharedMutexSynchronizer.localLocksQueue.filter(i => (i.isRunning && allSubKeys.includes(i.key)) || SharedMutexUtils.isChildOf(i.key, key));
+            const allSubKeys = utils_1.getAllKeys(key);
+            const posibleBlockingItems = SharedMutexSynchronizer.localLocksQueue.filter(i => (i.isRunning && allSubKeys.includes(i.key)) || utils_1.isChildOf(i.key, key));
             if (queue?.length) {
                 if (queue[0].singleAccess && !runnings?.length && !posibleBlockingItems.length) {
                     SharedMutexSynchronizer.continue(queue[0]);
@@ -227,7 +204,7 @@ class SharedMutexSynchronizer {
         };
         SharedMutexSynchronizer.masterHandler.emitter.emit('message', message);
         Object.keys(clutser_1.default.workers).forEach(workerId => {
-            clutser_1.default.workers?.[workerId]?.send(message, (err) => {
+            clutser_1.default.workers?.[workerId]?.send(message, err => {
                 if (err) {
                 }
             });
@@ -241,7 +218,7 @@ class SharedMutexSynchronizer {
             return;
         }
         if (message.action === 'lock') {
-            SharedMutexSynchronizer.lock(message);
+            SharedMutexSynchronizer.lock(utils_1.sanitizeLock(message));
         }
         else if (message.action === 'unlock') {
             SharedMutexSynchronizer.unlock(message.hash);

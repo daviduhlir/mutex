@@ -2,36 +2,7 @@ import { EventEmitter } from 'events'
 import cluster from './clutser'
 import { LocalLockItem, LockDescriptor } from './interfaces'
 import { SecondarySynchronizer, SYNC_EVENTS } from './SecondarySynchronizer'
-
-/**
- * Utils class
- */
-class SharedMutexUtils {
-  static randomHash(): string {
-    return [...Array(10)]
-      .map(x => 0)
-      .map(() => Math.random().toString(36).slice(2))
-      .join('')
-  }
-
-  static getAllKeys(key: string): string[] {
-    return key
-      .split('/')
-      .filter(Boolean)
-      .reduce((acc, item, index, array) => {
-        return [...acc, array.slice(0, index + 1).join('/')]
-      }, [])
-  }
-
-  static isChildOf(key: string, parentKey: string): boolean {
-    const childKeys = SharedMutexUtils.getAllKeys(key)
-    const index = childKeys.indexOf(parentKey)
-    if (index !== -1 && index !== childKeys.length - 1) {
-      return true
-    }
-    return false
-  }
-}
+import { getAllKeys, isChildOf, randomHash, sanitizeLock } from './utils'
 
 /**
  * Unlock handler
@@ -136,7 +107,7 @@ export class SharedMutex {
    * @param key
    */
   static async lock(key: string, singleAccess?: boolean, maxLockingTime?: number): Promise<SharedMutexUnlockHandler> {
-    const hash = SharedMutexUtils.randomHash()
+    const hash = randomHash()
 
     const eventHandler = cluster.isWorker ? process : SharedMutexSynchronizer.masterHandler.emitter
 
@@ -296,7 +267,7 @@ export class SharedMutexSynchronizer {
       // listen worker events
       SharedMutexSynchronizer.reattachMessageHandlers()
 
-      cluster?.on('fork', _ => SharedMutexSynchronizer.reattachMessageHandlers())
+      cluster?.on('fork', () => SharedMutexSynchronizer.reattachMessageHandlers())
       cluster?.on('exit', worker => SharedMutexSynchronizer.workerUnlockForced(worker.id))
     }
 
@@ -373,9 +344,9 @@ export class SharedMutexSynchronizer {
       const runnings = queue.filter(i => i.isRunning)
 
       // find posible blocking parents or childs
-      const allSubKeys = SharedMutexUtils.getAllKeys(key)
+      const allSubKeys = getAllKeys(key)
       const posibleBlockingItems = SharedMutexSynchronizer.localLocksQueue.filter(
-        i => (i.isRunning && allSubKeys.includes(i.key)) || SharedMutexUtils.isChildOf(i.key, key),
+        i => (i.isRunning && allSubKeys.includes(i.key)) || isChildOf(i.key, key),
       )
 
       // if there is something to continue
@@ -436,7 +407,7 @@ export class SharedMutexSynchronizer {
 
     // lock
     if (message.action === 'lock') {
-      SharedMutexSynchronizer.lock(message)
+      SharedMutexSynchronizer.lock(sanitizeLock(message))
       // unlock
     } else if (message.action === 'unlock') {
       SharedMutexSynchronizer.unlock(message.hash)

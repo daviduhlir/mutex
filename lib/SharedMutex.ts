@@ -411,7 +411,13 @@ export class SharedMutexSynchronizer {
 
     // emit it
     SharedMutexSynchronizer.masterHandler.emitter.emit('message', message)
-    Object.keys(cluster.workers).forEach(workerId => cluster.workers?.[workerId]?.send(message))
+      Object.keys(cluster.workers).forEach(workerId => {
+        cluster.workers?.[workerId]?.send(message, (err) => {
+          if (err) {
+            // TODO - not sure what to do, worker probably died
+          }
+        })
+      })
 
     // just continue - send to secondary
     if (SharedMutexSynchronizer.secondarySynchronizer) {

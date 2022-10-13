@@ -226,7 +226,12 @@ class SharedMutexSynchronizer {
             hash: item.hash,
         };
         SharedMutexSynchronizer.masterHandler.emitter.emit('message', message);
-        Object.keys(clutser_1.default.workers).forEach(workerId => clutser_1.default.workers?.[workerId]?.send(message));
+        Object.keys(clutser_1.default.workers).forEach(workerId => {
+            clutser_1.default.workers?.[workerId]?.send(message, (err) => {
+                if (err) {
+                }
+            });
+        });
         if (SharedMutexSynchronizer.secondarySynchronizer) {
             SharedMutexSynchronizer.secondarySynchronizer.continue(item);
         }

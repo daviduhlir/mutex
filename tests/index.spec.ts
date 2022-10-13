@@ -1,71 +1,85 @@
 import { expect, assert } from 'chai'
 import { SharedMutex } from '../dist'
+import { RWSimulator, delay } from './utils'
 
-function delay(time: number) {
-  return new Promise(resolve => setTimeout(resolve, time))
-}
+describe('test rw simulator', function() {
+  it('lock handling', async function() {
+
+    const rwSimulator = new RWSimulator()
+
+    try {
+      const result = await Promise.all([
+        (async () => {
+          const handler = rwSimulator.read()
+          await delay(10)
+          handler.stop()
+          return true
+        })(),
+        (async () => {
+          const handler = rwSimulator.write()
+          await delay(10)
+          handler.stop()
+          return true
+        })(),
+      ])
+      assert(false, 'Should fails on lock error.')
+    } catch(e) {
+      expect(e.toString()).to.equal('Error: Already locked for read.')
+    }
+
+  })
+})
 
 describe('lock test', function() {
+
   it('single access', async function() {
 
-    let locked = false
+    const rwSimulator = new RWSimulator()
 
-    await Promise.all([
+    const result = await Promise.all([
       SharedMutex.lockSingleAccess('mutex', async () => {
-        assert.equal(locked, false, 'should not be locked')
-        console.log('Lock single test 1')
-        locked = true
+        const handler = rwSimulator.read()
         await delay(10)
-        console.log('Unlock single test 1')
-        locked = false
+        handler.stop()
+        return true
       }),
       SharedMutex.lockSingleAccess('mutex', async () => {
-        assert.equal(locked, false, 'should not be locked')
-        console.log('Lock single test 2')
-        locked = true
+        const handler = rwSimulator.read()
         await delay(10)
-        console.log('Unlock single test 2')
-        locked = false
+        handler.stop()
+        return true
       }),
     ])
 
+    assert(result.findIndex(i => !i) === -1, 'All results of readings should be true')
   })
 
   it('multi access', async function() {
-    let lockedWrite = false
-    let lockedRead = false
+    const rwSimulator = new RWSimulator()
 
-    await Promise.all([
+    const result = await Promise.all([
       Promise.all([
         SharedMutex.lockMultiAccess('mutex', async () => {
-          assert.equal(lockedRead, false, 'should not be locked for read')
-          console.log('Lock multi test 1')
-          lockedWrite = true
+          const handler = rwSimulator.read()
           await delay(10)
-          console.log('Unlock multi test 1')
-          lockedWrite = false
+          handler.stop()
+          return true
         }),
         SharedMutex.lockMultiAccess('mutex', async () => {
-          assert.equal(lockedRead, false, 'should not be locked for read')
-          console.log('Lock multi test 2')
-          lockedWrite = true
+          const handler = rwSimulator.read()
           await delay(10)
-          console.log('Unlock multi test 2')
-          lockedWrite = false
+          handler.stop()
+          return true
         }),
       ]),
-      delay(1).then(() => SharedMutex.lockSingleAccess('mutex', async () => {
-        assert.equal(lockedRead, false, 'should not be locked for read')
-        assert.equal(lockedWrite, false, 'should not be locked for write')
-        console.log('Lock single test')
-        lockedWrite = true
-        lockedRead = true
+      SharedMutex.lockSingleAccess('mutex', async () => {
+        const handler = rwSimulator.write()
         await delay(10)
-        console.log('Unlock single test')
-        lockedWrite = false
-        lockedRead = true
-      })),
+        handler.stop()
+        return true
+      }),
     ])
 
+    assert(result.flat().findIndex(i => !i) === -1, 'All results of readings should be true')
   })
 })

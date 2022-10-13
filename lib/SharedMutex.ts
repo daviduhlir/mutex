@@ -312,7 +312,7 @@ export class SharedMutexSynchronizer {
    */
   protected static lock(item: LocalLockItem) {
     // add it to locks
-    SharedMutexSynchronizer.localLocksQueue.push({...item})
+    SharedMutexSynchronizer.localLocksQueue.push({ ...item })
 
     // set timeout if provided
     if (item.maxLockingTime) {
@@ -411,13 +411,13 @@ export class SharedMutexSynchronizer {
 
     // emit it
     SharedMutexSynchronizer.masterHandler.emitter.emit('message', message)
-      Object.keys(cluster.workers).forEach(workerId => {
-        cluster.workers?.[workerId]?.send(message, (err) => {
-          if (err) {
-            // TODO - not sure what to do, worker probably died
-          }
-        })
+    Object.keys(cluster.workers).forEach(workerId => {
+      cluster.workers?.[workerId]?.send(message, err => {
+        if (err) {
+          // TODO - not sure what to do, worker probably died
+        }
       })
+    })
 
     // just continue - send to secondary
     if (SharedMutexSynchronizer.secondarySynchronizer) {

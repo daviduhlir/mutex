@@ -1,4 +1,4 @@
-import { LocalLockItem } from "./interfaces"
+import { LocalLockItem, LockKey } from './interfaces'
 
 export function randomHash(): string {
   return [...Array(10)]
@@ -32,7 +32,14 @@ export function sanitizeLock(input: any): LocalLockItem {
     hash: input.hash,
     key: input.key,
     isRunning: !!input.isRunning,
-    ...(input.maxLockingTime? {maxLockingTime: input.maxLockingTime} : {}),
-    ...(input.timeout? {timeout: input.timeout} : {}),
+    ...(input.maxLockingTime ? { maxLockingTime: input.maxLockingTime } : {}),
+    ...(input.timeout ? { timeout: input.timeout } : {}),
   }
+}
+
+export function parseLockKey(key: LockKey): string {
+  return (Array.isArray(key) ? key.join('/') : key)
+    .split('/')
+    .filter(i => !!i)
+    .join('/')
 }

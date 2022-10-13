@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sanitizeLock = exports.isChildOf = exports.getAllKeys = exports.randomHash = void 0;
+exports.parseLockKey = exports.sanitizeLock = exports.isChildOf = exports.getAllKeys = exports.randomHash = void 0;
 function randomHash() {
     return [...Array(10)]
         .map(x => 0)
@@ -38,4 +38,11 @@ function sanitizeLock(input) {
     };
 }
 exports.sanitizeLock = sanitizeLock;
+function parseLockKey(key) {
+    return (Array.isArray(key) ? key.join('/') : key)
+        .split('/')
+        .filter(i => !!i)
+        .join('/');
+}
+exports.parseLockKey = parseLockKey;
 //# sourceMappingURL=utils.js.map

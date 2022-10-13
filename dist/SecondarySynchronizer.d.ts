@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { LocalLockItem } from './interfaces';
+import { LocalLockItem } from './utils/interfaces';
 import { EventEmitter } from 'events';
 export declare const SYNC_EVENTS: {
     LOCK: string;

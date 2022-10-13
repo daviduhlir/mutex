@@ -10,3 +10,5 @@ export interface LocalLockItem extends LockDescriptor {
   timeout?: any
   isRunning?: boolean
 }
+
+export type LockKey = string | string[]

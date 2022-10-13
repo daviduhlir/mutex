@@ -1,4 +1,4 @@
-import { LocalLockItem, LockKey } from "./interfaces";
+import { LocalLockItem, LockKey } from './interfaces';
 export declare function randomHash(): string;
 export declare function getAllKeys(key: string): string[];
 export declare function isChildOf(key: string, parentKey: string): boolean;

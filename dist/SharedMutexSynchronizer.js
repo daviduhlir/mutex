@@ -57,9 +57,7 @@ class SharedMutexSynchronizer {
         if (SharedMutexSynchronizer.secondarySynchronizer) {
             SharedMutexSynchronizer.secondarySynchronizer.lock(item);
         }
-        if (!SharedMutexSynchronizer.secondarySynchronizer || SharedMutexSynchronizer.secondarySynchronizer?.isArbitter) {
-            SharedMutexSynchronizer.mutexTickNext();
-        }
+        SharedMutexSynchronizer.mutexTickNext();
     }
     static unlock(hash) {
         const f = SharedMutexSynchronizer.localLocksQueue.find(foundItem => foundItem.hash === hash);
@@ -73,20 +71,21 @@ class SharedMutexSynchronizer {
         if (SharedMutexSynchronizer.secondarySynchronizer) {
             SharedMutexSynchronizer.secondarySynchronizer.unlock(hash);
         }
-        if (!SharedMutexSynchronizer.secondarySynchronizer || SharedMutexSynchronizer.secondarySynchronizer?.isArbitter) {
-            SharedMutexSynchronizer.mutexTickNext();
-        }
+        SharedMutexSynchronizer.mutexTickNext();
     }
     static mutexTickNext() {
+        if (SharedMutexSynchronizer.secondarySynchronizer && !SharedMutexSynchronizer.secondarySynchronizer?.isArbitter) {
+            return;
+        }
         const allKeys = SharedMutexSynchronizer.localLocksQueue.reduce((acc, i) => {
             return [...acc, i.key].filter((value, ind, self) => self.indexOf(value) === ind);
         }, []);
         for (const key of allKeys) {
             const queue = SharedMutexSynchronizer.localLocksQueue.filter(i => i.key === key);
-            const runnings = queue.filter(i => i.isRunning);
-            const allSubKeys = utils_1.getAllKeys(key);
-            const posibleBlockingItems = SharedMutexSynchronizer.localLocksQueue.filter(i => (i.isRunning && allSubKeys.includes(i.key)) || utils_1.isChildOf(i.key, key));
             if (queue?.length) {
+                const runnings = queue.filter(i => i.isRunning);
+                const allSubKeys = utils_1.getAllKeys(key);
+                const posibleBlockingItems = SharedMutexSynchronizer.localLocksQueue.filter(i => (i.isRunning && allSubKeys.includes(i.key)) || utils_1.isChildOf(i.key, key));
                 if (queue[0].singleAccess && !runnings?.length && !posibleBlockingItems.length) {
                     SharedMutexSynchronizer.continue(queue[0]);
                 }

@@ -133,9 +133,7 @@ export class SharedMutexSynchronizer {
     }
 
     // next tick... unlock something, if waiting
-    if (!SharedMutexSynchronizer.secondarySynchronizer || SharedMutexSynchronizer.secondarySynchronizer?.isArbitter) {
-      SharedMutexSynchronizer.mutexTickNext()
-    }
+    SharedMutexSynchronizer.mutexTickNext()
   }
 
   /**
@@ -163,31 +161,35 @@ export class SharedMutexSynchronizer {
     }
 
     // next tick... unlock something, if waiting
-    if (!SharedMutexSynchronizer.secondarySynchronizer || SharedMutexSynchronizer.secondarySynchronizer?.isArbitter) {
-      SharedMutexSynchronizer.mutexTickNext()
-    }
+    SharedMutexSynchronizer.mutexTickNext()
   }
 
   /**
    * Tick of mutex run, it will continue next mutex(es) in queue
    */
   protected static mutexTickNext() {
+    // if we have secondary sync. and we are not arbitter
+    if (SharedMutexSynchronizer.secondarySynchronizer && !SharedMutexSynchronizer.secondarySynchronizer?.isArbitter) {
+      return
+    }
+
     const allKeys = SharedMutexSynchronizer.localLocksQueue.reduce((acc, i) => {
       return [...acc, i.key].filter((value, ind, self) => self.indexOf(value) === ind)
     }, [])
 
     for (const key of allKeys) {
       const queue = SharedMutexSynchronizer.localLocksQueue.filter(i => i.key === key)
-      const runnings = queue.filter(i => i.isRunning)
-
-      // find posible blocking parents or childs
-      const allSubKeys = getAllKeys(key)
-      const posibleBlockingItems = SharedMutexSynchronizer.localLocksQueue.filter(
-        i => (i.isRunning && allSubKeys.includes(i.key)) || isChildOf(i.key, key),
-      )
 
       // if there is something to continue
       if (queue?.length) {
+        const runnings = queue.filter(i => i.isRunning)
+
+        // find posible blocking parents or childs
+        const allSubKeys = getAllKeys(key)
+        const posibleBlockingItems = SharedMutexSynchronizer.localLocksQueue.filter(
+          i => (i.isRunning && allSubKeys.includes(i.key)) || isChildOf(i.key, key),
+        )
+
         // if next is for single access
         if (queue[0].singleAccess && !runnings?.length && !posibleBlockingItems.length) {
           SharedMutexSynchronizer.continue(queue[0])

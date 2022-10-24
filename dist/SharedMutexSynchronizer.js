@@ -43,14 +43,14 @@ class SharedMutexSynchronizer {
         }
         if (clutser_1.default && typeof clutser_1.default.on === 'function') {
             SharedMutexSynchronizer.reattachMessageHandlers();
-            clutser_1.default?.on('fork', () => SharedMutexSynchronizer.reattachMessageHandlers());
-            clutser_1.default?.on('exit', worker => SharedMutexSynchronizer.workerUnlockForced(worker.id));
+            clutser_1.default === null || clutser_1.default === void 0 ? void 0 : clutser_1.default.on('fork', () => SharedMutexSynchronizer.reattachMessageHandlers());
+            clutser_1.default === null || clutser_1.default === void 0 ? void 0 : clutser_1.default.on('exit', worker => SharedMutexSynchronizer.workerUnlockForced(worker.id));
         }
         SharedMutexSynchronizer.masterHandler.masterIncomingMessage = SharedMutexSynchronizer.masterIncomingMessage;
         SharedMutexSynchronizer.alreadyInitialized = true;
     }
     static lock(item) {
-        SharedMutexSynchronizer.localLocksQueue.push({ ...item });
+        SharedMutexSynchronizer.localLocksQueue.push(Object.assign({}, item));
         if (item.maxLockingTime) {
             item.timeout = setTimeout(() => SharedMutexSynchronizer.timeoutHandler(item.hash), item.maxLockingTime);
         }
@@ -74,7 +74,8 @@ class SharedMutexSynchronizer {
         SharedMutexSynchronizer.mutexTickNext();
     }
     static mutexTickNext() {
-        if (SharedMutexSynchronizer.secondarySynchronizer && !SharedMutexSynchronizer.secondarySynchronizer?.isArbitter) {
+        var _a;
+        if (SharedMutexSynchronizer.secondarySynchronizer && !((_a = SharedMutexSynchronizer.secondarySynchronizer) === null || _a === void 0 ? void 0 : _a.isArbitter)) {
             return;
         }
         const allKeys = SharedMutexSynchronizer.localLocksQueue.reduce((acc, i) => {
@@ -82,14 +83,14 @@ class SharedMutexSynchronizer {
         }, []);
         for (const key of allKeys) {
             const queue = SharedMutexSynchronizer.localLocksQueue.filter(i => i.key === key);
-            if (queue?.length) {
+            if (queue === null || queue === void 0 ? void 0 : queue.length) {
                 const runnings = queue.filter(i => i.isRunning);
                 const allSubKeys = utils_1.getAllKeys(key);
                 const posibleBlockingItems = SharedMutexSynchronizer.localLocksQueue.filter(i => (i.isRunning && allSubKeys.includes(i.key)) || utils_1.isChildOf(i.key, key));
-                if (queue[0].singleAccess && !runnings?.length && !posibleBlockingItems.length) {
+                if (queue[0].singleAccess && !(runnings === null || runnings === void 0 ? void 0 : runnings.length) && !posibleBlockingItems.length) {
                     SharedMutexSynchronizer.continue(queue[0]);
                 }
-                else if (runnings.every(i => !i.singleAccess) && posibleBlockingItems.every(i => !i?.singleAccess)) {
+                else if (runnings.every(i => !i.singleAccess) && posibleBlockingItems.every(i => !(i === null || i === void 0 ? void 0 : i.singleAccess))) {
                     for (const item of queue) {
                         if (item.singleAccess) {
                             break;
@@ -108,7 +109,8 @@ class SharedMutexSynchronizer {
         };
         SharedMutexSynchronizer.masterHandler.emitter.emit('message', message);
         Object.keys(clutser_1.default.workers).forEach(workerId => {
-            clutser_1.default.workers?.[workerId]?.send(message, err => {
+            var _a, _b;
+            (_b = (_a = clutser_1.default.workers) === null || _a === void 0 ? void 0 : _a[workerId]) === null || _b === void 0 ? void 0 : _b.send(message, err => {
                 if (err) {
                 }
             });
@@ -130,12 +132,14 @@ class SharedMutexSynchronizer {
     }
     static reattachMessageHandlers() {
         Object.keys(clutser_1.default.workers).forEach(workerId => {
-            clutser_1.default.workers?.[workerId]?.removeListener('message', SharedMutexSynchronizer.masterIncomingMessage);
-            clutser_1.default.workers?.[workerId]?.addListener('message', SharedMutexSynchronizer.masterIncomingMessage);
+            var _a, _b, _c, _d;
+            (_b = (_a = clutser_1.default.workers) === null || _a === void 0 ? void 0 : _a[workerId]) === null || _b === void 0 ? void 0 : _b.removeListener('message', SharedMutexSynchronizer.masterIncomingMessage);
+            (_d = (_c = clutser_1.default.workers) === null || _c === void 0 ? void 0 : _c[workerId]) === null || _d === void 0 ? void 0 : _d.addListener('message', SharedMutexSynchronizer.masterIncomingMessage);
         });
     }
     static workerUnlockForced(workerId) {
-        clutser_1.default.workers?.[workerId]?.removeListener('message', SharedMutexSynchronizer.masterIncomingMessage);
+        var _a, _b;
+        (_b = (_a = clutser_1.default.workers) === null || _a === void 0 ? void 0 : _a[workerId]) === null || _b === void 0 ? void 0 : _b.removeListener('message', SharedMutexSynchronizer.masterIncomingMessage);
         SharedMutexSynchronizer.localLocksQueue.filter(i => i.workerId === workerId).forEach(i => SharedMutexSynchronizer.unlock(i.hash));
     }
 }
@@ -148,13 +152,14 @@ SharedMutexSynchronizer.masterHandler = {
     emitter: new events_1.EventEmitter(),
 };
 SharedMutexSynchronizer.timeoutHandler = (hash) => {
+    var _a, _b;
     const info = SharedMutexSynchronizer.getLockInfo(hash);
     console.error('MUTEX_LOCK_TIMEOUT', info);
     if (info.workerId === 'master') {
         throw new Error('MUTEX_LOCK_TIMEOUT');
     }
     else {
-        process.kill(clutser_1.default.workers?.[info.workerId]?.process.pid, 9);
+        process.kill((_b = (_a = clutser_1.default.workers) === null || _a === void 0 ? void 0 : _a[info.workerId]) === null || _b === void 0 ? void 0 : _b.process.pid, 9);
     }
 };
 //# sourceMappingURL=SharedMutexSynchronizer.js.map

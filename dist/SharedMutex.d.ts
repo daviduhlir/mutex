@@ -6,10 +6,16 @@ export declare class SharedMutexUnlockHandler {
     unlock(): void;
 }
 export declare class SharedMutex {
+    static warningThrowsError: boolean;
+    static stack: {
+        key: string;
+        singleAccess: boolean;
+    }[];
     static lockSingleAccess<T>(key: LockKey, fnc: () => Promise<T>, maxLockingTime?: number): Promise<T>;
     static lockMultiAccess<T>(key: LockKey, fnc: () => Promise<T>, maxLockingTime?: number): Promise<T>;
     static lockAccess<T>(key: LockKey, fnc: () => Promise<T>, singleAccess?: boolean, maxLockingTime?: number): Promise<T>;
     static lock(key: LockKey, singleAccess?: boolean, maxLockingTime?: number): Promise<SharedMutexUnlockHandler>;
     static unlock(key: LockKey, hash: string): void;
     protected static sendAction(key: string, action: string, hash: string, data?: any): void;
+    protected static warning(message: string): void;
 }

@@ -27,15 +27,7 @@ function isChildOf(key, parentKey) {
 }
 exports.isChildOf = isChildOf;
 function sanitizeLock(input) {
-    return {
-        workerId: input.workerId,
-        singleAccess: input.singleAccess,
-        hash: input.hash,
-        key: input.key,
-        isRunning: !!input.isRunning,
-        ...(input.maxLockingTime ? { maxLockingTime: input.maxLockingTime } : {}),
-        ...(input.timeout ? { timeout: input.timeout } : {}),
-    };
+    return Object.assign(Object.assign({ workerId: input.workerId, singleAccess: input.singleAccess, hash: input.hash, key: input.key, isRunning: !!input.isRunning }, (input.maxLockingTime ? { maxLockingTime: input.maxLockingTime } : {})), (input.timeout ? { timeout: input.timeout } : {}));
 }
 exports.sanitizeLock = sanitizeLock;
 function parseLockKey(key) {

@@ -19,6 +19,13 @@ export class SharedMutexUnlockHandler {
  * that will be unlocked in another fork.
  */
 export class SharedMutex {
+  public static warningThrowsError = false
+
+  static stack: {
+    key: string
+    singleAccess: boolean
+  }[] = []
+
   /**
    * Lock some async method
    * @param keysPath
@@ -43,11 +50,30 @@ export class SharedMutex {
    * @param fnc
    */
   static async lockAccess<T>(key: LockKey, fnc: () => Promise<T>, singleAccess?: boolean, maxLockingTime?: number): Promise<T> {
+
+    // detect of nested locks as death ends!
+    const stack = [...SharedMutex.stack]
+    const myStackItem = {
+      key: parseLockKey(key),
+      singleAccess,
+    }
+    const nestedOfItem = stack.filter(i => i.key === myStackItem.key)
+    if (nestedOfItem.length && [...nestedOfItem.map(i => i.singleAccess), singleAccess].some(i => !!i)) {
+      /*
+       * Nested mutexes are not allowed, because in javascript it's complicated to tract scope, where it was locked.
+       * Basicaly this kind of locks will cause you application will never continue,
+       * because nested can continue after parent will be finished, which is not posible.
+       */
+      SharedMutex.warning(`MUTEX ERROR: Found nested mutex with same key (${myStackItem.key}), which will cause death end of your application, because one of stacked mutex is marked as single access only.`)
+    }
+
     // lock all sub keys
     const m = await SharedMutex.lock(key, singleAccess, maxLockingTime)
     let r
     try {
+      SharedMutex.stack = [...stack, myStackItem]
       r = await fnc()
+      SharedMutex.stack = stack
     } catch (e) {
       // unlock all keys
       m.unlock()
@@ -55,6 +81,7 @@ export class SharedMutex {
     }
     // unlock all keys
     m.unlock()
+
     return r
   }
 
@@ -120,6 +147,17 @@ export class SharedMutex {
         ...message,
         workerId: 'master',
       })
+    }
+  }
+
+  /**
+   * Warn user before app freezes
+   */
+  protected static warning(message: string) {
+    if (SharedMutex.warningThrowsError) {
+      throw new Error(`MUTEX: ${message}`)
+    } else {
+      console.warn(`MUTEX: ${message}`)
     }
   }
 }

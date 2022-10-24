@@ -1,6 +1,6 @@
 import { expect, assert } from 'chai'
 import { SharedMutex } from '../dist'
-import { RWSimulator, delay } from './utils'
+import { RWSimulator, delay, flatten } from './utils'
 
 /**
  * Just test if my simulated env working as I expecting
@@ -77,6 +77,6 @@ describe('lock test', function() {
         return true
       }),
     ])
-    assert(result.flat().findIndex(i => !i) === -1, 'All results should be true')
+    assert(flatten(result).findIndex(i => !i) === -1, 'All results should be true')
   })
 })

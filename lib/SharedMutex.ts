@@ -50,7 +50,6 @@ export class SharedMutex {
    * @param fnc
    */
   static async lockAccess<T>(key: LockKey, fnc: () => Promise<T>, singleAccess?: boolean, maxLockingTime?: number): Promise<T> {
-
     // detect of nested locks as death ends!
     const stack = [...SharedMutex.stack]
     const myStackItem = {
@@ -64,7 +63,9 @@ export class SharedMutex {
        * Basicaly this kind of locks will cause you application will never continue,
        * because nested can continue after parent will be finished, which is not posible.
        */
-      SharedMutex.warning(`MUTEX ERROR: Found nested locks with same key (${myStackItem.key}), which will cause death end of your application, because one of stacked lock is marked as single access only.`)
+      SharedMutex.warning(
+        `MUTEX ERROR: Found nested locks with same key (${myStackItem.key}), which will cause death end of your application, because one of stacked lock is marked as single access only.`,
+      )
     }
 
     // lock all sub keys

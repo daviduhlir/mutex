@@ -43,7 +43,7 @@ class SharedMutex {
             };
             const nestedOfItem = stack.filter(i => i.key === myStackItem.key);
             if (nestedOfItem.length && [...nestedOfItem.map(i => i.singleAccess), singleAccess].some(i => !!i)) {
-                SharedMutex.warning(`MUTEX ERROR: Found nested mutex with same key (${myStackItem.key}), which will cause death end of your application, because one of stacked mutex is marked as single access only.`);
+                SharedMutex.warning(`MUTEX ERROR: Found nested locks with same key (${myStackItem.key}), which will cause death end of your application, because one of stacked lock is marked as single access only.`);
             }
             const m = yield SharedMutex.lock(key, singleAccess, maxLockingTime);
             let r;

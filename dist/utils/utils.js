@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.parseLockKey = exports.sanitizeLock = exports.isChildOf = exports.getAllKeys = exports.randomHash = void 0;
+exports.parseLockKey = exports.sanitizeLock = exports.keysRelatedMatch = exports.isChildOf = exports.randomHash = void 0;
 function randomHash() {
     return [...Array(10)]
         .map(x => 0)
@@ -8,24 +8,31 @@ function randomHash() {
         .join('');
 }
 exports.randomHash = randomHash;
-function getAllKeys(key) {
-    return key
-        .split('/')
-        .filter(Boolean)
-        .reduce((acc, item, index, array) => {
-        return [...acc, array.slice(0, index + 1).join('/')];
-    }, []);
-}
-exports.getAllKeys = getAllKeys;
 function isChildOf(key, parentKey) {
-    const childKeys = getAllKeys(key);
-    const index = childKeys.indexOf(parentKey);
-    if (index !== -1 && index !== childKeys.length - 1) {
-        return true;
+    const keyParts = key.split('/');
+    const parentKeyParts = parentKey.split('/');
+    if (keyParts.length >= parentKeyParts.length) {
+        return false;
     }
-    return false;
+    for (let i = 0; i < keyParts.length; i++) {
+        if (keyParts[i] !== parentKeyParts[i]) {
+            return false;
+        }
+    }
+    return true;
 }
 exports.isChildOf = isChildOf;
+function keysRelatedMatch(key1, key2) {
+    const key1Parts = key1.split('/');
+    const key2Parts = key2.split('/');
+    for (let i = 0; i < Math.min(key1Parts.length, key2Parts.length); i++) {
+        if (key1Parts[i] !== key2Parts[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+exports.keysRelatedMatch = keysRelatedMatch;
 function sanitizeLock(input) {
     return Object.assign(Object.assign({ workerId: input.workerId, singleAccess: input.singleAccess, hash: input.hash, key: input.key, isRunning: !!input.isRunning }, (input.maxLockingTime ? { maxLockingTime: input.maxLockingTime } : {})), (input.timeout ? { timeout: input.timeout } : {}));
 }

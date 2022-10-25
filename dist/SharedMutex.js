@@ -41,42 +41,45 @@ class SharedMutex {
                 key: utils_1.parseLockKey(key),
                 singleAccess,
             };
-            const nestedOfItem = stack.filter(i => i.key === myStackItem.key);
-            if (nestedOfItem.length && [...nestedOfItem.map(i => i.singleAccess), singleAccess].some(i => !!i)) {
-                SharedMutex.warning(`MUTEX ERROR: Found nested locks with same key (${myStackItem.key}), which will cause death end of your application, because one of stacked lock is marked as single access only.`);
+            const nestedInRelatedItems = stack.filter(i => utils_1.keysRelatedMatch(i.key, myStackItem.key));
+            if (nestedInRelatedItems.length) {
+                SharedMutex.warning(`ERROR Found nested locks with same key (${myStackItem.key}), which will cause death end of your application, because one of stacked lock is marked as single access only.`);
             }
-            const m = yield SharedMutex.lock(key, singleAccess, maxLockingTime);
-            let r;
+            const shouldSkipLock = nestedInRelatedItems.length && !SharedMutex.strictMode;
+            const m = !shouldSkipLock ? yield SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode: SharedMutex.strictMode }) : null;
+            let result;
             try {
                 SharedMutex.stack = [...stack, myStackItem];
-                r = yield fnc();
+                result = yield fnc();
                 SharedMutex.stack = stack;
             }
             catch (e) {
+                SharedMutex.stack = stack;
                 m.unlock();
                 throw e;
             }
-            m.unlock();
-            return r;
+            m === null || m === void 0 ? void 0 : m.unlock();
+            return result;
         });
     }
-    static lock(key, singleAccess, maxLockingTime) {
+    static lock(key, config) {
         return __awaiter(this, void 0, void 0, function* () {
             const hash = utils_1.randomHash();
-            const eventHandler = clutser_1.default.isWorker ? process : SharedMutexSynchronizer_1.SharedMutexSynchronizer.masterHandler.emitter;
             const waiter = new Promise((resolve) => {
-                const handler = message => {
-                    if (message.__mutexMessage__ && message.hash === hash) {
-                        eventHandler.removeListener('message', handler);
-                        resolve(null);
+                SharedMutex.waitingMessagesHandlers.push({
+                    hash,
+                    resolve: message => {
+                        if (message.__mutexMessage__ && message.hash === hash) {
+                            SharedMutex.waitingMessagesHandlers = SharedMutex.waitingMessagesHandlers.filter(i => i.hash !== hash);
+                            resolve(null);
+                        }
                     }
-                };
-                eventHandler.addListener('message', handler);
+                });
             });
             const lockKey = utils_1.parseLockKey(key);
             SharedMutex.sendAction(lockKey, 'lock', hash, {
-                maxLockingTime,
-                singleAccess,
+                maxLockingTime: config.maxLockingTime,
+                singleAccess: config.singleAccess,
             });
             yield waiter;
             return new SharedMutexUnlockHandler(lockKey, hash);
@@ -97,8 +100,23 @@ class SharedMutex {
             SharedMutexSynchronizer_1.SharedMutexSynchronizer.masterHandler.masterIncomingMessage(Object.assign(Object.assign({}, message), { workerId: 'master' }));
         }
     }
+    static attachHandler() {
+        if (!SharedMutex.attached) {
+            SharedMutex.attached = true;
+            const eventHandler = clutser_1.default.isWorker ? process : SharedMutexSynchronizer_1.SharedMutexSynchronizer.masterHandler.emitter;
+            eventHandler.addListener('message', SharedMutex.handleMessage);
+        }
+    }
+    static handleMessage(message) {
+        if (message.__mutexMessage__ && message.hash) {
+            const foundItem = SharedMutex.waitingMessagesHandlers.find(item => item.hash === message.hash);
+            if (foundItem) {
+                foundItem.resolve(message);
+            }
+        }
+    }
     static warning(message) {
-        if (SharedMutex.warningThrowsError) {
+        if (SharedMutex.strictMode) {
             throw new Error(`MUTEX: ${message}`);
         }
         else {
@@ -107,6 +125,9 @@ class SharedMutex {
     }
 }
 exports.SharedMutex = SharedMutex;
-SharedMutex.warningThrowsError = false;
+SharedMutex.strictMode = false;
+SharedMutex.waitingMessagesHandlers = [];
+SharedMutex.attached = false;
 SharedMutex.stack = [];
+SharedMutex.attachHandler();
 //# sourceMappingURL=SharedMutex.js.map

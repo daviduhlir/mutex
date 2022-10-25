@@ -1,5 +1,5 @@
 import cluster from './utils/clutser'
-import { parseLockKey, randomHash } from './utils/utils'
+import { keysRelatedMatch, parseLockKey, randomHash } from './utils/utils'
 import { SharedMutexSynchronizer } from './SharedMutexSynchronizer'
 import { LockKey } from './utils/interfaces'
 
@@ -15,11 +15,22 @@ export class SharedMutexUnlockHandler {
 }
 
 /**
+ * Single lock configuration
+ */
+export interface LockConfiguration {
+  strictMode?: boolean
+  singleAccess?: boolean
+  maxLockingTime?: number
+}
+
+/**
  * Shared mutex class can lock some worker and wait for key,
  * that will be unlocked in another fork.
  */
 export class SharedMutex {
-  public static warningThrowsError = false
+  static strictMode = false
+  protected static waitingMessagesHandlers: { resolve: (message: any) => void; hash: string; }[] = []
+  protected static attached: boolean = false
 
   static stack: {
     key: string
@@ -56,60 +67,69 @@ export class SharedMutex {
       key: parseLockKey(key),
       singleAccess,
     }
-    const nestedOfItem = stack.filter(i => i.key === myStackItem.key)
-    if (nestedOfItem.length && [...nestedOfItem.map(i => i.singleAccess), singleAccess].some(i => !!i)) {
+
+    const nestedInRelatedItems = stack.filter(i => keysRelatedMatch(i.key, myStackItem.key))
+
+    if (nestedInRelatedItems.length) {
       /*
        * Nested mutexes are not allowed, because in javascript it's complicated to tract scope, where it was locked.
        * Basicaly this kind of locks will cause you application will never continue,
        * because nested can continue after parent will be finished, which is not posible.
        */
       SharedMutex.warning(
-        `MUTEX ERROR: Found nested locks with same key (${myStackItem.key}), which will cause death end of your application, because one of stacked lock is marked as single access only.`,
+        `ERROR Found nested locks with same key (${myStackItem.key}), which will cause death end of your application, because one of stacked lock is marked as single access only.`,
       )
     }
 
+    // override lock for nested related locks in non strict mode
+    const shouldSkipLock = nestedInRelatedItems.length && !SharedMutex.strictMode
+
     // lock all sub keys
-    const m = await SharedMutex.lock(key, singleAccess, maxLockingTime)
-    let r
+    const m = !shouldSkipLock ? await SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode: SharedMutex.strictMode } ) : null
+    let result
     try {
+      // set stack with my key before running
       SharedMutex.stack = [...stack, myStackItem]
-      r = await fnc()
+      result = await fnc()
+      // returns stack
       SharedMutex.stack = stack
     } catch (e) {
+      // returns stack in case of error
+      SharedMutex.stack = stack
       // unlock all keys
       m.unlock()
       throw e
     }
     // unlock all keys
-    m.unlock()
+    m?.unlock()
 
-    return r
+    return result
   }
 
   /**
    * Lock key
    * @param key
    */
-  static async lock(key: LockKey, singleAccess?: boolean, maxLockingTime?: number): Promise<SharedMutexUnlockHandler> {
+  static async lock(key: LockKey, config: LockConfiguration): Promise<SharedMutexUnlockHandler> {
     const hash = randomHash()
-
-    const eventHandler = cluster.isWorker ? process : SharedMutexSynchronizer.masterHandler.emitter
 
     // waiter function
     const waiter = new Promise((resolve: (value: any) => void) => {
-      const handler = message => {
-        if (message.__mutexMessage__ && message.hash === hash) {
-          eventHandler.removeListener('message', handler)
-          resolve(null)
+      SharedMutex.waitingMessagesHandlers.push({
+        hash,
+        resolve: message => {
+          if (message.__mutexMessage__ && message.hash === hash) {
+            SharedMutex.waitingMessagesHandlers = SharedMutex.waitingMessagesHandlers.filter(i => i.hash !== hash)
+            resolve(null)
+          }
         }
-      }
-      eventHandler.addListener('message', handler)
+      })
     })
 
     const lockKey = parseLockKey(key)
     SharedMutex.sendAction(lockKey, 'lock', hash, {
-      maxLockingTime,
-      singleAccess,
+      maxLockingTime: config.maxLockingTime,
+      singleAccess: config.singleAccess,
     })
 
     await waiter
@@ -152,13 +172,38 @@ export class SharedMutex {
   }
 
   /**
+   * Attach handlers
+   */
+  static attachHandler() {
+    if (!SharedMutex.attached) {
+      SharedMutex.attached = true
+      const eventHandler = cluster.isWorker ? process : SharedMutexSynchronizer.masterHandler.emitter
+      eventHandler.addListener('message', SharedMutex.handleMessage)
+    }
+  }
+
+  /**
+   * Handle incomming IPC message
+   */
+  protected static handleMessage(message: any) {
+    if (message.__mutexMessage__ && message.hash) {
+      const foundItem = SharedMutex.waitingMessagesHandlers.find(item => item.hash === message.hash)
+      if (foundItem) {
+        foundItem.resolve(message)
+      }
+    }
+  }
+
+  /**
    * Warn user before app freezes
    */
   protected static warning(message: string) {
-    if (SharedMutex.warningThrowsError) {
+    if (SharedMutex.strictMode) {
       throw new Error(`MUTEX: ${message}`)
     } else {
       console.warn(`MUTEX: ${message}`)
     }
   }
 }
+
+SharedMutex.attachHandler()

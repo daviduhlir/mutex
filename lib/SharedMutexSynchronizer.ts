@@ -2,7 +2,7 @@ import { EventEmitter } from 'events'
 import cluster from './utils/clutser'
 import { LocalLockItem, LockDescriptor } from './utils/interfaces'
 import { SecondarySynchronizer, SYNC_EVENTS } from './SecondarySynchronizer'
-import { getAllKeys, isChildOf, sanitizeLock } from './utils/utils'
+import { keysRelatedMatch, sanitizeLock } from './utils/utils'
 
 /**********************************
  *
@@ -185,9 +185,8 @@ export class SharedMutexSynchronizer {
         const runnings = queue.filter(i => i.isRunning)
 
         // find posible blocking parents or childs
-        const allSubKeys = getAllKeys(key)
         const posibleBlockingItems = SharedMutexSynchronizer.localLocksQueue.filter(
-          i => (i.isRunning && allSubKeys.includes(i.key)) || isChildOf(i.key, key),
+          i => i.isRunning && keysRelatedMatch(key, i.key) && key !== i.key,
         )
 
         // if next is for single access

@@ -154,7 +154,7 @@ SharedMutexSynchronizer.timeoutHandler = (hash) => {
     var _a, _b;
     const info = SharedMutexSynchronizer.getLockInfo(hash);
     if (!info) {
-        throw new Error('MUTEX_LOCK_TIMEOUT');
+        return;
     }
     console.error('MUTEX_LOCK_TIMEOUT', info);
     if (info.workerId === 'master') {

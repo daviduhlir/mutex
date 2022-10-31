@@ -47,7 +47,7 @@ export class SharedMutexSynchronizer {
   static timeoutHandler: (hash: string) => void = (hash: string) => {
     const info = SharedMutexSynchronizer.getLockInfo(hash)
     if (!info) {
-      throw new Error('MUTEX_LOCK_TIMEOUT')
+      return // this lock is not exsists
     }
 
     console.error('MUTEX_LOCK_TIMEOUT', info)

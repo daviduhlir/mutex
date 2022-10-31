@@ -42,8 +42,8 @@ class SharedMutex {
                 singleAccess,
             };
             const nestedInRelatedItems = stack.filter(i => utils_1.keysRelatedMatch(i.key, myStackItem.key));
-            if (nestedInRelatedItems.length) {
-                SharedMutex.warning(`ERROR Found nested locks with same key (${myStackItem.key}), which will cause death end of your application, because one of stacked lock is marked as single access only.`);
+            if (nestedInRelatedItems.length && SharedMutex.strictMode) {
+                throw new Error(`ERROR Found nested locks with same key (${myStackItem.key}), which will cause death end of your application, because one of stacked lock is marked as single access only.`);
             }
             const shouldSkipLock = nestedInRelatedItems.length && !SharedMutex.strictMode;
             const m = !shouldSkipLock ? yield SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode: SharedMutex.strictMode }) : null;
@@ -113,14 +113,6 @@ class SharedMutex {
             if (foundItem) {
                 foundItem.resolve(message);
             }
-        }
-    }
-    static warning(message) {
-        if (SharedMutex.strictMode) {
-            throw new Error(`MUTEX: ${message}`);
-        }
-        else {
-            console.warn(`MUTEX: ${message}`);
         }
     }
 }

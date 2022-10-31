@@ -29,5 +29,4 @@ export declare class SharedMutex {
     protected static sendAction(key: string, action: string, hash: string, data?: any): void;
     static attachHandler(): void;
     protected static handleMessage(message: any): void;
-    protected static warning(message: string): void;
 }

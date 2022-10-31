@@ -70,13 +70,13 @@ export class SharedMutex {
 
     const nestedInRelatedItems = stack.filter(i => keysRelatedMatch(i.key, myStackItem.key))
 
-    if (nestedInRelatedItems.length) {
+    if (nestedInRelatedItems.length && SharedMutex.strictMode) {
       /*
        * Nested mutexes are not allowed, because in javascript it's complicated to tract scope, where it was locked.
        * Basicaly this kind of locks will cause you application will never continue,
        * because nested can continue after parent will be finished, which is not posible.
        */
-      SharedMutex.warning(
+      throw new Error(
         `ERROR Found nested locks with same key (${myStackItem.key}), which will cause death end of your application, because one of stacked lock is marked as single access only.`,
       )
     }
@@ -191,17 +191,6 @@ export class SharedMutex {
       if (foundItem) {
         foundItem.resolve(message)
       }
-    }
-  }
-
-  /**
-   * Warn user before app freezes
-   */
-  protected static warning(message: string) {
-    if (SharedMutex.strictMode) {
-      throw new Error(`MUTEX: ${message}`)
-    } else {
-      console.warn(`MUTEX: ${message}`)
     }
   }
 }

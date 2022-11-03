@@ -1,5 +1,5 @@
 declare let cluster: {
-    isMaster: boolean;
+    isPrimary: boolean;
     isWorker: boolean;
     worker: any;
     workers: any;

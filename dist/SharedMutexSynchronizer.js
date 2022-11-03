@@ -5,7 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SharedMutexSynchronizer = void 0;
 const events_1 = require("events");
-const clutser_1 = __importDefault(require("./utils/clutser"));
+const cluster_1 = __importDefault(require("./utils/cluster"));
 const SecondarySynchronizer_1 = require("./SecondarySynchronizer");
 const utils_1 = require("./utils/utils");
 class SharedMutexSynchronizer {
@@ -41,13 +41,13 @@ class SharedMutexSynchronizer {
         }
     }
     static initializeMaster() {
-        if (SharedMutexSynchronizer.alreadyInitialized || !clutser_1.default.isMaster) {
+        if (SharedMutexSynchronizer.alreadyInitialized || !cluster_1.default.isPrimary) {
             return;
         }
-        if (clutser_1.default && typeof clutser_1.default.on === 'function') {
+        if (cluster_1.default && typeof cluster_1.default.on === 'function') {
             SharedMutexSynchronizer.reattachMessageHandlers();
-            clutser_1.default === null || clutser_1.default === void 0 ? void 0 : clutser_1.default.on('fork', () => SharedMutexSynchronizer.reattachMessageHandlers());
-            clutser_1.default === null || clutser_1.default === void 0 ? void 0 : clutser_1.default.on('exit', worker => SharedMutexSynchronizer.workerUnlockForced(worker.id));
+            cluster_1.default === null || cluster_1.default === void 0 ? void 0 : cluster_1.default.on('fork', () => SharedMutexSynchronizer.reattachMessageHandlers());
+            cluster_1.default === null || cluster_1.default === void 0 ? void 0 : cluster_1.default.on('exit', worker => SharedMutexSynchronizer.workerUnlockForced(worker.id));
         }
         SharedMutexSynchronizer.masterHandler.masterIncomingMessage = SharedMutexSynchronizer.masterIncomingMessage;
         SharedMutexSynchronizer.alreadyInitialized = true;
@@ -110,9 +110,9 @@ class SharedMutexSynchronizer {
             hash: item.hash,
         };
         SharedMutexSynchronizer.masterHandler.emitter.emit('message', message);
-        Object.keys(clutser_1.default.workers).forEach(workerId => {
+        Object.keys(cluster_1.default.workers).forEach(workerId => {
             var _a, _b;
-            (_b = (_a = clutser_1.default.workers) === null || _a === void 0 ? void 0 : _a[workerId]) === null || _b === void 0 ? void 0 : _b.send(message, err => {
+            (_b = (_a = cluster_1.default.workers) === null || _a === void 0 ? void 0 : _a[workerId]) === null || _b === void 0 ? void 0 : _b.send(message, err => {
                 if (err) {
                 }
             });
@@ -133,15 +133,15 @@ class SharedMutexSynchronizer {
         }
     }
     static reattachMessageHandlers() {
-        Object.keys(clutser_1.default.workers).forEach(workerId => {
+        Object.keys(cluster_1.default.workers).forEach(workerId => {
             var _a, _b, _c, _d;
-            (_b = (_a = clutser_1.default.workers) === null || _a === void 0 ? void 0 : _a[workerId]) === null || _b === void 0 ? void 0 : _b.removeListener('message', SharedMutexSynchronizer.masterIncomingMessage);
-            (_d = (_c = clutser_1.default.workers) === null || _c === void 0 ? void 0 : _c[workerId]) === null || _d === void 0 ? void 0 : _d.addListener('message', SharedMutexSynchronizer.masterIncomingMessage);
+            (_b = (_a = cluster_1.default.workers) === null || _a === void 0 ? void 0 : _a[workerId]) === null || _b === void 0 ? void 0 : _b.removeListener('message', SharedMutexSynchronizer.masterIncomingMessage);
+            (_d = (_c = cluster_1.default.workers) === null || _c === void 0 ? void 0 : _c[workerId]) === null || _d === void 0 ? void 0 : _d.addListener('message', SharedMutexSynchronizer.masterIncomingMessage);
         });
     }
     static workerUnlockForced(workerId) {
         var _a, _b;
-        (_b = (_a = clutser_1.default.workers) === null || _a === void 0 ? void 0 : _a[workerId]) === null || _b === void 0 ? void 0 : _b.removeListener('message', SharedMutexSynchronizer.masterIncomingMessage);
+        (_b = (_a = cluster_1.default.workers) === null || _a === void 0 ? void 0 : _a[workerId]) === null || _b === void 0 ? void 0 : _b.removeListener('message', SharedMutexSynchronizer.masterIncomingMessage);
         SharedMutexSynchronizer.localLocksQueue.filter(i => i.workerId === workerId).forEach(i => SharedMutexSynchronizer.unlock(i.hash));
     }
 }
@@ -164,7 +164,7 @@ SharedMutexSynchronizer.timeoutHandler = (hash) => {
         throw new Error('MUTEX_LOCK_TIMEOUT');
     }
     else {
-        process.kill((_b = (_a = clutser_1.default.workers) === null || _a === void 0 ? void 0 : _a[info.workerId]) === null || _b === void 0 ? void 0 : _b.process.pid, 9);
+        process.kill((_b = (_a = cluster_1.default.workers) === null || _a === void 0 ? void 0 : _a[info.workerId]) === null || _b === void 0 ? void 0 : _b.process.pid, 9);
     }
 };
 //# sourceMappingURL=SharedMutexSynchronizer.js.map

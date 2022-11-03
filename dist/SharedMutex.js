@@ -13,7 +13,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SharedMutex = exports.SharedMutexUnlockHandler = void 0;
-const clutser_1 = __importDefault(require("./utils/clutser"));
+const cluster_1 = __importDefault(require("./utils/cluster"));
 const utils_1 = require("./utils/utils");
 const SharedMutexSynchronizer_1 = require("./SharedMutexSynchronizer");
 const node_async_hooks_1 = require("node:async_hooks");
@@ -94,8 +94,8 @@ class SharedMutex {
         const message = Object.assign({ __mutexMessage__: true, action,
             key,
             hash }, data);
-        if (clutser_1.default.isWorker) {
-            process.send(Object.assign(Object.assign({}, message), { workerId: (_a = clutser_1.default.worker) === null || _a === void 0 ? void 0 : _a.id }));
+        if (cluster_1.default.isWorker) {
+            process.send(Object.assign(Object.assign({}, message), { workerId: (_a = cluster_1.default.worker) === null || _a === void 0 ? void 0 : _a.id }));
         }
         else {
             SharedMutexSynchronizer_1.SharedMutexSynchronizer.masterHandler.masterIncomingMessage(Object.assign(Object.assign({}, message), { workerId: 'master' }));
@@ -104,7 +104,7 @@ class SharedMutex {
     static attachHandler() {
         if (!SharedMutex.attached) {
             SharedMutex.attached = true;
-            const eventHandler = clutser_1.default.isWorker ? process : SharedMutexSynchronizer_1.SharedMutexSynchronizer.masterHandler.emitter;
+            const eventHandler = cluster_1.default.isWorker ? process : SharedMutexSynchronizer_1.SharedMutexSynchronizer.masterHandler.emitter;
             eventHandler.addListener('message', SharedMutex.handleMessage);
         }
     }

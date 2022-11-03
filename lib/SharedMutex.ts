@@ -1,4 +1,4 @@
-import cluster from './utils/clutser'
+import cluster from './utils/cluster'
 import { keysRelatedMatch, parseLockKey, randomHash } from './utils/utils'
 import { SharedMutexSynchronizer } from './SharedMutexSynchronizer'
 import { LockKey } from './utils/interfaces'

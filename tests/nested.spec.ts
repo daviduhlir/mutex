@@ -1,11 +1,42 @@
 import { assert } from 'chai'
 import { SharedMutex } from '../dist'
-import { delay } from './utils'
+import { delay, RWSimulator } from './utils'
 
 /**
  * Locks with nested keys test
  */
 describe('testing nested locks', function() {
+  it('nested locks - testing closure', async function() {
+    await SharedMutex.lockSingleAccess('root', async () => {
+      await delay(10)
+      await SharedMutex.lockSingleAccess('root', async () => {
+        await delay(10)
+      })
+    })
+  })
+
+  it('nested locks - testing closure #2', async function() {
+    const rwSimulator = new RWSimulator()
+
+    SharedMutex.lockSingleAccess('root', async () => {
+      const handler = rwSimulator.write()
+      await delay(100)
+      handler.stop()
+    })
+    setTimeout(() => {
+      SharedMutex.lockSingleAccess('root', async () => {
+        const handler = rwSimulator.write()
+        await delay(10)
+        handler.stop()
+      })
+    }, 20)
+
+    await delay(1000)
+
+  })
+
+
+
   it('nested lock - crash in strict', async function() {
     SharedMutex.strictMode = true
     let error

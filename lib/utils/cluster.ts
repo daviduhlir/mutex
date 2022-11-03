@@ -1,6 +1,6 @@
 // cluster mock
 let cluster = {
-  isPrimary: true,
+  isMaster: true,
   isWorker: false,
   worker: null,
   workers: null,

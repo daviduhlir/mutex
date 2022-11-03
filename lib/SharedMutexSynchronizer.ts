@@ -99,7 +99,7 @@ export class SharedMutexSynchronizer {
    * Initialize master handler
    */
   static initializeMaster() {
-    if (SharedMutexSynchronizer.alreadyInitialized || !cluster.isPrimary) {
+    if (SharedMutexSynchronizer.alreadyInitialized || !cluster.isMaster) {
       return
     }
 

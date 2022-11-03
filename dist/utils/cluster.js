@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 let cluster = {
-    isPrimary: true,
+    isMaster: true,
     isWorker: false,
     worker: null,
     workers: null,

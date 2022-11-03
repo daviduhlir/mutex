@@ -4,6 +4,6 @@ export * from './SharedMutex'
 export * from './SharedMutexDecorators'
 export * from './SecondarySynchronizer'
 
-if (cluster.isPrimary) {
+if (cluster.isMaster) {
   SharedMutexSynchronizer.initializeMaster()
 }

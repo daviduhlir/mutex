@@ -19,7 +19,7 @@ class Test {
   }
 }
 
-if (cluster.isPrimary) {
+if (cluster.isMaster) {
   console.log(`----Running forks test----\n`)
   for(let index = 0; index < 4; index++) {
     cluster.fork({ index })

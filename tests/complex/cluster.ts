@@ -3,7 +3,7 @@ import cluster from 'node:cluster'
 import { delay } from '../utils'
 
 ;(async function () {
-  if (cluster.isPrimary) {
+  if (cluster.isMaster) {
     for(let index = 0; index < 4; index++) {
       await delay(5)
       cluster.fork({ index })

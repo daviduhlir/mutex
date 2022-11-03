@@ -41,7 +41,7 @@ class SharedMutexSynchronizer {
         }
     }
     static initializeMaster() {
-        if (SharedMutexSynchronizer.alreadyInitialized || !cluster_1.default.isPrimary) {
+        if (SharedMutexSynchronizer.alreadyInitialized || !cluster_1.default.isMaster) {
             return;
         }
         if (cluster_1.default && typeof cluster_1.default.on === 'function') {

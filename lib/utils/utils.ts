@@ -21,7 +21,7 @@ export function isChildOf(key: string, parentKey: string): boolean {
     return false
   }
 
-  for(let i = 0; i < keyParts.length; i++) {
+  for (let i = 0; i < keyParts.length; i++) {
     if (keyParts[i] !== parentKeyParts[i]) {
       return false
     }
@@ -37,7 +37,7 @@ export function keysRelatedMatch(key1: string, key2: string): boolean {
   // try if it's child or parent
   const key1Parts = key1.split('/')
   const key2Parts = key2.split('/')
-  for(let i = 0; i < Math.min(key1Parts.length, key2Parts.length); i++) {
+  for (let i = 0; i < Math.min(key1Parts.length, key2Parts.length); i++) {
     if (key1Parts[i] !== key2Parts[i]) {
       return false
     }

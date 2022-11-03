@@ -189,9 +189,7 @@ export class SharedMutexSynchronizer {
         const runnings = queue.filter(i => i.isRunning)
 
         // find posible blocking parents or childs
-        const posibleBlockingItems = SharedMutexSynchronizer.localLocksQueue.filter(
-          i => i.isRunning && keysRelatedMatch(key, i.key) && key !== i.key,
-        )
+        const posibleBlockingItems = SharedMutexSynchronizer.localLocksQueue.filter(i => i.isRunning && keysRelatedMatch(key, i.key) && key !== i.key)
 
         // if next is for single access
         if (queue[0].singleAccess && !runnings?.length && !posibleBlockingItems.length) {

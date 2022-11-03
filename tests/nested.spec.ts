@@ -17,9 +17,7 @@ describe('testing nested locks', function() {
 
   it('nested locks - testing closure #2', async function() {
     const rwSimulator = new RWSimulator()
-
     let e
-
     setTimeout(() => {
       SharedMutex.lockSingleAccess('root', async () => {
         try {
@@ -30,12 +28,12 @@ describe('testing nested locks', function() {
           e = error
         }
       })
-    }, 100)
+    }, 50)
 
     await SharedMutex.lockSingleAccess('root', async () => {
       try {
         const handler = rwSimulator.write()
-        await delay(1000)
+        await delay(500)
         handler.stop()
       } catch(error) {
         e = error

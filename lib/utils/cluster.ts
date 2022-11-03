@@ -8,7 +8,7 @@ let cluster = {
 }
 
 try {
-  cluster = require('node:cluster')
+  cluster = require('cluster')
 } catch (e) {}
 
 export default cluster

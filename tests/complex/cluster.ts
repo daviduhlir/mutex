@@ -1,5 +1,5 @@
 import { SharedMutex } from '../../dist'
-import cluster from 'node:cluster'
+import cluster from 'cluster'
 import { delay } from '../utils'
 
 ;(async function () {

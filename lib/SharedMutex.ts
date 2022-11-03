@@ -2,7 +2,7 @@ import cluster from './utils/cluster'
 import { keysRelatedMatch, parseLockKey, randomHash } from './utils/utils'
 import { SharedMutexSynchronizer } from './SharedMutexSynchronizer'
 import { LockKey } from './utils/interfaces'
-import { AsyncLocalStorage } from 'node:async_hooks'
+import { AsyncLocalStorage } from 'async_hooks'
 
 /**
  * Unlock handler
@@ -30,13 +30,15 @@ export interface LockConfiguration {
  */
 export class SharedMutex {
   static strictMode = false
-  protected static waitingMessagesHandlers: { resolve: (message: any) => void; hash: string; }[] = []
+  protected static waitingMessagesHandlers: { resolve: (message: any) => void; hash: string }[] = []
   protected static attached: boolean = false
 
-  protected static stackStorage = new AsyncLocalStorage<{
-    key: string
-    singleAccess: boolean
-  }[]>()
+  protected static stackStorage = new AsyncLocalStorage<
+    {
+      key: string
+      singleAccess: boolean
+    }[]
+  >()
 
   /**
    * Lock some async method
@@ -86,7 +88,7 @@ export class SharedMutex {
     const shouldSkipLock = nestedInRelatedItems.length && !SharedMutex.strictMode
 
     // lock all sub keys
-    const m = !shouldSkipLock ? await SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode: SharedMutex.strictMode } ) : null
+    const m = !shouldSkipLock ? await SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode: SharedMutex.strictMode }) : null
     let result
     try {
       result = await SharedMutex.stackStorage.run([...stack, myStackItem], fnc)
@@ -117,7 +119,7 @@ export class SharedMutex {
             SharedMutex.waitingMessagesHandlers = SharedMutex.waitingMessagesHandlers.filter(i => i.hash !== hash)
             resolve(null)
           }
-        }
+        },
       })
     })
 

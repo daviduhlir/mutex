@@ -16,7 +16,7 @@ exports.SharedMutex = exports.SharedMutexUnlockHandler = void 0;
 const cluster_1 = __importDefault(require("./utils/cluster"));
 const utils_1 = require("./utils/utils");
 const SharedMutexSynchronizer_1 = require("./SharedMutexSynchronizer");
-const node_async_hooks_1 = require("node:async_hooks");
+const async_hooks_1 = require("async_hooks");
 class SharedMutexUnlockHandler {
     constructor(key, hash) {
         this.key = key;
@@ -74,7 +74,7 @@ class SharedMutex {
                             SharedMutex.waitingMessagesHandlers = SharedMutex.waitingMessagesHandlers.filter(i => i.hash !== hash);
                             resolve(null);
                         }
-                    }
+                    },
                 });
             });
             const lockKey = utils_1.parseLockKey(key);
@@ -121,6 +121,6 @@ exports.SharedMutex = SharedMutex;
 SharedMutex.strictMode = false;
 SharedMutex.waitingMessagesHandlers = [];
 SharedMutex.attached = false;
-SharedMutex.stackStorage = new node_async_hooks_1.AsyncLocalStorage();
+SharedMutex.stackStorage = new async_hooks_1.AsyncLocalStorage();
 SharedMutex.attachHandler();
 //# sourceMappingURL=SharedMutex.js.map

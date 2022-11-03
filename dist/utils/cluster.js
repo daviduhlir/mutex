@@ -8,7 +8,7 @@ let cluster = {
     on: null,
 };
 try {
-    cluster = require('node:cluster');
+    cluster = require('cluster');
 }
 catch (e) { }
 exports.default = cluster;

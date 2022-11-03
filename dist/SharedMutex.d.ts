@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { LockKey } from './utils/interfaces';
-import { AsyncLocalStorage } from 'node:async_hooks';
+import { AsyncLocalStorage } from 'async_hooks';
 export declare class SharedMutexUnlockHandler {
     readonly key: string;
     readonly hash: string;

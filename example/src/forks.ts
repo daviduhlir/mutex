@@ -1,5 +1,5 @@
 import { SharedMutexDecorators } from '@david.uhlir/mutex'
-import * as cluster from 'cluster';
+import cluster from 'cluster'
 
 /**
  * This test will try to run 4 forks, and then they will try to access same scope
@@ -19,7 +19,7 @@ class Test {
   }
 }
 
-if (cluster.isMaster) {
+if (cluster.isPrimary) {
   console.log(`----Running forks test----\n`)
   for(let index = 0; index < 4; index++) {
     cluster.fork({ index })

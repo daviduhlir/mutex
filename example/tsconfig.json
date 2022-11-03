@@ -12,6 +12,7 @@
     "suppressImplicitAnyIndexErrors": true,
     "outDir": "./build",
     "sourceMap": true,
+    "esModuleInterop": true
   },
   "filesGlob": [
     "./src/**/*.ts",

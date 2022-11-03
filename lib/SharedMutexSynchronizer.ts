@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events'
-import cluster from './utils/clutser'
+import cluster from './utils/cluster'
 import { LocalLockItem, LockDescriptor } from './utils/interfaces'
 import { SecondarySynchronizer, SYNC_EVENTS } from './SecondarySynchronizer'
 import { keysRelatedMatch, sanitizeLock } from './utils/utils'
@@ -99,7 +99,7 @@ export class SharedMutexSynchronizer {
    * Initialize master handler
    */
   static initializeMaster() {
-    if (SharedMutexSynchronizer.alreadyInitialized || !cluster.isMaster) {
+    if (SharedMutexSynchronizer.alreadyInitialized || !cluster.isPrimary) {
       return
     }
 

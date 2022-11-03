@@ -1,4 +1,6 @@
+/// <reference types="node" />
 import { LockKey } from './utils/interfaces';
+import { AsyncLocalStorage } from 'node:async_hooks';
 export declare class SharedMutexUnlockHandler {
     readonly key: string;
     readonly hash: string;
@@ -17,10 +19,10 @@ export declare class SharedMutex {
         hash: string;
     }[];
     protected static attached: boolean;
-    static stack: {
+    protected static stackStorage: AsyncLocalStorage<{
         key: string;
         singleAccess: boolean;
-    }[];
+    }[]>;
     static lockSingleAccess<T>(key: LockKey, fnc: () => Promise<T>, maxLockingTime?: number): Promise<T>;
     static lockMultiAccess<T>(key: LockKey, fnc: () => Promise<T>, maxLockingTime?: number): Promise<T>;
     static lockAccess<T>(key: LockKey, fnc: () => Promise<T>, singleAccess?: boolean, maxLockingTime?: number): Promise<T>;

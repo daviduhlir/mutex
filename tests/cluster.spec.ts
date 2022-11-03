@@ -1,5 +1,6 @@
-import { expect } from 'chai'
+import { expect, assert } from 'chai'
 import { spawn } from 'child_process'
+import { checkLocksResults } from './utils'
 
 /**
  * Run node app to test cluster communication via IPC
@@ -22,14 +23,11 @@ describe('lock test in cluster', function() {
       })
     })
 
-    const expected = [
-      '0:L', '0:U',
-      '1:L', '1:U',
-      '2:L', '2:U',
-      '3:L', '3:U'
-    ]
-
-    expect(result.join('\n').split('\n').filter(i => !!i)).to.have.ordered.members(expected)
+    try {
+      checkLocksResults(result.join('\n').split('\n').filter(i => !!i))
+    } catch(e) {
+      assert(!e, 'Result should be without error.')
+    }
   })
 
   it('multi locks', async function() {
@@ -49,13 +47,10 @@ describe('lock test in cluster', function() {
       })
     })
 
-    const expected = [
-      'S:L', 'S:U', 'M:L',
-      'M:L', 'M:L', 'M:L',
-      'M:U', 'M:U', 'M:U',
-      'M:U'
-    ]
-
-    expect(result.join('\n').split('\n').filter(i => !!i)).to.have.ordered.members(expected)
+    try {
+      checkLocksResults(result.join('\n').split('\n').filter(i => !!i))
+    } catch(e) {
+      assert(!e, 'Result should be without error.')
+    }
   })
 })

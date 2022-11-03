@@ -1,12 +1,12 @@
 import { expect, assert } from 'chai'
 import { SharedMutex } from '../dist'
-import { RWSimulator, delay, flatten } from './utils'
+import { RWSimulator, delay, flatten, checkLocksResults } from './utils'
 
 /**
  * Just test if my simulated env working as I expecting
  */
-describe('test rw simulator', function() {
-  it('lock handling', async function() {
+describe('test simulators', function() {
+  it('RW simulator', async function() {
     const rwSimulator = new RWSimulator()
     try {
       await Promise.all([
@@ -26,6 +26,34 @@ describe('test rw simulator', function() {
       assert(false, 'Should fails on lock error.')
     } catch(e) {
       expect(e.toString()).to.equal('Error: Already locked for read.')
+    }
+  })
+
+  it('Locks result check #1', async function() {
+    try {
+      const expected = [
+        'S:L', 'S:U', 'M:L',
+        'M:L', 'M:L', 'M:L',
+        'M:U', 'M:U', 'M:U',
+        'M:U'
+      ]
+      checkLocksResults(expected)
+    } catch(e) {
+      assert(!e, 'Result should be without error.')
+    }
+  })
+
+  it('Locks result check #2', async function() {
+    try {
+      const expected = [
+        'S:L', 'S:U', 'M:L',
+        'A:L', 'M:L', 'M:L',
+        'M:U'
+      ]
+      checkLocksResults(expected)
+      assert(false, 'Should fails on test error.')
+    } catch(e) {
+      expect(e.toString()).to.equal('Error: Something is opened on the end of test')
     }
   })
 })

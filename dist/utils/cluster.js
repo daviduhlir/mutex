@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 let cluster = {
-    isMaster: true,
+    isPrimary: true,
     isWorker: false,
     worker: null,
     workers: null,
@@ -12,4 +12,4 @@ try {
 }
 catch (e) { }
 exports.default = cluster;
-//# sourceMappingURL=clutser.js.map
+//# sourceMappingURL=cluster.js.map

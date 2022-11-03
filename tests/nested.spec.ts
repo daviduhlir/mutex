@@ -23,11 +23,9 @@ describe('testing nested locks', function() {
     setTimeout(() => {
       SharedMutex.lockSingleAccess('root', async () => {
         try {
-          console.log('2:L')
           const handler = rwSimulator.write()
           await delay(10)
           handler.stop()
-          console.log('2:U')
         } catch(error) {
           e = error
         }
@@ -36,17 +34,13 @@ describe('testing nested locks', function() {
 
     await SharedMutex.lockSingleAccess('root', async () => {
       try {
-        console.log('1:L')
         const handler = rwSimulator.write()
         await delay(1000)
         handler.stop()
-        console.log('1:U')
       } catch(error) {
         e = error
       }
     })
-
-    console.log(e)
 
     assert(!e, 'Should ends without any error')
   })

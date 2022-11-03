@@ -1,9 +1,9 @@
 import { SharedMutex } from '../../dist'
-import * as cluster from 'cluster'
+import cluster from 'node:cluster'
 import { delay } from '../utils'
 
 ;(async function () {
-  if (cluster.isMaster) {
+  if (cluster.isPrimary) {
     for(let index = 0; index < 4; index++) {
       await delay(5)
       cluster.fork({ index })
@@ -15,9 +15,9 @@ import { delay } from '../utils'
     }
   } else {
     await SharedMutex.lockSingleAccess('mutex', async () => {
-      console.log(`${process.env.index}:L`)
+      console.log(`S:L`)
       await delay(10)
-      console.log(`${process.env.index}:U`)
+      console.log(`S:U`)
     })
     process.exit(0)
   }

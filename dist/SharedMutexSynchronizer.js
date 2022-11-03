@@ -1,8 +1,11 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SharedMutexSynchronizer = void 0;
 const events_1 = require("events");
-const clutser_1 = require("./utils/clutser");
+const clutser_1 = __importDefault(require("./utils/clutser"));
 const SecondarySynchronizer_1 = require("./SecondarySynchronizer");
 const utils_1 = require("./utils/utils");
 class SharedMutexSynchronizer {

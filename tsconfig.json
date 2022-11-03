@@ -12,6 +12,7 @@
     "suppressImplicitAnyIndexErrors": true,
     "outDir": "./dist",
     "sourceMap": true,
+    "esModuleInterop": true
   },
   "files": [
     "./lib/index.ts"

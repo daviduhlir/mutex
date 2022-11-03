@@ -8,11 +8,15 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SharedMutex = exports.SharedMutexUnlockHandler = void 0;
-const clutser_1 = require("./utils/clutser");
+const clutser_1 = __importDefault(require("./utils/clutser"));
 const utils_1 = require("./utils/utils");
 const SharedMutexSynchronizer_1 = require("./SharedMutexSynchronizer");
+const node_async_hooks_1 = require("node:async_hooks");
 class SharedMutexUnlockHandler {
     constructor(key, hash) {
         this.key = key;
@@ -36,7 +40,7 @@ class SharedMutex {
     }
     static lockAccess(key, fnc, singleAccess, maxLockingTime) {
         return __awaiter(this, void 0, void 0, function* () {
-            const stack = [...SharedMutex.stack];
+            const stack = [...(SharedMutex.stackStorage.getStore() || [])];
             const myStackItem = {
                 key: utils_1.parseLockKey(key),
                 singleAccess,
@@ -49,12 +53,9 @@ class SharedMutex {
             const m = !shouldSkipLock ? yield SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode: SharedMutex.strictMode }) : null;
             let result;
             try {
-                SharedMutex.stack = [...stack, myStackItem];
-                result = yield fnc();
-                SharedMutex.stack = stack;
+                result = yield SharedMutex.stackStorage.run([...stack, myStackItem], fnc);
             }
             catch (e) {
-                SharedMutex.stack = stack;
                 m.unlock();
                 throw e;
             }
@@ -120,6 +121,6 @@ exports.SharedMutex = SharedMutex;
 SharedMutex.strictMode = false;
 SharedMutex.waitingMessagesHandlers = [];
 SharedMutex.attached = false;
-SharedMutex.stack = [];
+SharedMutex.stackStorage = new node_async_hooks_1.AsyncLocalStorage();
 SharedMutex.attachHandler();
 //# sourceMappingURL=SharedMutex.js.map

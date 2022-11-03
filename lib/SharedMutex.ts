@@ -2,6 +2,7 @@ import cluster from './utils/clutser'
 import { keysRelatedMatch, parseLockKey, randomHash } from './utils/utils'
 import { SharedMutexSynchronizer } from './SharedMutexSynchronizer'
 import { LockKey } from './utils/interfaces'
+import { AsyncLocalStorage } from 'node:async_hooks'
 
 /**
  * Unlock handler
@@ -32,10 +33,10 @@ export class SharedMutex {
   protected static waitingMessagesHandlers: { resolve: (message: any) => void; hash: string; }[] = []
   protected static attached: boolean = false
 
-  static stack: {
+  protected static stackStorage = new AsyncLocalStorage<{
     key: string
     singleAccess: boolean
-  }[] = []
+  }[]>()
 
   /**
    * Lock some async method
@@ -62,7 +63,7 @@ export class SharedMutex {
    */
   static async lockAccess<T>(key: LockKey, fnc: () => Promise<T>, singleAccess?: boolean, maxLockingTime?: number): Promise<T> {
     // detect of nested locks as death ends!
-    const stack = [...SharedMutex.stack]
+    const stack = [...(SharedMutex.stackStorage.getStore() || [])]
     const myStackItem = {
       key: parseLockKey(key),
       singleAccess,
@@ -88,14 +89,8 @@ export class SharedMutex {
     const m = !shouldSkipLock ? await SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode: SharedMutex.strictMode } ) : null
     let result
     try {
-      // set stack with my key before running
-      SharedMutex.stack = [...stack, myStackItem]
-      result = await fnc()
-      // returns stack
-      SharedMutex.stack = stack
+      result = await SharedMutex.stackStorage.run([...stack, myStackItem], fnc)
     } catch (e) {
-      // returns stack in case of error
-      SharedMutex.stack = stack
       // unlock all keys
       m.unlock()
       throw e

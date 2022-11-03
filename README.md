@@ -13,7 +13,7 @@ If you wan't to use it with workers in cluster, keep in mind this module needs t
 import { SharedMutexSynchronizer } from '@david.uhlir/mutex'
 import * as cluster from 'cluster'
 
-if (cluster.isMaster) {
+if (cluster.isPrimary) {
     SharedMutexSynchronizer.initializeMaster()
 }
 ```

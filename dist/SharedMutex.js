@@ -90,31 +90,60 @@ class SharedMutex {
     static unlock(key, hash) {
         SharedMutex.sendAction(utils_1.parseLockKey(key), 'unlock', hash);
     }
+    static attachHandler() {
+        if (!SharedMutex.attached) {
+            SharedMutex.attached = true;
+            (cluster_1.default.isWorker ? process : SharedMutexSynchronizer_1.SharedMutexSynchronizer.masterHandler.emitter).on('message', SharedMutex.handleMessage);
+        }
+    }
+    static initializeMaster() {
+        SharedMutexSynchronizer_1.SharedMutexSynchronizer.initializeMaster();
+    }
     static sendAction(key, action, hash, data = null) {
         var _a;
         const message = Object.assign({ __mutexMessage__: true, action,
             key,
             hash }, data);
         if (cluster_1.default.isWorker) {
+            SharedMutex.verifyMaster();
             process.send(Object.assign(Object.assign({}, message), { workerId: (_a = cluster_1.default.worker) === null || _a === void 0 ? void 0 : _a.id }));
         }
         else {
             SharedMutexSynchronizer_1.SharedMutexSynchronizer.masterHandler.masterIncomingMessage(Object.assign(Object.assign({}, message), { workerId: 'master' }));
         }
     }
-    static attachHandler() {
-        if (!SharedMutex.attached) {
-            SharedMutex.attached = true;
-            const eventHandler = cluster_1.default.isWorker ? process : SharedMutexSynchronizer_1.SharedMutexSynchronizer.masterHandler.emitter;
-            eventHandler.addListener('message', SharedMutex.handleMessage);
-        }
-    }
     static handleMessage(message) {
-        if (message.__mutexMessage__ && message.hash) {
+        if (message.__mutexMessage__ && message.action === 'verify-complete') {
+            if (SharedMutex.masterVerifiedTimeout) {
+                clearTimeout(SharedMutex.masterVerifiedTimeout);
+                SharedMutex.masterVerifiedTimeout = null;
+                SharedMutex.masterVerified = true;
+            }
+            else {
+                throw new Error('MUTEX_REDUNDANT_VERIFICATION');
+            }
+        }
+        else if (message.__mutexMessage__ && message.hash) {
             const foundItem = SharedMutex.waitingMessagesHandlers.find(item => item.hash === message.hash);
             if (foundItem) {
                 foundItem.resolve(message);
             }
+        }
+    }
+    static verifyMaster() {
+        var _a;
+        if (SharedMutex.masterVerified) {
+            return;
+        }
+        if (SharedMutex.masterVerifiedTimeout === null) {
+            process.send({
+                __mutexMessage__: true,
+                workerId: (_a = cluster_1.default.worker) === null || _a === void 0 ? void 0 : _a.id,
+                action: 'verify',
+            });
+            SharedMutex.masterVerifiedTimeout = setTimeout(() => {
+                throw new Error('MUTEX_MASTER_NOT_INITIALIZED');
+            }, 500);
         }
     }
 }
@@ -122,6 +151,8 @@ exports.SharedMutex = SharedMutex;
 SharedMutex.strictMode = false;
 SharedMutex.waitingMessagesHandlers = [];
 SharedMutex.attached = false;
+SharedMutex.masterVerified = false;
+SharedMutex.masterVerifiedTimeout = null;
 SharedMutex.stackStorage = new async_hooks_1.AsyncLocalStorage();
 SharedMutex.attachHandler();
 //# sourceMappingURL=SharedMutex.js.map

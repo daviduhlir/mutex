@@ -105,11 +105,8 @@ export class SharedMutexSynchronizer {
 
     // if we are using clusters at all
     if (cluster && typeof cluster.on === 'function') {
-      // listen worker events
-      SharedMutexSynchronizer.reattachMessageHandlers()
-
-      cluster?.on('fork', () => SharedMutexSynchronizer.reattachMessageHandlers())
-      cluster?.on('exit', worker => SharedMutexSynchronizer.workerUnlockForced(worker.id))
+      cluster.on('message', SharedMutexSynchronizer.handleClusterMessage)
+      cluster.on('exit', worker => SharedMutexSynchronizer.workerUnlockForced(worker.id))
     }
 
     // setup functions for master
@@ -227,13 +224,7 @@ export class SharedMutexSynchronizer {
 
     // emit it
     SharedMutexSynchronizer.masterHandler.emitter.emit('message', message)
-    Object.keys(cluster.workers).forEach(workerId => {
-      cluster.workers?.[workerId]?.send(message, err => {
-        if (err) {
-          // TODO - not sure what to do, worker probably died
-        }
-      })
-    })
+    Object.keys(cluster.workers).forEach(workerId => SharedMutexSynchronizer.send(cluster.workers?.[workerId], message))
 
     // just continue - send to secondary
     if (SharedMutexSynchronizer.secondarySynchronizer) {
@@ -242,10 +233,17 @@ export class SharedMutexSynchronizer {
   }
 
   /**
+   * Handle incomming message from whole cluster
+   */
+  protected static handleClusterMessage(worker: any, message: any) {
+    SharedMutexSynchronizer.masterIncomingMessage(message, worker)
+  }
+
+  /**
    * Handle master incomming message
    * @param message
    */
-  protected static masterIncomingMessage(message: any) {
+  protected static masterIncomingMessage(message: any, worker?: any) {
     if (!(message as any).__mutexMessage__ || !message.action) {
       return
     }
@@ -256,17 +254,12 @@ export class SharedMutexSynchronizer {
       // unlock
     } else if (message.action === 'unlock') {
       SharedMutexSynchronizer.unlock(message.hash)
+      // verify master handler
+    } else if (message.action === 'verify') {
+      SharedMutexSynchronizer.send(worker, {
+        action: 'verify-complete',
+      })
     }
-  }
-
-  /**
-   * Reattach all message handlers if new fork or some exited
-   */
-  protected static reattachMessageHandlers() {
-    Object.keys(cluster.workers).forEach(workerId => {
-      cluster.workers?.[workerId]?.removeListener('message', SharedMutexSynchronizer.masterIncomingMessage)
-      cluster.workers?.[workerId]?.addListener('message', SharedMutexSynchronizer.masterIncomingMessage)
-    })
   }
 
   /**
@@ -274,7 +267,23 @@ export class SharedMutexSynchronizer {
    * @param id
    */
   protected static workerUnlockForced(workerId: number) {
-    cluster.workers?.[workerId]?.removeListener('message', SharedMutexSynchronizer.masterIncomingMessage)
     SharedMutexSynchronizer.localLocksQueue.filter(i => i.workerId === workerId).forEach(i => SharedMutexSynchronizer.unlock(i.hash))
+  }
+
+  /**
+   * Send message to worker
+   */
+  protected static send(worker: any, message: any) {
+    worker.send(
+      {
+        __mutexMessage__: true,
+        ...message,
+      },
+      err => {
+        if (err) {
+          // TODO - not sure what to do, worker probably died
+        }
+      },
+    )
   }
 }

@@ -34,6 +34,9 @@ export class SharedMutex {
   protected static waitingMessagesHandlers: { resolve: (message: any) => void; hash: string }[] = []
   protected static attached: boolean = false
 
+  protected static masterVerified: boolean = false
+  protected static masterVerifiedTimeout = null
+
   protected static stackStorage = new AsyncLocalStorage<
     {
       key: string
@@ -144,6 +147,23 @@ export class SharedMutex {
   }
 
   /**
+   * Attach handlers
+   */
+  static attachHandler() {
+    if (!SharedMutex.attached) {
+      SharedMutex.attached = true
+      ;(cluster.isWorker ? process : SharedMutexSynchronizer.masterHandler.emitter).on('message', SharedMutex.handleMessage)
+    }
+  }
+
+  /**
+   * Initialize master handler
+   */
+  static initializeMaster() {
+    SharedMutexSynchronizer.initializeMaster()
+  }
+
+  /**
    * Send action to master
    * @param key
    * @param action
@@ -158,11 +178,16 @@ export class SharedMutex {
     }
 
     if (cluster.isWorker) {
+      // is master verified? if not, send verify message to master
+      SharedMutex.verifyMaster()
+
+      // send action
       process.send({
         ...message,
         workerId: cluster.worker?.id,
       })
     } else {
+      // SharedMutex.masterVerified = true
       SharedMutexSynchronizer.masterHandler.masterIncomingMessage({
         ...message,
         workerId: 'master',
@@ -171,25 +196,42 @@ export class SharedMutex {
   }
 
   /**
-   * Attach handlers
-   */
-  static attachHandler() {
-    if (!SharedMutex.attached) {
-      SharedMutex.attached = true
-      const eventHandler = cluster.isWorker ? process : SharedMutexSynchronizer.masterHandler.emitter
-      eventHandler.addListener('message', SharedMutex.handleMessage)
-    }
-  }
-
-  /**
    * Handle incomming IPC message
    */
   protected static handleMessage(message: any) {
-    if (message.__mutexMessage__ && message.hash) {
+    if (message.__mutexMessage__ && message.action === 'verify-complete') {
+      if (SharedMutex.masterVerifiedTimeout) {
+        clearTimeout(SharedMutex.masterVerifiedTimeout)
+        SharedMutex.masterVerifiedTimeout = null
+        SharedMutex.masterVerified = true
+      } else {
+        throw new Error('MUTEX_REDUNDANT_VERIFICATION')
+      }
+    } else if (message.__mutexMessage__ && message.hash) {
       const foundItem = SharedMutex.waitingMessagesHandlers.find(item => item.hash === message.hash)
       if (foundItem) {
         foundItem.resolve(message)
       }
+    }
+  }
+
+  /**
+   * Send verification to master, and wait until we receive success response
+   */
+  protected static verifyMaster() {
+    if (SharedMutex.masterVerified) {
+      return
+    }
+
+    if (SharedMutex.masterVerifiedTimeout === null) {
+      process.send({
+        __mutexMessage__: true,
+        workerId: cluster.worker?.id,
+        action: 'verify',
+      })
+      SharedMutex.masterVerifiedTimeout = setTimeout(() => {
+        throw new Error('MUTEX_MASTER_NOT_INITIALIZED')
+      }, 500)
     }
   }
 }

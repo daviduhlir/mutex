@@ -19,7 +19,8 @@ export declare class SharedMutexSynchronizer {
     protected static unlock(hash?: string): void;
     protected static mutexTickNext(): void;
     protected static continue(item: LocalLockItem): void;
-    protected static masterIncomingMessage(message: any): void;
-    protected static reattachMessageHandlers(): void;
+    protected static handleClusterMessage(worker: any, message: any): void;
+    protected static masterIncomingMessage(message: any, worker?: any): void;
     protected static workerUnlockForced(workerId: number): void;
+    protected static send(worker: any, message: any): void;
 }

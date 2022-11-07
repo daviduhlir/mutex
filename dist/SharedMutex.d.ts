@@ -20,6 +20,8 @@ export declare class SharedMutex {
         hash: string;
     }[];
     protected static attached: boolean;
+    protected static masterVerified: boolean;
+    protected static masterVerifiedTimeout: any;
     protected static stackStorage: AsyncLocalStorage<{
         key: string;
         singleAccess: boolean;
@@ -29,7 +31,9 @@ export declare class SharedMutex {
     static lockAccess<T>(key: LockKey, fnc: () => Promise<T>, singleAccess?: boolean, maxLockingTime?: number): Promise<T>;
     static lock(key: LockKey, config: LockConfiguration): Promise<SharedMutexUnlockHandler>;
     static unlock(key: LockKey, hash: string): void;
-    protected static sendAction(key: string, action: string, hash: string, data?: any): void;
     static attachHandler(): void;
+    static initializeMaster(): void;
+    protected static sendAction(key: string, action: string, hash: string, data?: any): void;
     protected static handleMessage(message: any): void;
+    protected static verifyMaster(): void;
 }

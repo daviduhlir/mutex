@@ -114,4 +114,30 @@ describe('testing nested locks', function() {
 
     expect(marker).to.equal('ABDCEF')
   })
+
+  it('nested lock - not awaited with keys', async function() {
+    let marker = ''
+    await SharedMutex.lockSingleAccess('root/index', async () => {
+      marker += 'A'
+
+      SharedMutex.lockSingleAccess('root/pokus', async () => {
+        marker += 'B'
+        await delay(100)
+        marker += 'C'
+      })
+
+      await delay(10)
+      marker += 'D'
+    })
+
+    await SharedMutex.lockSingleAccess('root/index', async () => {
+      marker += 'E'
+      await delay(10)
+      marker += 'F'
+    })
+
+    await delay(100)
+
+    expect(marker).to.equal('ABDEFC')
+  })
 })

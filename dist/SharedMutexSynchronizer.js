@@ -60,6 +60,9 @@ class SharedMutexSynchronizer {
         if (SharedMutexSynchronizer.secondarySynchronizer) {
             SharedMutexSynchronizer.secondarySynchronizer.lock(item);
         }
+        if (item.forceInstantContinue) {
+            SharedMutexSynchronizer.continue(item);
+        }
         SharedMutexSynchronizer.mutexTickNext();
     }
     static unlock(hash) {

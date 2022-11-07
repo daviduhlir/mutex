@@ -55,6 +55,7 @@ export function sanitizeLock(input: any): LocalLockItem {
     hash: input.hash,
     key: input.key,
     isRunning: !!input.isRunning,
+    forceInstantContinue: !!input.forceInstantContinue,
     ...(input.maxLockingTime ? { maxLockingTime: input.maxLockingTime } : {}),
     ...(input.timeout ? { timeout: input.timeout } : {}),
   }

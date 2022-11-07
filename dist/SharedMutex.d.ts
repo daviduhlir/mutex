@@ -11,6 +11,7 @@ export interface LockConfiguration {
     strictMode?: boolean;
     singleAccess?: boolean;
     maxLockingTime?: number;
+    forceInstantContinue?: boolean;
 }
 export declare class SharedMutex {
     static strictMode: boolean;

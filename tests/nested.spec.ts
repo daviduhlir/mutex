@@ -7,25 +7,37 @@ import { delay, RWSimulator } from './utils'
  */
 describe('testing nested locks', function() {
   it('nested locks - testing closure', async function() {
+    let marker = ''
+
     await SharedMutex.lockSingleAccess('root', async () => {
+      marker += 'A'
       await delay(10)
       await SharedMutex.lockSingleAccess('root', async () => {
+        marker += 'B'
         await delay(10)
+        marker += 'C'
       })
+      marker += 'D'
     })
+
+    expect(marker).to.equal('ABCD')
   })
 
   it('nested locks - testing closure #2', async function() {
     const rwSimulator = new RWSimulator()
-    let e
+
+    let e1: any = 'not called'
+    let e2: any = 'not called'
+
     setTimeout(() => {
       SharedMutex.lockSingleAccess('root', async () => {
         try {
           const handler = rwSimulator.write()
           await delay(10)
           handler.stop()
+          e1 = null
         } catch(error) {
-          e = error
+          e1 = error
         }
       })
     }, 50)
@@ -33,14 +45,17 @@ describe('testing nested locks', function() {
     await SharedMutex.lockSingleAccess('root', async () => {
       try {
         const handler = rwSimulator.write()
-        await delay(500)
+        await delay(100)
         handler.stop()
+        e2 = null
       } catch(error) {
-        e = error
+        e2 = error
       }
     })
 
-    assert(!e, 'Should ends without any error')
+    await delay(120)
+
+    assert(!e1 && !e2, 'Should ends without any error')
   })
 
 

@@ -9,6 +9,9 @@ export function flatten(arr: any[]) {
 }
 
 export function checkLocksResults(actions: string[]) {
+  if (actions.length === 0) {
+    throw new Error('No actions means, test fails')
+  }
   let refsSingle = 0
   let refMulti = 0
   for(let i = 0; i < actions.length; i++) {

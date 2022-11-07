@@ -14,13 +14,11 @@ describe('test simulators', function() {
           const handler = rwSimulator.read()
           await delay(10)
           handler.stop()
-          return true
         })(),
         (async () => {
           const handler = rwSimulator.write()
           await delay(10)
           handler.stop()
-          return true
         })(),
       ])
       assert(false, 'Should fails on lock error.')

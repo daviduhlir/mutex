@@ -1,4 +1,4 @@
-import { assert } from 'chai'
+import { assert, expect } from 'chai'
 import { SharedMutex } from '../dist'
 import { delay, RWSimulator } from './utils'
 
@@ -89,5 +89,29 @@ describe('testing nested locks', function() {
 
     assert(notFreezeMarker, 'root/test should be still accesible as it is nested of root a strict if off.')
 
+  })
+
+  it('nested lock - not awaited', async function() {
+    let marker = ''
+    await SharedMutex.lockSingleAccess('root', async () => {
+      marker += 'A'
+
+      SharedMutex.lockSingleAccess('root', async () => {
+        marker += 'B'
+        await delay(100)
+        marker += 'C'
+      })
+
+      await delay(10)
+      marker += 'D'
+    })
+
+    await SharedMutex.lockSingleAccess('root', async () => {
+      marker += 'E'
+      await delay(110)
+      marker += 'F'
+    })
+
+    expect(marker).to.equal('ABDCEF')
   })
 })

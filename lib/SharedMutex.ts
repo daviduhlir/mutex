@@ -22,6 +22,7 @@ export interface LockConfiguration {
   strictMode?: boolean
   singleAccess?: boolean
   maxLockingTime?: number
+  forceInstantContinue?: boolean
 }
 
 /**
@@ -88,7 +89,7 @@ export class SharedMutex {
     const shouldSkipLock = nestedInRelatedItems.length && !SharedMutex.strictMode
 
     // lock all sub keys
-    const m = !shouldSkipLock ? await SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode: SharedMutex.strictMode }) : null
+    const m = await SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode: SharedMutex.strictMode, forceInstantContinue: shouldSkipLock })
     let result
     try {
       result = await SharedMutex.stackStorage.run([...stack, myStackItem], fnc)
@@ -127,6 +128,7 @@ export class SharedMutex {
     SharedMutex.sendAction(lockKey, 'lock', hash, {
       maxLockingTime: config.maxLockingTime,
       singleAccess: config.singleAccess,
+      forceInstantContinue: config.forceInstantContinue,
     })
 
     await waiter

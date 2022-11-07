@@ -50,7 +50,7 @@ class SharedMutex {
                 throw new Error(`ERROR Found nested locks with same key (${myStackItem.key}), which will cause death end of your application, because one of stacked lock is marked as single access only.`);
             }
             const shouldSkipLock = nestedInRelatedItems.length && !SharedMutex.strictMode;
-            const m = !shouldSkipLock ? yield SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode: SharedMutex.strictMode }) : null;
+            const m = yield SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode: SharedMutex.strictMode, forceInstantContinue: shouldSkipLock });
             let result;
             try {
                 result = yield SharedMutex.stackStorage.run([...stack, myStackItem], fnc);
@@ -81,6 +81,7 @@ class SharedMutex {
             SharedMutex.sendAction(lockKey, 'lock', hash, {
                 maxLockingTime: config.maxLockingTime,
                 singleAccess: config.singleAccess,
+                forceInstantContinue: config.forceInstantContinue,
             });
             yield waiter;
             return new SharedMutexUnlockHandler(lockKey, hash);

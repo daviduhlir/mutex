@@ -136,6 +136,11 @@ export class SharedMutexSynchronizer {
       SharedMutexSynchronizer.secondarySynchronizer.lock(item)
     }
 
+    // continue, if item was forced to continue
+    if (item.forceInstantContinue) {
+      SharedMutexSynchronizer.continue(item)
+    }
+
     // next tick... unlock something, if waiting
     SharedMutexSynchronizer.mutexTickNext()
   }

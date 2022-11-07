@@ -18,6 +18,7 @@ const SharedMutexSynchronizer_1 = require("./SharedMutexSynchronizer");
 __exportStar(require("./SharedMutex"), exports);
 __exportStar(require("./SharedMutexDecorators"), exports);
 __exportStar(require("./SecondarySynchronizer"), exports);
+__exportStar(require("./SharedMutexSynchronizer"), exports);
 if (cluster_1.default.isMaster) {
     SharedMutexSynchronizer_1.SharedMutexSynchronizer.initializeMaster();
 }

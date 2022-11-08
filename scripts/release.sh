@@ -16,5 +16,5 @@ npm test
 npm version patch
 tag=$(git tag --points-at HEAD)
 git add --all
-# git push origin master --tags
-# npm publish --access public
+git push origin master --tags
+npm publish --access public

@@ -2,7 +2,7 @@ import cluster from './utils/cluster'
 import { keysRelatedMatch, parseLockKey, randomHash } from './utils/utils'
 import { SharedMutexSynchronizer } from './SharedMutexSynchronizer'
 import { LockKey } from './utils/interfaces'
-import { AsyncLocalStorage } from 'async_hooks'
+import AsyncLocalStorage from './utils/AsyncLocalStorage'
 import { ACTION, ERROR, MASTER_ID } from './utils/constants'
 import { MutexError } from './utils/MutexError'
 

@@ -1,6 +1,4 @@
-/// <reference types="node" />
 import { LockKey } from './utils/interfaces';
-import { AsyncLocalStorage } from 'async_hooks';
 export declare class SharedMutexUnlockHandler {
     readonly key: string;
     readonly hash: string;
@@ -22,7 +20,7 @@ export declare class SharedMutex {
     protected static attached: boolean;
     protected static masterVerified: boolean;
     protected static masterVerifiedTimeout: any;
-    protected static stackStorage: AsyncLocalStorage<{
+    protected static stackStorage: import("./utils/AsyncLocalStorage").AsyncLocalStorageMock<{
         key: string;
         singleAccess: boolean;
     }[]>;

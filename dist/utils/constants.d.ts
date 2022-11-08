@@ -11,3 +11,8 @@ export declare const ERROR: {
     MUTEX_LOCK_TIMEOUT: string;
     MUTEX_NESTED_SCOPES: string;
 };
+export declare const SYNC_EVENTS: {
+    LOCK: string;
+    UNLOCK: string;
+    CONTINUE: string;
+};

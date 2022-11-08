@@ -6,16 +6,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SharedMutexSynchronizer = void 0;
 const events_1 = require("events");
 const cluster_1 = __importDefault(require("./utils/cluster"));
-const SecondarySynchronizer_1 = require("./SecondarySynchronizer");
 const utils_1 = require("./utils/utils");
 const constants_1 = require("./utils/constants");
 const MutexError_1 = require("./utils/MutexError");
 class SharedMutexSynchronizer {
     static setSecondarySynchronizer(secondarySynchronizer) {
         SharedMutexSynchronizer.secondarySynchronizer = secondarySynchronizer;
-        SharedMutexSynchronizer.secondarySynchronizer.on(SecondarySynchronizer_1.SYNC_EVENTS.LOCK, SharedMutexSynchronizer.lock);
-        SharedMutexSynchronizer.secondarySynchronizer.on(SecondarySynchronizer_1.SYNC_EVENTS.UNLOCK, SharedMutexSynchronizer.unlock);
-        SharedMutexSynchronizer.secondarySynchronizer.on(SecondarySynchronizer_1.SYNC_EVENTS.CONTINUE, SharedMutexSynchronizer.continue);
+        SharedMutexSynchronizer.secondarySynchronizer.on(constants_1.SYNC_EVENTS.LOCK, SharedMutexSynchronizer.lock);
+        SharedMutexSynchronizer.secondarySynchronizer.on(constants_1.SYNC_EVENTS.UNLOCK, SharedMutexSynchronizer.unlock);
+        SharedMutexSynchronizer.secondarySynchronizer.on(constants_1.SYNC_EVENTS.CONTINUE, SharedMutexSynchronizer.continue);
     }
     static getLockInfo(hash) {
         const item = this.localLocksQueue.find(i => i.hash === hash);

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ERROR = exports.MASTER_ID = exports.ACTION = void 0;
+exports.SYNC_EVENTS = exports.ERROR = exports.MASTER_ID = exports.ACTION = void 0;
 exports.ACTION = {
     LOCK: 'lock',
     UNLOCK: 'unlock',
@@ -13,5 +13,10 @@ exports.ERROR = {
     MUTEX_REDUNDANT_VERIFICATION: 'MUTEX_REDUNDANT_VERIFICATION',
     MUTEX_LOCK_TIMEOUT: 'MUTEX_LOCK_TIMEOUT',
     MUTEX_NESTED_SCOPES: 'MUTEX_NESTED_SCOPES',
+};
+exports.SYNC_EVENTS = {
+    LOCK: 'LOCK',
+    UNLOCK: 'UNLOCK',
+    CONTINUE: 'CONTINUE',
 };
 //# sourceMappingURL=constants.js.map

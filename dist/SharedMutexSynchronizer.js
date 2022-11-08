@@ -8,6 +8,8 @@ const events_1 = require("events");
 const cluster_1 = __importDefault(require("./utils/cluster"));
 const SecondarySynchronizer_1 = require("./SecondarySynchronizer");
 const utils_1 = require("./utils/utils");
+const constants_1 = require("./utils/constants");
+const MutexError_1 = require("./utils/MutexError");
 class SharedMutexSynchronizer {
     static setSecondarySynchronizer(secondarySynchronizer) {
         SharedMutexSynchronizer.secondarySynchronizer = secondarySynchronizer;
@@ -125,15 +127,15 @@ class SharedMutexSynchronizer {
         if (!message.__mutexMessage__ || !message.action) {
             return;
         }
-        if (message.action === 'lock') {
+        if (message.action === constants_1.ACTION.LOCK) {
             SharedMutexSynchronizer.lock(utils_1.sanitizeLock(message));
         }
-        else if (message.action === 'unlock') {
+        else if (message.action === constants_1.ACTION.UNLOCK) {
             SharedMutexSynchronizer.unlock(message.hash);
         }
-        else if (message.action === 'verify') {
+        else if (message.action === constants_1.ACTION.VERIFY) {
             SharedMutexSynchronizer.send(worker, {
-                action: 'verify-complete',
+                action: constants_1.ACTION.VERIFY_COMPLETE,
             });
         }
     }
@@ -161,9 +163,9 @@ SharedMutexSynchronizer.timeoutHandler = (hash) => {
     if (!info) {
         return;
     }
-    console.error('MUTEX_LOCK_TIMEOUT', info);
-    if (info.workerId === 'master') {
-        throw new Error('MUTEX_LOCK_TIMEOUT');
+    console.error(constants_1.ERROR.MUTEX_LOCK_TIMEOUT, info);
+    if (info.workerId === constants_1.MASTER_ID) {
+        throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_LOCK_TIMEOUT);
     }
     else {
         process.kill((_b = (_a = cluster_1.default.workers) === null || _a === void 0 ? void 0 : _a[info.workerId]) === null || _b === void 0 ? void 0 : _b.process.pid, 9);

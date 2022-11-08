@@ -17,6 +17,8 @@ const cluster_1 = __importDefault(require("./utils/cluster"));
 const utils_1 = require("./utils/utils");
 const SharedMutexSynchronizer_1 = require("./SharedMutexSynchronizer");
 const async_hooks_1 = require("async_hooks");
+const constants_1 = require("./utils/constants");
+const MutexError_1 = require("./utils/MutexError");
 class SharedMutexUnlockHandler {
     constructor(key, hash) {
         this.key = key;
@@ -47,7 +49,7 @@ class SharedMutex {
             };
             const nestedInRelatedItems = stack.filter(i => utils_1.keysRelatedMatch(i.key, myStackItem.key));
             if (nestedInRelatedItems.length && SharedMutex.strictMode) {
-                throw new Error(`ERROR Found nested locks with same key (${myStackItem.key}), which will cause death end of your application, because one of stacked lock is marked as single access only.`);
+                throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_NESTED_SCOPES, `ERROR Found nested locks with same key (${myStackItem.key}), which will cause death end of your application, because one of stacked lock is marked as single access only.`);
             }
             const shouldSkipLock = nestedInRelatedItems.length && !SharedMutex.strictMode;
             const m = yield SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode: SharedMutex.strictMode, forceInstantContinue: shouldSkipLock });
@@ -78,7 +80,7 @@ class SharedMutex {
                 });
             });
             const lockKey = utils_1.parseLockKey(key);
-            SharedMutex.sendAction(lockKey, 'lock', hash, {
+            SharedMutex.sendAction(lockKey, constants_1.ACTION.LOCK, hash, {
                 maxLockingTime: config.maxLockingTime,
                 singleAccess: config.singleAccess,
                 forceInstantContinue: config.forceInstantContinue,
@@ -88,7 +90,7 @@ class SharedMutex {
         });
     }
     static unlock(key, hash) {
-        SharedMutex.sendAction(utils_1.parseLockKey(key), 'unlock', hash);
+        SharedMutex.sendAction(utils_1.parseLockKey(key), constants_1.ACTION.UNLOCK, hash);
     }
     static attachHandler() {
         if (!SharedMutex.attached) {
@@ -109,18 +111,18 @@ class SharedMutex {
             process.send(Object.assign(Object.assign({}, message), { workerId: (_a = cluster_1.default.worker) === null || _a === void 0 ? void 0 : _a.id }));
         }
         else {
-            SharedMutexSynchronizer_1.SharedMutexSynchronizer.masterHandler.masterIncomingMessage(Object.assign(Object.assign({}, message), { workerId: 'master' }));
+            SharedMutexSynchronizer_1.SharedMutexSynchronizer.masterHandler.masterIncomingMessage(Object.assign(Object.assign({}, message), { workerId: constants_1.MASTER_ID }));
         }
     }
     static handleMessage(message) {
-        if (message.__mutexMessage__ && message.action === 'verify-complete') {
+        if (message.__mutexMessage__ && message.action === constants_1.ACTION.VERIFY_COMPLETE) {
             if (SharedMutex.masterVerifiedTimeout) {
                 clearTimeout(SharedMutex.masterVerifiedTimeout);
                 SharedMutex.masterVerifiedTimeout = null;
                 SharedMutex.masterVerified = true;
             }
             else {
-                throw new Error('MUTEX_REDUNDANT_VERIFICATION');
+                throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_REDUNDANT_VERIFICATION);
             }
         }
         else if (message.__mutexMessage__ && message.hash) {
@@ -139,10 +141,10 @@ class SharedMutex {
             process.send({
                 __mutexMessage__: true,
                 workerId: (_a = cluster_1.default.worker) === null || _a === void 0 ? void 0 : _a.id,
-                action: 'verify',
+                action: constants_1.ACTION.VERIFY,
             });
             SharedMutex.masterVerifiedTimeout = setTimeout(() => {
-                throw new Error('MUTEX_MASTER_NOT_INITIALIZED');
+                throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_MASTER_NOT_INITIALIZED);
             }, 500);
         }
     }

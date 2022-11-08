@@ -3,6 +3,8 @@ import cluster from './utils/cluster'
 import { LocalLockItem, LockDescriptor } from './utils/interfaces'
 import { SecondarySynchronizer, SYNC_EVENTS } from './SecondarySynchronizer'
 import { keysRelatedMatch, sanitizeLock } from './utils/utils'
+import { ACTION, ERROR, MASTER_ID } from './utils/constants'
+import { MutexError } from './utils/MutexError'
 
 /**********************************
  *
@@ -50,9 +52,9 @@ export class SharedMutexSynchronizer {
       return // this lock is not exsists
     }
 
-    console.error('MUTEX_LOCK_TIMEOUT', info)
-    if (info.workerId === 'master') {
-      throw new Error('MUTEX_LOCK_TIMEOUT')
+    console.error(ERROR.MUTEX_LOCK_TIMEOUT, info)
+    if (info.workerId === MASTER_ID) {
+      throw new MutexError(ERROR.MUTEX_LOCK_TIMEOUT)
     } else {
       process.kill(cluster.workers?.[info.workerId]?.process.pid, 9)
     }
@@ -250,15 +252,15 @@ export class SharedMutexSynchronizer {
     }
 
     // lock
-    if (message.action === 'lock') {
+    if (message.action === ACTION.LOCK) {
       SharedMutexSynchronizer.lock(sanitizeLock(message))
       // unlock
-    } else if (message.action === 'unlock') {
+    } else if (message.action === ACTION.UNLOCK) {
       SharedMutexSynchronizer.unlock(message.hash)
       // verify master handler
-    } else if (message.action === 'verify') {
+    } else if (message.action === ACTION.VERIFY) {
       SharedMutexSynchronizer.send(worker, {
-        action: 'verify-complete',
+        action: ACTION.VERIFY_COMPLETE,
       })
     }
   }

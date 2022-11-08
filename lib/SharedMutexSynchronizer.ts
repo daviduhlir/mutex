@@ -1,9 +1,9 @@
 import { EventEmitter } from 'events'
 import cluster from './utils/cluster'
 import { LocalLockItem, LockDescriptor } from './utils/interfaces'
-import { SecondarySynchronizer, SYNC_EVENTS } from './SecondarySynchronizer'
+import { SecondarySynchronizer } from './SecondarySynchronizer'
 import { keysRelatedMatch, sanitizeLock } from './utils/utils'
-import { ACTION, ERROR, MASTER_ID } from './utils/constants'
+import { ACTION, ERROR, MASTER_ID, SYNC_EVENTS } from './utils/constants'
 import { MutexError } from './utils/MutexError'
 
 /**********************************

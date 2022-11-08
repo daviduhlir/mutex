@@ -3,6 +3,8 @@ import { keysRelatedMatch, parseLockKey, randomHash } from './utils/utils'
 import { SharedMutexSynchronizer } from './SharedMutexSynchronizer'
 import { LockKey } from './utils/interfaces'
 import { AsyncLocalStorage } from 'async_hooks'
+import { ACTION, ERROR, MASTER_ID } from './utils/constants'
+import { MutexError } from './utils/MutexError'
 
 /**
  * Unlock handler
@@ -83,7 +85,8 @@ export class SharedMutex {
        * Basicaly this kind of locks will cause you application will never continue,
        * because nested can continue after parent will be finished, which is not posible.
        */
-      throw new Error(
+      throw new MutexError(
+        ERROR.MUTEX_NESTED_SCOPES,
         `ERROR Found nested locks with same key (${myStackItem.key}), which will cause death end of your application, because one of stacked lock is marked as single access only.`,
       )
     }
@@ -128,7 +131,7 @@ export class SharedMutex {
     })
 
     const lockKey = parseLockKey(key)
-    SharedMutex.sendAction(lockKey, 'lock', hash, {
+    SharedMutex.sendAction(lockKey, ACTION.LOCK, hash, {
       maxLockingTime: config.maxLockingTime,
       singleAccess: config.singleAccess,
       forceInstantContinue: config.forceInstantContinue,
@@ -143,7 +146,7 @@ export class SharedMutex {
    * @param key
    */
   static unlock(key: LockKey, hash: string): void {
-    SharedMutex.sendAction(parseLockKey(key), 'unlock', hash)
+    SharedMutex.sendAction(parseLockKey(key), ACTION.UNLOCK, hash)
   }
 
   /**
@@ -190,7 +193,7 @@ export class SharedMutex {
       // SharedMutex.masterVerified = true
       SharedMutexSynchronizer.masterHandler.masterIncomingMessage({
         ...message,
-        workerId: 'master',
+        workerId: MASTER_ID,
       })
     }
   }
@@ -199,13 +202,13 @@ export class SharedMutex {
    * Handle incomming IPC message
    */
   protected static handleMessage(message: any) {
-    if (message.__mutexMessage__ && message.action === 'verify-complete') {
+    if (message.__mutexMessage__ && message.action === ACTION.VERIFY_COMPLETE) {
       if (SharedMutex.masterVerifiedTimeout) {
         clearTimeout(SharedMutex.masterVerifiedTimeout)
         SharedMutex.masterVerifiedTimeout = null
         SharedMutex.masterVerified = true
       } else {
-        throw new Error('MUTEX_REDUNDANT_VERIFICATION')
+        throw new MutexError(ERROR.MUTEX_REDUNDANT_VERIFICATION)
       }
     } else if (message.__mutexMessage__ && message.hash) {
       const foundItem = SharedMutex.waitingMessagesHandlers.find(item => item.hash === message.hash)
@@ -227,10 +230,10 @@ export class SharedMutex {
       process.send({
         __mutexMessage__: true,
         workerId: cluster.worker?.id,
-        action: 'verify',
+        action: ACTION.VERIFY,
       })
       SharedMutex.masterVerifiedTimeout = setTimeout(() => {
-        throw new Error('MUTEX_MASTER_NOT_INITIALIZED')
+        throw new MutexError(ERROR.MUTEX_MASTER_NOT_INITIALIZED)
       }, 500)
     }
   }

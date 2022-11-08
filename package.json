@@ -9,7 +9,7 @@
     "prettier-check": "prettier-check --config .prettierrc.json 'lib/**/*.ts'",
     "prettier-format": "prettier --config .prettierrc.json 'lib/**/*.ts' --write",
     "test": "npm run prettier-check && ts-mocha --timeout 10000 --type-check -p ./tsconfig.json tests/**/*.spec.ts",
-    "release": "./scripts/publish.sh"
+    "release": "./scripts/release.sh"
   },
   "repository": {
     "type": "git",

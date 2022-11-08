@@ -1,6 +1,6 @@
 {
   "name": "@david.uhlir/mutex",
-  "version": "1.1.10",
+  "version": "1.1.9",
   "description": "Mutex for node.js apllications",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -9,7 +9,7 @@
     "prettier-check": "prettier-check --config .prettierrc.json 'lib/**/*.ts'",
     "prettier-format": "prettier --config .prettierrc.json 'lib/**/*.ts' --write",
     "test": "npm run prettier-check && ts-mocha --timeout 10000 --type-check -p ./tsconfig.json tests/**/*.spec.ts",
-    "publish": "./scripts/publish.sh"
+    "release": "./scripts/publish.sh"
   },
   "repository": {
     "type": "git",

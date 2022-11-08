@@ -10,11 +10,11 @@ Key in locks are used to connect locks together, if you will use same key, it wi
 
 If you wan't to use it with workers in cluster, keep in mind this module needs to be imported to master process to initialize synchronizer. Best way how to do it is to call initialize in master like shown in this example:
 ```ts
-import { SharedMutexSynchronizer } from '@david.uhlir/mutex'
+import { SharedMutex } from '@david.uhlir/mutex'
 import * as cluster from 'cluster'
 
 if (cluster.isMaster) {
-    SharedMutexSynchronizer.initializeMaster()
+    SharedMutex.initializeMaster()
 }
 ```
 

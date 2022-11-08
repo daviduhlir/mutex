@@ -133,11 +133,6 @@ export class SharedMutexSynchronizer {
       SharedMutexSynchronizer.secondarySynchronizer.lock(item)
     }
 
-    // continue, if item was forced to continue
-    if (item.forceInstantContinue) {
-      SharedMutexSynchronizer.continue(item)
-    }
-
     // next tick... unlock something, if waiting
     SharedMutexSynchronizer.mutexTickNext()
   }
@@ -177,6 +172,12 @@ export class SharedMutexSynchronizer {
     // if we have secondary sync. and we are not arbitter
     if (SharedMutexSynchronizer.secondarySynchronizer && !SharedMutexSynchronizer.secondarySynchronizer?.isArbitter) {
       return
+    }
+
+    // continue, if item was forced to continue
+    const topItem = SharedMutexSynchronizer.localLocksQueue[SharedMutexSynchronizer.localLocksQueue.length - 1]
+    if (topItem?.forceInstantContinue) {
+      SharedMutexSynchronizer.continue(topItem)
     }
 
     const allKeys = SharedMutexSynchronizer.localLocksQueue.reduce((acc, i) => {

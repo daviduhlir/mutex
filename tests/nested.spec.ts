@@ -5,8 +5,8 @@ import { delay, RWSimulator } from './utils'
 /**
  * Locks with nested keys test
  */
-describe('testing nested locks', function() {
-  it('nested locks - testing closure', async function() {
+describe('Nested locks', function() {
+  it('Simple test #1', async function() {
     let marker = ''
 
     await SharedMutex.lockSingleAccess('root', async () => {
@@ -23,7 +23,7 @@ describe('testing nested locks', function() {
     expect(marker).to.equal('ABCD')
   })
 
-  it('nested locks - testing closure #2', async function() {
+  it('Simple test #2', async function() {
     const rwSimulator = new RWSimulator()
 
     let e1: any = 'not called'
@@ -60,7 +60,7 @@ describe('testing nested locks', function() {
 
 
 
-  it('nested lock - crash in strict', async function() {
+  it('Strict, test exception', async function() {
     SharedMutex.strictMode = true
     let error
     try {
@@ -84,7 +84,7 @@ describe('testing nested locks', function() {
   })
 
 
-  it('nested lock - non strict, continue allowed', async function() {
+  it('Non strict, continue allowed', async function() {
     SharedMutex.strictMode = false
 
     let notFreezeMarker = false
@@ -106,7 +106,7 @@ describe('testing nested locks', function() {
 
   })
 
-  it('nested lock - not awaited', async function() {
+  it('Keep locked after exit nested #1', async function() {
     let marker = ''
     await SharedMutex.lockSingleAccess('root', async () => {
       marker += 'A'
@@ -130,12 +130,12 @@ describe('testing nested locks', function() {
     expect(marker).to.equal('ABDCEF')
   })
 
-  it('nested lock - not awaited with keys', async function() {
+  it('Keep locked after exit nested #2 (with nested keys)', async function() {
     let marker = ''
     await SharedMutex.lockSingleAccess('root/index', async () => {
       marker += 'A'
 
-      SharedMutex.lockSingleAccess('root/pokus', async () => {
+      SharedMutex.lockSingleAccess('root/try', async () => {
         marker += 'B'
         await delay(100)
         marker += 'C'

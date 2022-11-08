@@ -59,9 +59,6 @@ class SharedMutexSynchronizer {
         if (SharedMutexSynchronizer.secondarySynchronizer) {
             SharedMutexSynchronizer.secondarySynchronizer.lock(item);
         }
-        if (item.forceInstantContinue) {
-            SharedMutexSynchronizer.continue(item);
-        }
         SharedMutexSynchronizer.mutexTickNext();
     }
     static unlock(hash) {
@@ -82,6 +79,10 @@ class SharedMutexSynchronizer {
         var _a;
         if (SharedMutexSynchronizer.secondarySynchronizer && !((_a = SharedMutexSynchronizer.secondarySynchronizer) === null || _a === void 0 ? void 0 : _a.isArbitter)) {
             return;
+        }
+        const topItem = SharedMutexSynchronizer.localLocksQueue[SharedMutexSynchronizer.localLocksQueue.length - 1];
+        if (topItem === null || topItem === void 0 ? void 0 : topItem.forceInstantContinue) {
+            SharedMutexSynchronizer.continue(topItem);
         }
         const allKeys = SharedMutexSynchronizer.localLocksQueue.reduce((acc, i) => {
             return [...acc, i.key].filter((value, ind, self) => self.indexOf(value) === ind);

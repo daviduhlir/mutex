@@ -5,8 +5,8 @@ import { checkLocksResults } from './utils'
 /**
  * Run node app to test cluster communication via IPC
  */
-describe('lock test in cluster', function() {
-  it('single locks', async function() {
+describe('Lock in cluster', function() {
+  it('Single access', async function() {
     const result: string[] = await new Promise((resolve, reject) => {
 
       const child = spawn('ts-node', ['./tests/complex/cluster.ts'])
@@ -30,7 +30,7 @@ describe('lock test in cluster', function() {
     }
   })
 
-  it('multi locks', async function() {
+  it('Multi access', async function() {
     const result: string[] = await new Promise((resolve, reject) => {
 
       const child = spawn('ts-node', ['./tests/complex/cluster-multi.ts'])
@@ -54,7 +54,7 @@ describe('lock test in cluster', function() {
     }
   })
 
-  it('initialization check', async function() {
+  it('Initialization check', async function() {
     try {
       const result: string[] = await new Promise((resolve, reject) => {
         const child = spawn('ts-node', ['./tests/complex/cluster-initialization-check.ts'])

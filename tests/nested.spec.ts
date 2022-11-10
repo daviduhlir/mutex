@@ -155,4 +155,33 @@ describe('Nested locks', function() {
 
     expect(marker).to.equal('ABDEFC')
   })
+
+
+  it('Lock for single access inside of multi access scope', async function() {
+    let marker = ''
+    await Promise.all([
+      SharedMutex.lockMultiAccess('root', async () => {
+        marker += 'A'
+
+        await delay(10)
+
+        await SharedMutex.lockSingleAccess('root', async () => {
+          marker += 'B'
+          await delay(10)
+          marker += 'C'
+        })
+
+        await delay(10)
+
+        marker += 'D'
+      }),
+      delay(15, () => SharedMutex.lockMultiAccess('root', async () => {
+        marker += 'E'
+        await delay(5)
+        marker += 'F'
+      }))
+    ])
+
+    expect(marker).to.equal('ABCEFD')
+  })
 })

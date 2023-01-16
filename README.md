@@ -101,7 +101,8 @@ It will writes you messages in this format `{STATE} {KEY} {message}`, where key 
 LOCK_TIMEOUT
 SCOPE_WAITING
 SCOPE_EXIT
-SCOPE_CONTINUE```
+SCOPE_CONTINUE
+```
 
 This is example of output of guard:
 

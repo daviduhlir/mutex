@@ -2,7 +2,14 @@
 import { EventEmitter } from 'events';
 import { LocalLockItem, LockDescriptor } from './utils/interfaces';
 import { SecondarySynchronizer } from './SecondarySynchronizer';
+export declare const DEBUG_INFO_REPORTS: {
+    LOCK_TIMEOUT: string;
+    SCOPE_WAITING: string;
+    SCOPE_EXIT: string;
+    SCOPE_CONTINUE: string;
+};
 export declare class SharedMutexSynchronizer {
+    static reportDebugInfo: (state: string, item: LocalLockItem) => void;
     protected static localLocksQueue: LocalLockItem[];
     protected static alreadyInitialized: boolean;
     protected static secondarySynchronizer: SecondarySynchronizer;
@@ -12,6 +19,7 @@ export declare class SharedMutexSynchronizer {
         emitter: EventEmitter;
     };
     static timeoutHandler: (hash: string) => void;
+    static defaultMaxLockingTime: number;
     static getLockInfo(hash: string): LockDescriptor;
     static resetLockTimeout(hash: string, newMaxLockingTime?: number): void;
     static initializeMaster(): void;

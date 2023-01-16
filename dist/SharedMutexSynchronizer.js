@@ -3,12 +3,18 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SharedMutexSynchronizer = void 0;
+exports.SharedMutexSynchronizer = exports.DEBUG_INFO_REPORTS = void 0;
 const events_1 = require("events");
 const cluster_1 = __importDefault(require("./utils/cluster"));
 const utils_1 = require("./utils/utils");
 const constants_1 = require("./utils/constants");
 const MutexError_1 = require("./utils/MutexError");
+exports.DEBUG_INFO_REPORTS = {
+    LOCK_TIMEOUT: 'LOCK_TIMEOUT',
+    SCOPE_WAITING: 'SCOPE_WAITING',
+    SCOPE_EXIT: 'SCOPE_EXIT',
+    SCOPE_CONTINUE: 'SCOPE_CONTINUE',
+};
 class SharedMutexSynchronizer {
     static setSecondarySynchronizer(secondarySynchronizer) {
         SharedMutexSynchronizer.secondarySynchronizer = secondarySynchronizer;
@@ -53,13 +59,15 @@ class SharedMutexSynchronizer {
         SharedMutexSynchronizer.alreadyInitialized = true;
     }
     static lock(item) {
-        SharedMutexSynchronizer.localLocksQueue.push(Object.assign({}, item));
-        if (item.maxLockingTime) {
-            item.timeout = setTimeout(() => SharedMutexSynchronizer.timeoutHandler(item.hash), item.maxLockingTime);
+        const nItem = Object.assign({}, item);
+        SharedMutexSynchronizer.localLocksQueue.push(nItem);
+        if (nItem.maxLockingTime) {
+            nItem.timeout = setTimeout(() => SharedMutexSynchronizer.timeoutHandler(nItem.hash), nItem.maxLockingTime === undefined ? SharedMutexSynchronizer.defaultMaxLockingTime : nItem.maxLockingTime);
         }
         if (SharedMutexSynchronizer.secondarySynchronizer) {
-            SharedMutexSynchronizer.secondarySynchronizer.lock(item);
+            SharedMutexSynchronizer.secondarySynchronizer.lock(nItem);
         }
+        SharedMutexSynchronizer.reportDebugInfo(exports.DEBUG_INFO_REPORTS.SCOPE_WAITING, nItem);
         SharedMutexSynchronizer.mutexTickNext();
     }
     static unlock(hash) {
@@ -70,6 +78,7 @@ class SharedMutexSynchronizer {
         if (f.timeout) {
             clearTimeout(f.timeout);
         }
+        SharedMutexSynchronizer.reportDebugInfo(exports.DEBUG_INFO_REPORTS.SCOPE_EXIT, f);
         SharedMutexSynchronizer.localLocksQueue = SharedMutexSynchronizer.localLocksQueue.filter(item => item.hash !== hash);
         if (SharedMutexSynchronizer.secondarySynchronizer) {
             SharedMutexSynchronizer.secondarySynchronizer.unlock(hash);
@@ -113,6 +122,7 @@ class SharedMutexSynchronizer {
             __mutexMessage__: true,
             hash: item.hash,
         };
+        SharedMutexSynchronizer.reportDebugInfo(exports.DEBUG_INFO_REPORTS.SCOPE_CONTINUE, item);
         SharedMutexSynchronizer.masterHandler.emitter.emit('message', message);
         Object.keys(cluster_1.default.workers).forEach(workerId => { var _a; return SharedMutexSynchronizer.send((_a = cluster_1.default.workers) === null || _a === void 0 ? void 0 : _a[workerId], message); });
         if (SharedMutexSynchronizer.secondarySynchronizer) {
@@ -149,6 +159,7 @@ class SharedMutexSynchronizer {
     }
 }
 exports.SharedMutexSynchronizer = SharedMutexSynchronizer;
+SharedMutexSynchronizer.reportDebugInfo = (state, item) => { };
 SharedMutexSynchronizer.localLocksQueue = [];
 SharedMutexSynchronizer.alreadyInitialized = false;
 SharedMutexSynchronizer.secondarySynchronizer = null;
@@ -162,6 +173,7 @@ SharedMutexSynchronizer.timeoutHandler = (hash) => {
     if (!info) {
         return;
     }
+    SharedMutexSynchronizer.reportDebugInfo(exports.DEBUG_INFO_REPORTS.LOCK_TIMEOUT, SharedMutexSynchronizer.localLocksQueue.find(i => i.hash === hash));
     console.error(constants_1.ERROR.MUTEX_LOCK_TIMEOUT, info);
     if (info.workerId === constants_1.MASTER_ID) {
         throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_LOCK_TIMEOUT);
@@ -170,4 +182,5 @@ SharedMutexSynchronizer.timeoutHandler = (hash) => {
         process.kill((_b = (_a = cluster_1.default.workers) === null || _a === void 0 ? void 0 : _a[info.workerId]) === null || _b === void 0 ? void 0 : _b.process.pid, 9);
     }
 };
+SharedMutexSynchronizer.defaultMaxLockingTime = undefined;
 //# sourceMappingURL=SharedMutexSynchronizer.js.map

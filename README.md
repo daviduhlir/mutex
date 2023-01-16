@@ -86,4 +86,31 @@ class Test {
 
 ```
 
+## Debugging
+
+This is experimental feature, but in case you want extra level of info, what's going on inside of scopes, you can use reportDebugInfo function on SharedMutexSynchronizer class. This method is callen when any of mutexes changing it's state. To better see, how mutexes entering scopes, you can use DebugGuard class, which will provides you all neccessary data pairing and will write it to console.
+
+To use this feature, just write this to begining of your code:
+
+```ts
+SharedMutexSynchronizer.reportDebugInfo = DebugGuard.reportDebugInfo
+```
+
+It will writes you messages in this format `{STATE} {KEY} {message}`, where key is exactly key of mutex, message if human readable representation of state and state is const, which defines state, where we are pushing mutex. This states can be:
+```
+LOCK_TIMEOUT
+SCOPE_WAITING
+SCOPE_EXIT
+SCOPE_CONTINUE```
+
+This is example of output of guard:
+
+```
+MUTEX_DEBUG mutex Entering scope
+MUTEX_DEBUG mutex/deep Waiting outside of scope. Posible blockers:  mutex
+MUTEX_DEBUG mutex Leaving scope
+MUTEX_DEBUG mutex/deep Continue into scope
+MUTEX_DEBUG mutex/deep Leaving scope
+```
+
 ISC

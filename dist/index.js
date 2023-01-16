@@ -19,6 +19,7 @@ __exportStar(require("./SharedMutex"), exports);
 __exportStar(require("./SharedMutexDecorators"), exports);
 __exportStar(require("./SecondarySynchronizer"), exports);
 __exportStar(require("./SharedMutexSynchronizer"), exports);
+__exportStar(require("./DebugGuard"), exports);
 if (cluster_1.default.isMaster) {
     SharedMutexSynchronizer_1.SharedMutexSynchronizer.initializeMaster();
 }

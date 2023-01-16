@@ -6,12 +6,24 @@ import { keysRelatedMatch, sanitizeLock } from './utils/utils'
 import { ACTION, ERROR, MASTER_ID, SYNC_EVENTS } from './utils/constants'
 import { MutexError } from './utils/MutexError'
 
+export const DEBUG_INFO_REPORTS = {
+  LOCK_TIMEOUT: 'LOCK_TIMEOUT',
+  SCOPE_WAITING: 'SCOPE_WAITING',
+  SCOPE_EXIT: 'SCOPE_EXIT',
+  SCOPE_CONTINUE: 'SCOPE_CONTINUE',
+}
+
 /**********************************
  *
  * cluster synchronizer
  *
  ***********************************/
 export class SharedMutexSynchronizer {
+  /**
+   * Report debug info, you can use console log inside to track, whats going on
+   */
+  static reportDebugInfo = (state: string, item: LocalLockItem) => {}
+
   // internal locks array
   protected static localLocksQueue: LocalLockItem[] = []
   protected static alreadyInitialized: boolean = false
@@ -49,8 +61,14 @@ export class SharedMutexSynchronizer {
   static timeoutHandler: (hash: string) => void = (hash: string) => {
     const info = SharedMutexSynchronizer.getLockInfo(hash)
     if (!info) {
-      return // this lock is not exsists
+      return // this lock does not exsists
     }
+
+    // debug info
+    SharedMutexSynchronizer.reportDebugInfo(
+      DEBUG_INFO_REPORTS.LOCK_TIMEOUT,
+      SharedMutexSynchronizer.localLocksQueue.find(i => i.hash === hash),
+    )
 
     console.error(ERROR.MUTEX_LOCK_TIMEOUT, info)
     if (info.workerId === MASTER_ID) {
@@ -59,6 +77,11 @@ export class SharedMutexSynchronizer {
       process.kill(cluster.workers?.[info.workerId]?.process.pid, 9)
     }
   }
+
+  /**
+   * Default locking time, which will be used for all locks, if it's undefined, it will keep it unset
+   */
+  static defaultMaxLockingTime: number = undefined
 
   /**
    * Get info about lock by hash
@@ -123,17 +146,24 @@ export class SharedMutexSynchronizer {
    */
   protected static lock(item: LocalLockItem) {
     // add it to locks
-    SharedMutexSynchronizer.localLocksQueue.push({ ...item })
+    const nItem = { ...item }
+    SharedMutexSynchronizer.localLocksQueue.push(nItem)
 
     // set timeout if provided
-    if (item.maxLockingTime) {
-      item.timeout = setTimeout(() => SharedMutexSynchronizer.timeoutHandler(item.hash), item.maxLockingTime)
+    if (nItem.maxLockingTime) {
+      nItem.timeout = setTimeout(
+        () => SharedMutexSynchronizer.timeoutHandler(nItem.hash),
+        nItem.maxLockingTime === undefined ? SharedMutexSynchronizer.defaultMaxLockingTime : nItem.maxLockingTime,
+      )
     }
 
     // send to secondary
     if (SharedMutexSynchronizer.secondarySynchronizer) {
-      SharedMutexSynchronizer.secondarySynchronizer.lock(item)
+      SharedMutexSynchronizer.secondarySynchronizer.lock(nItem)
     }
+
+    // debug info
+    SharedMutexSynchronizer.reportDebugInfo(DEBUG_INFO_REPORTS.SCOPE_WAITING, nItem)
 
     // next tick... unlock something, if waiting
     SharedMutexSynchronizer.mutexTickNext()
@@ -154,6 +184,9 @@ export class SharedMutexSynchronizer {
     if (f.timeout) {
       clearTimeout(f.timeout)
     }
+
+    // report debug info
+    SharedMutexSynchronizer.reportDebugInfo(DEBUG_INFO_REPORTS.SCOPE_EXIT, f)
 
     // remove from queue
     SharedMutexSynchronizer.localLocksQueue = SharedMutexSynchronizer.localLocksQueue.filter(item => item.hash !== hash)
@@ -224,6 +257,9 @@ export class SharedMutexSynchronizer {
       __mutexMessage__: true,
       hash: item.hash,
     }
+
+    // report debug info
+    SharedMutexSynchronizer.reportDebugInfo(DEBUG_INFO_REPORTS.SCOPE_CONTINUE, item)
 
     // emit it
     SharedMutexSynchronizer.masterHandler.emitter.emit('message', message)

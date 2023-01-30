@@ -6,6 +6,9 @@ class MutexError extends Error {
         super(key);
         this.key = key;
         this.message = message;
+        if (!this.message) {
+            this.message = this.key;
+        }
         const actualProto = new.target.prototype;
         if (Object.setPrototypeOf) {
             Object.setPrototypeOf(this, actualProto);

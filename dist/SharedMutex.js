@@ -122,7 +122,7 @@ class SharedMutex {
                 SharedMutex.masterVerified = true;
             }
             else {
-                throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_REDUNDANT_VERIFICATION);
+                throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_REDUNDANT_VERIFICATION, 'This is usualy caused by more than one instance of SharedMutex installed together.');
             }
         }
         else if (message.__mutexMessage__ && message.hash) {

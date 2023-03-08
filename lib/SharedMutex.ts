@@ -5,6 +5,7 @@ import { LockKey } from './utils/interfaces'
 import AsyncLocalStorage from './utils/AsyncLocalStorage'
 import { ACTION, ERROR, MASTER_ID } from './utils/constants'
 import { MutexError } from './utils/MutexError'
+import { Awaiter } from './utils/Awaiter'
 
 /**
  * Unlock handler
@@ -36,7 +37,7 @@ export class SharedMutex {
   protected static waitingMessagesHandlers: { resolve: (message: any) => void; hash: string }[] = []
   protected static attached: boolean = false
 
-  protected static masterVerified: boolean = false
+  protected static masterVerificationWaiter: Awaiter = new Awaiter()
   protected static masterVerifiedTimeout = null
 
   protected static stackStorage = new AsyncLocalStorage<
@@ -131,7 +132,7 @@ export class SharedMutex {
     })
 
     const lockKey = parseLockKey(key)
-    SharedMutex.sendAction(lockKey, ACTION.LOCK, hash, {
+    await SharedMutex.sendAction(lockKey, ACTION.LOCK, hash, {
       maxLockingTime: config.maxLockingTime,
       singleAccess: config.singleAccess,
       forceInstantContinue: config.forceInstantContinue,
@@ -171,7 +172,7 @@ export class SharedMutex {
    * @param key
    * @param action
    */
-  protected static sendAction(key: string, action: string, hash: string, data: any = null): void {
+  protected static async sendAction(key: string, action: string, hash: string, data: any = null): Promise<void> {
     const message = {
       __mutexMessage__: true,
       action,
@@ -182,7 +183,7 @@ export class SharedMutex {
 
     if (cluster.isWorker) {
       // is master verified? if not, send verify message to master
-      SharedMutex.verifyMaster()
+      await SharedMutex.verifyMaster()
 
       // send action
       process.send({
@@ -206,7 +207,7 @@ export class SharedMutex {
       if (SharedMutex.masterVerifiedTimeout) {
         clearTimeout(SharedMutex.masterVerifiedTimeout)
         SharedMutex.masterVerifiedTimeout = null
-        SharedMutex.masterVerified = true
+        SharedMutex.masterVerificationWaiter.resolve()
       } else {
         throw new MutexError(ERROR.MUTEX_REDUNDANT_VERIFICATION, 'This is usualy caused by more than one instance of SharedMutex installed together.')
       }
@@ -221,8 +222,8 @@ export class SharedMutex {
   /**
    * Send verification to master, and wait until we receive success response
    */
-  protected static verifyMaster() {
-    if (SharedMutex.masterVerified) {
+  protected static async verifyMaster() {
+    if (SharedMutex.masterVerificationWaiter.resolved) {
       return
     }
 
@@ -236,6 +237,8 @@ export class SharedMutex {
         throw new MutexError(ERROR.MUTEX_MASTER_NOT_INITIALIZED)
       }, 500)
     }
+
+    await SharedMutex.masterVerificationWaiter.wait()
   }
 }
 

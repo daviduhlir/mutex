@@ -19,6 +19,7 @@ const SharedMutexSynchronizer_1 = require("./SharedMutexSynchronizer");
 const AsyncLocalStorage_1 = __importDefault(require("./utils/AsyncLocalStorage"));
 const constants_1 = require("./utils/constants");
 const MutexError_1 = require("./utils/MutexError");
+const Awaiter_1 = require("./utils/Awaiter");
 class SharedMutexUnlockHandler {
     constructor(key, hash) {
         this.key = key;
@@ -80,7 +81,7 @@ class SharedMutex {
                 });
             });
             const lockKey = utils_1.parseLockKey(key);
-            SharedMutex.sendAction(lockKey, constants_1.ACTION.LOCK, hash, {
+            yield SharedMutex.sendAction(lockKey, constants_1.ACTION.LOCK, hash, {
                 maxLockingTime: config.maxLockingTime,
                 singleAccess: config.singleAccess,
                 forceInstantContinue: config.forceInstantContinue,
@@ -103,23 +104,25 @@ class SharedMutex {
     }
     static sendAction(key, action, hash, data = null) {
         var _a;
-        const message = Object.assign({ __mutexMessage__: true, action,
-            key,
-            hash }, data);
-        if (cluster_1.default.isWorker) {
-            SharedMutex.verifyMaster();
-            process.send(Object.assign(Object.assign({}, message), { workerId: (_a = cluster_1.default.worker) === null || _a === void 0 ? void 0 : _a.id }));
-        }
-        else {
-            SharedMutexSynchronizer_1.SharedMutexSynchronizer.masterHandler.masterIncomingMessage(Object.assign(Object.assign({}, message), { workerId: constants_1.MASTER_ID }));
-        }
+        return __awaiter(this, void 0, void 0, function* () {
+            const message = Object.assign({ __mutexMessage__: true, action,
+                key,
+                hash }, data);
+            if (cluster_1.default.isWorker) {
+                yield SharedMutex.verifyMaster();
+                process.send(Object.assign(Object.assign({}, message), { workerId: (_a = cluster_1.default.worker) === null || _a === void 0 ? void 0 : _a.id }));
+            }
+            else {
+                SharedMutexSynchronizer_1.SharedMutexSynchronizer.masterHandler.masterIncomingMessage(Object.assign(Object.assign({}, message), { workerId: constants_1.MASTER_ID }));
+            }
+        });
     }
     static handleMessage(message) {
         if (message.__mutexMessage__ && message.action === constants_1.ACTION.VERIFY_COMPLETE) {
             if (SharedMutex.masterVerifiedTimeout) {
                 clearTimeout(SharedMutex.masterVerifiedTimeout);
                 SharedMutex.masterVerifiedTimeout = null;
-                SharedMutex.masterVerified = true;
+                SharedMutex.masterVerificationWaiter.resolve();
             }
             else {
                 throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_REDUNDANT_VERIFICATION, 'This is usualy caused by more than one instance of SharedMutex installed together.');
@@ -134,26 +137,29 @@ class SharedMutex {
     }
     static verifyMaster() {
         var _a;
-        if (SharedMutex.masterVerified) {
-            return;
-        }
-        if (SharedMutex.masterVerifiedTimeout === null) {
-            process.send({
-                __mutexMessage__: true,
-                workerId: (_a = cluster_1.default.worker) === null || _a === void 0 ? void 0 : _a.id,
-                action: constants_1.ACTION.VERIFY,
-            });
-            SharedMutex.masterVerifiedTimeout = setTimeout(() => {
-                throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_MASTER_NOT_INITIALIZED);
-            }, 500);
-        }
+        return __awaiter(this, void 0, void 0, function* () {
+            if (SharedMutex.masterVerificationWaiter.resolved) {
+                return;
+            }
+            if (SharedMutex.masterVerifiedTimeout === null) {
+                process.send({
+                    __mutexMessage__: true,
+                    workerId: (_a = cluster_1.default.worker) === null || _a === void 0 ? void 0 : _a.id,
+                    action: constants_1.ACTION.VERIFY,
+                });
+                SharedMutex.masterVerifiedTimeout = setTimeout(() => {
+                    throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_MASTER_NOT_INITIALIZED);
+                }, 500);
+            }
+            yield SharedMutex.masterVerificationWaiter.wait();
+        });
     }
 }
 exports.SharedMutex = SharedMutex;
 SharedMutex.strictMode = false;
 SharedMutex.waitingMessagesHandlers = [];
 SharedMutex.attached = false;
-SharedMutex.masterVerified = false;
+SharedMutex.masterVerificationWaiter = new Awaiter_1.Awaiter();
 SharedMutex.masterVerifiedTimeout = null;
 SharedMutex.stackStorage = new AsyncLocalStorage_1.default();
 SharedMutex.attachHandler();

@@ -96,7 +96,7 @@ To use this feature, just write this to begining of your code:
 SharedMutexSynchronizer.reportDebugInfo = DebugGuard.reportDebugInfo
 ```
 
-It will writes you messages in this format `{STATE} {KEY} {message}`, where key is exactly key of mutex, message if human readable representation of state and state is const, which defines state, where we are pushing mutex. This states can be:
+It will writes you messages in this format `{STATE} {KEY} {message}`, where key is exactly key of mutex, message is human readable representation of state and state is constant, which defines state, where we are pushing mutex. This states can be:
 ```
 LOCK_TIMEOUT
 SCOPE_WAITING

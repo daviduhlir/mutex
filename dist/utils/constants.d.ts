@@ -5,6 +5,7 @@ export declare const ACTION: {
     VERIFY_COMPLETE: string;
 };
 export declare const MASTER_ID = "master";
+export declare const VERIFY_MASTER_MAX_TIMEOUT = 1000;
 export declare const ERROR: {
     MUTEX_MASTER_NOT_INITIALIZED: string;
     MUTEX_REDUNDANT_VERIFICATION: string;

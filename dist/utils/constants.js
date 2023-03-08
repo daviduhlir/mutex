@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SYNC_EVENTS = exports.ERROR = exports.MASTER_ID = exports.ACTION = void 0;
+exports.SYNC_EVENTS = exports.ERROR = exports.VERIFY_MASTER_MAX_TIMEOUT = exports.MASTER_ID = exports.ACTION = void 0;
 exports.ACTION = {
     LOCK: 'lock',
     UNLOCK: 'unlock',
@@ -8,6 +8,7 @@ exports.ACTION = {
     VERIFY_COMPLETE: 'verify-complete',
 };
 exports.MASTER_ID = 'master';
+exports.VERIFY_MASTER_MAX_TIMEOUT = 1000;
 exports.ERROR = {
     MUTEX_MASTER_NOT_INITIALIZED: 'MUTEX_MASTER_NOT_INITIALIZED',
     MUTEX_REDUNDANT_VERIFICATION: 'MUTEX_REDUNDANT_VERIFICATION',

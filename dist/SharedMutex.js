@@ -149,7 +149,7 @@ class SharedMutex {
                 });
                 SharedMutex.masterVerifiedTimeout = setTimeout(() => {
                     throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_MASTER_NOT_INITIALIZED);
-                }, 500);
+                }, constants_1.VERIFY_MASTER_MAX_TIMEOUT);
             }
             yield SharedMutex.masterVerificationWaiter.wait();
         });

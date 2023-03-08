@@ -3,7 +3,7 @@ import { keysRelatedMatch, parseLockKey, randomHash } from './utils/utils'
 import { SharedMutexSynchronizer } from './SharedMutexSynchronizer'
 import { LockKey } from './utils/interfaces'
 import AsyncLocalStorage from './utils/AsyncLocalStorage'
-import { ACTION, ERROR, MASTER_ID } from './utils/constants'
+import { ACTION, ERROR, MASTER_ID, VERIFY_MASTER_MAX_TIMEOUT } from './utils/constants'
 import { MutexError } from './utils/MutexError'
 import { Awaiter } from './utils/Awaiter'
 
@@ -235,7 +235,7 @@ export class SharedMutex {
       })
       SharedMutex.masterVerifiedTimeout = setTimeout(() => {
         throw new MutexError(ERROR.MUTEX_MASTER_NOT_INITIALIZED)
-      }, 500)
+      }, VERIFY_MASTER_MAX_TIMEOUT)
     }
 
     await SharedMutex.masterVerificationWaiter.wait()

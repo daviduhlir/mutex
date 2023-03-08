@@ -6,6 +6,8 @@ export const ACTION = {
 }
 
 export const MASTER_ID = 'master'
+// max time from fork bootup and verify master response
+export const VERIFY_MASTER_MAX_TIMEOUT = 1000
 
 export const ERROR = {
   MUTEX_MASTER_NOT_INITIALIZED: 'MUTEX_MASTER_NOT_INITIALIZED',

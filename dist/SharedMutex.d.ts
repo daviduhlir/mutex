@@ -1,4 +1,5 @@
 import { LockKey } from './utils/interfaces';
+import { Awaiter } from './utils/Awaiter';
 export declare class SharedMutexUnlockHandler {
     readonly key: string;
     readonly hash: string;
@@ -18,7 +19,7 @@ export declare class SharedMutex {
         hash: string;
     }[];
     protected static attached: boolean;
-    protected static masterVerified: boolean;
+    protected static masterVerificationWaiter: Awaiter;
     protected static masterVerifiedTimeout: any;
     protected static stackStorage: import("./utils/AsyncLocalStorage").AsyncLocalStorageMock<{
         key: string;
@@ -31,7 +32,7 @@ export declare class SharedMutex {
     static unlock(key: LockKey, hash: string): void;
     static attachHandler(): void;
     static initializeMaster(): void;
-    protected static sendAction(key: string, action: string, hash: string, data?: any): void;
+    protected static sendAction(key: string, action: string, hash: string, data?: any): Promise<void>;
     protected static handleMessage(message: any): void;
-    protected static verifyMaster(): void;
+    protected static verifyMaster(): Promise<void>;
 }

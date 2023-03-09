@@ -1,5 +1,5 @@
 import cluster from './utils/cluster'
-import { SharedMutexSynchronizer } from './SharedMutexSynchronizer'
+import { SharedMutex } from './SharedMutex'
 export * from './SharedMutex'
 export * from './SharedMutexDecorators'
 export * from './SecondarySynchronizer'
@@ -7,5 +7,5 @@ export * from './SharedMutexSynchronizer'
 export * from './DebugGuard'
 
 if (cluster.isMaster) {
-  SharedMutexSynchronizer.initializeMaster()
+  SharedMutex.initialize()
 }

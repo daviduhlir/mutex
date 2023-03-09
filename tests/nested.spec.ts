@@ -61,7 +61,7 @@ describe('Nested locks', function() {
 
 
   it('Strict, test exception', async function() {
-    SharedMutex.strictMode = true
+    SharedMutex.initialize({strictMode: true})
     let error
     try {
       await SharedMutex.lockMultiAccess('root', async () => {
@@ -80,12 +80,12 @@ describe('Nested locks', function() {
     }
 
     assert(!!error, 'Strict mode should reject this orchestration.')
-    SharedMutex.strictMode = false
+    SharedMutex.initialize({strictMode: false})
   })
 
 
   it('Non strict, continue allowed', async function() {
-    SharedMutex.strictMode = false
+    SharedMutex.initialize({strictMode: false})
 
     let notFreezeMarker = false
 

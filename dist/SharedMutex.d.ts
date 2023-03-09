@@ -1,5 +1,10 @@
 import { LockKey } from './utils/interfaces';
 import { Awaiter } from './utils/Awaiter';
+import { MutexCommLayer } from './utils/MutexCommLayer';
+export interface SharedMutexConfiguration {
+    strictMode: boolean;
+    defaultMaxLockingTime: number;
+}
 export declare class SharedMutexUnlockHandler {
     readonly key: string;
     readonly hash: string;
@@ -12,8 +17,9 @@ export interface LockConfiguration {
     maxLockingTime?: number;
     forceInstantContinue?: boolean;
 }
+export declare const defaultConfiguration: SharedMutexConfiguration;
 export declare class SharedMutex {
-    static strictMode: boolean;
+    protected static configuration: SharedMutexConfiguration;
     protected static waitingMessagesHandlers: {
         resolve: (message: any) => void;
         hash: string;
@@ -21,6 +27,7 @@ export declare class SharedMutex {
     protected static attached: boolean;
     protected static masterVerificationWaiter: Awaiter;
     protected static masterVerifiedTimeout: any;
+    protected static comm: MutexCommLayer;
     protected static stackStorage: import("./utils/AsyncLocalStorage").AsyncLocalStorageMock<{
         key: string;
         singleAccess: boolean;
@@ -31,7 +38,7 @@ export declare class SharedMutex {
     static lock(key: LockKey, config: LockConfiguration): Promise<SharedMutexUnlockHandler>;
     static unlock(key: LockKey, hash: string): void;
     static attachHandler(): void;
-    static initializeMaster(): void;
+    static initialize(configuration?: Partial<SharedMutexConfiguration>): void;
     protected static sendAction(key: string, action: string, hash: string, data?: any): Promise<void>;
     protected static handleMessage(message: any): void;
     protected static verifyMaster(): Promise<void>;

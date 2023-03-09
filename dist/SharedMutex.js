@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SharedMutex = exports.SharedMutexUnlockHandler = void 0;
+exports.SharedMutex = exports.defaultConfiguration = exports.SharedMutexUnlockHandler = void 0;
 const cluster_1 = __importDefault(require("./utils/cluster"));
 const utils_1 = require("./utils/utils");
 const SharedMutexSynchronizer_1 = require("./SharedMutexSynchronizer");
@@ -21,6 +21,7 @@ const constants_1 = require("./utils/constants");
 const MutexError_1 = require("./utils/MutexError");
 const Awaiter_1 = require("./utils/Awaiter");
 const version_1 = __importDefault(require("./utils/version"));
+const MutexCommLayer_1 = require("./utils/MutexCommLayer");
 class SharedMutexUnlockHandler {
     constructor(key, hash) {
         this.key = key;
@@ -31,6 +32,10 @@ class SharedMutexUnlockHandler {
     }
 }
 exports.SharedMutexUnlockHandler = SharedMutexUnlockHandler;
+exports.defaultConfiguration = {
+    strictMode: false,
+    defaultMaxLockingTime: undefined,
+};
 class SharedMutex {
     static lockSingleAccess(key, fnc, maxLockingTime) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -50,11 +55,16 @@ class SharedMutex {
                 singleAccess,
             };
             const nestedInRelatedItems = stack.filter(i => utils_1.keysRelatedMatch(i.key, myStackItem.key));
-            if (nestedInRelatedItems.length && SharedMutex.strictMode) {
+            if (nestedInRelatedItems.length && SharedMutex.configuration.strictMode) {
                 throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_NESTED_SCOPES, `ERROR Found nested locks with same key (${myStackItem.key}), which will cause death end of your application, because one of stacked lock is marked as single access only.`);
             }
-            const shouldSkipLock = nestedInRelatedItems.length && !SharedMutex.strictMode;
-            const m = yield SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode: SharedMutex.strictMode, forceInstantContinue: shouldSkipLock });
+            const shouldSkipLock = nestedInRelatedItems.length && !SharedMutex.configuration.strictMode;
+            const m = yield SharedMutex.lock(key, {
+                singleAccess,
+                maxLockingTime: maxLockingTime === undefined ? SharedMutex.configuration.defaultMaxLockingTime : maxLockingTime,
+                strictMode: SharedMutex.configuration.strictMode,
+                forceInstantContinue: shouldSkipLock,
+            });
             let result;
             try {
                 result = yield SharedMutex.stackStorage.run([...stack, myStackItem], fnc);
@@ -74,7 +84,7 @@ class SharedMutex {
                 SharedMutex.waitingMessagesHandlers.push({
                     hash,
                     resolve: message => {
-                        if (message.__mutexMessage__ && message.hash === hash) {
+                        if (message.hash === hash) {
                             SharedMutex.waitingMessagesHandlers = SharedMutex.waitingMessagesHandlers.filter(i => i.hash !== hash);
                             resolve(null);
                         }
@@ -100,26 +110,32 @@ class SharedMutex {
             (cluster_1.default.isWorker ? process : SharedMutexSynchronizer_1.SharedMutexSynchronizer.masterHandler.emitter).on('message', SharedMutex.handleMessage);
         }
     }
-    static initializeMaster() {
+    static initialize(configuration) {
+        if (configuration) {
+            SharedMutex.configuration = Object.assign(Object.assign({}, exports.defaultConfiguration), configuration);
+        }
         SharedMutexSynchronizer_1.SharedMutexSynchronizer.initializeMaster();
     }
     static sendAction(key, action, hash, data = null) {
         var _a;
         return __awaiter(this, void 0, void 0, function* () {
-            const message = Object.assign({ __mutexMessage__: true, action,
+            const message = Object.assign({ action,
                 key,
                 hash }, data);
             if (cluster_1.default.isWorker) {
                 yield SharedMutex.verifyMaster();
-                process.send(Object.assign(Object.assign({}, message), { workerId: (_a = cluster_1.default.worker) === null || _a === void 0 ? void 0 : _a.id }));
+                SharedMutex.comm.processSend(message);
             }
             else {
+                if (!((_a = SharedMutexSynchronizer_1.SharedMutexSynchronizer.masterHandler) === null || _a === void 0 ? void 0 : _a.masterIncomingMessage)) {
+                    throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_MASTER_NOT_INITIALIZED, 'Master process does not have initialized mutex synchronizer. Usualy by missed call of SharedMutex.initialize() in master process.');
+                }
                 SharedMutexSynchronizer_1.SharedMutexSynchronizer.masterHandler.masterIncomingMessage(Object.assign(Object.assign({}, message), { workerId: constants_1.MASTER_ID }));
             }
         });
     }
     static handleMessage(message) {
-        if (message.__mutexMessage__ && message.action === constants_1.ACTION.VERIFY_COMPLETE) {
+        if (message.action === constants_1.ACTION.VERIFY_COMPLETE) {
             if (SharedMutex.masterVerifiedTimeout) {
                 clearTimeout(SharedMutex.masterVerifiedTimeout);
                 SharedMutex.masterVerifiedTimeout = null;
@@ -132,7 +148,7 @@ class SharedMutex {
                 throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_REDUNDANT_VERIFICATION, 'This is usualy caused by more than one instance of SharedMutex installed together.');
             }
         }
-        else if (message.__mutexMessage__ && message.hash) {
+        else if (message.hash) {
             const foundItem = SharedMutex.waitingMessagesHandlers.find(item => item.hash === message.hash);
             if (foundItem) {
                 foundItem.resolve(message);
@@ -140,19 +156,17 @@ class SharedMutex {
         }
     }
     static verifyMaster() {
-        var _a;
         return __awaiter(this, void 0, void 0, function* () {
             if (SharedMutex.masterVerificationWaiter.resolved) {
                 return;
             }
             if (SharedMutex.masterVerifiedTimeout === null) {
-                process.send({
-                    __mutexMessage__: true,
-                    workerId: (_a = cluster_1.default.worker) === null || _a === void 0 ? void 0 : _a.id,
+                SharedMutex.comm.processSend({
                     action: constants_1.ACTION.VERIFY,
+                    usingCustomConfig: SharedMutex.configuration !== exports.defaultConfiguration,
                 });
                 SharedMutex.masterVerifiedTimeout = setTimeout(() => {
-                    throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_MASTER_NOT_INITIALIZED);
+                    throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_MASTER_NOT_INITIALIZED, 'Master process does not have initialized mutex synchronizer. Usualy by missed call of SharedMutex.initialize() in master process.');
                 }, constants_1.VERIFY_MASTER_MAX_TIMEOUT);
             }
             yield SharedMutex.masterVerificationWaiter.wait();
@@ -160,11 +174,12 @@ class SharedMutex {
     }
 }
 exports.SharedMutex = SharedMutex;
-SharedMutex.strictMode = false;
+SharedMutex.configuration = exports.defaultConfiguration;
 SharedMutex.waitingMessagesHandlers = [];
 SharedMutex.attached = false;
 SharedMutex.masterVerificationWaiter = new Awaiter_1.Awaiter();
 SharedMutex.masterVerifiedTimeout = null;
+SharedMutex.comm = new MutexCommLayer_1.MutexCommLayer();
 SharedMutex.stackStorage = new AsyncLocalStorage_1.default();
 SharedMutex.attachHandler();
 //# sourceMappingURL=SharedMutex.js.map

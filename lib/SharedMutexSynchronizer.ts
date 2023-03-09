@@ -7,6 +7,7 @@ import { ACTION, ERROR, MASTER_ID, SYNC_EVENTS } from './utils/constants'
 import { MutexError } from './utils/MutexError'
 import { MutexGlobalStorage } from './utils/MutexGlobalStorage'
 import version from './utils/version'
+import { MutexCommLayer } from './utils/MutexCommLayer'
 
 export const DEBUG_INFO_REPORTS = {
   LOCK_TIMEOUT: 'LOCK_TIMEOUT',
@@ -31,6 +32,9 @@ export class SharedMutexSynchronizer {
 
   // configuration checked
   protected static usingCustomConfiguration: boolean
+
+  // communication
+  protected static comm: MutexCommLayer = new MutexCommLayer()
 
   /**
    * Setup secondary synchronizer - prepared for mesh
@@ -82,11 +86,6 @@ export class SharedMutexSynchronizer {
   }
 
   /**
-   * Default locking time, which will be used for all locks, if it's undefined, it will keep it unset
-   */
-  static defaultMaxLockingTime: number = undefined
-
-  /**
    * Get info about lock by hash
    * @param hash
    * @returns
@@ -134,7 +133,7 @@ export class SharedMutexSynchronizer {
     // if we are using clusters at all
     if (cluster && typeof cluster.on === 'function') {
       // TODO listen it on some layer
-      cluster.on('message', SharedMutexSynchronizer.handleClusterMessage)
+      SharedMutexSynchronizer.comm.onClusterMessage(SharedMutexSynchronizer.handleClusterMessage)
 
       cluster.on('exit', worker => SharedMutexSynchronizer.workerUnlockForced(worker.id))
     }
@@ -156,10 +155,7 @@ export class SharedMutexSynchronizer {
 
     // set timeout if provided
     if (nItem.maxLockingTime) {
-      nItem.timeout = setTimeout(
-        () => SharedMutexSynchronizer.timeoutHandler(nItem.hash),
-        nItem.maxLockingTime === undefined ? SharedMutexSynchronizer.defaultMaxLockingTime : nItem.maxLockingTime,
-      )
+      nItem.timeout = setTimeout(() => SharedMutexSynchronizer.timeoutHandler(nItem.hash), nItem.maxLockingTime)
     }
 
     // send to secondary
@@ -259,7 +255,6 @@ export class SharedMutexSynchronizer {
     item.isRunning = true
 
     const message = {
-      __mutexMessage__: true,
       hash: item.hash,
     }
 
@@ -288,7 +283,7 @@ export class SharedMutexSynchronizer {
    * @param message
    */
   protected static masterIncomingMessage(message: any, worker?: any) {
-    if (!(message as any).__mutexMessage__ || !message.action) {
+    if (!message.action) {
       return
     }
 
@@ -300,13 +295,15 @@ export class SharedMutexSynchronizer {
       SharedMutexSynchronizer.unlock(message.hash)
       // verify master handler
     } else if (message.action === ACTION.VERIFY) {
-
       // check if somebody overrided default config
       if (typeof SharedMutexSynchronizer.usingCustomConfiguration === 'undefined') {
         SharedMutexSynchronizer.usingCustomConfiguration = message.usingCustomConfig
       } else if (SharedMutexSynchronizer.usingCustomConfiguration !== message.usingCustomConfig) {
         // and if somebody changed it and somebody not, it should crash with it
-        throw new MutexError(ERROR.MUTEX_CUSTOM_CONFIGURATION, 'This is usualy caused by setting custom configuration by calling initialize({...}) only in some of forks, on only in master. You need to call it everywhere with same (*or compatible) config.')
+        throw new MutexError(
+          ERROR.MUTEX_CUSTOM_CONFIGURATION,
+          'This is usualy caused by setting custom configuration by calling initialize({...}) only in some of forks, on only in master. You need to call it everywhere with same (*or compatible) config.',
+        )
       }
 
       SharedMutexSynchronizer.send(worker, {
@@ -330,17 +327,6 @@ export class SharedMutexSynchronizer {
    * Send message to worker
    */
   protected static send(worker: any, message: any) {
-    // TODO send it to layer!
-    worker.send(
-      {
-        __mutexMessage__: true,
-        ...message,
-      },
-      err => {
-        if (err) {
-          // TODO - not sure what to do, worker probably died
-        }
-      },
-    )
+    SharedMutexSynchronizer.comm.workerSend(worker, message)
   }
 }

@@ -7,9 +7,17 @@ import { ACTION, ERROR, MASTER_ID, VERIFY_MASTER_MAX_TIMEOUT } from './utils/con
 import { MutexError } from './utils/MutexError'
 import { Awaiter } from './utils/Awaiter'
 import version from './utils/version'
+import { MutexCommLayer } from './utils/MutexCommLayer'
 
 export interface SharedMutexConfiguration {
+  /**
+   * Strict mode, how to deal with nested locks
+   */
   strictMode: boolean
+  /**
+   * Default locking time, which will be used for all locks, if it's undefined, it will keep it unset
+   */
+  defaultMaxLockingTime: number
 }
 
 /**
@@ -35,6 +43,7 @@ export interface LockConfiguration {
 
 export const defaultConfiguration: SharedMutexConfiguration = {
   strictMode: false,
+  defaultMaxLockingTime: undefined,
 }
 
 /**
@@ -42,12 +51,19 @@ export const defaultConfiguration: SharedMutexConfiguration = {
  * that will be unlocked in another fork.
  */
 export class SharedMutex {
+  // configuration
   protected static configuration: SharedMutexConfiguration = defaultConfiguration
   protected static waitingMessagesHandlers: { resolve: (message: any) => void; hash: string }[] = []
+
+  // is attached
   protected static attached: boolean = false
 
+  // master verify
   protected static masterVerificationWaiter: Awaiter = new Awaiter()
   protected static masterVerifiedTimeout = null
+
+  // communication
+  protected static comm: MutexCommLayer = new MutexCommLayer()
 
   protected static stackStorage = new AsyncLocalStorage<
     {
@@ -105,7 +121,12 @@ export class SharedMutex {
     const shouldSkipLock = nestedInRelatedItems.length && !SharedMutex.configuration.strictMode
 
     // lock all sub keys
-    const m = await SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode: SharedMutex.configuration.strictMode, forceInstantContinue: shouldSkipLock })
+    const m = await SharedMutex.lock(key, {
+      singleAccess,
+      maxLockingTime: maxLockingTime === undefined ? SharedMutex.configuration.defaultMaxLockingTime : maxLockingTime,
+      strictMode: SharedMutex.configuration.strictMode,
+      forceInstantContinue: shouldSkipLock,
+    })
     let result
     try {
       result = await SharedMutex.stackStorage.run([...stack, myStackItem], fnc)
@@ -132,7 +153,7 @@ export class SharedMutex {
       SharedMutex.waitingMessagesHandlers.push({
         hash,
         resolve: message => {
-          if (message.__mutexMessage__ && message.hash === hash) {
+          if (message.hash === hash) {
             SharedMutex.waitingMessagesHandlers = SharedMutex.waitingMessagesHandlers.filter(i => i.hash !== hash)
             resolve(null)
           }
@@ -173,10 +194,12 @@ export class SharedMutex {
   /**
    * Initialize master handler
    */
-  static initialize(configuration: Partial<SharedMutexConfiguration> = {}) {
-    SharedMutex.configuration = {
-      ...defaultConfiguration,
-      ...configuration,
+  static initialize(configuration?: Partial<SharedMutexConfiguration>) {
+    if (configuration) {
+      SharedMutex.configuration = {
+        ...defaultConfiguration,
+        ...configuration,
+      }
     }
     SharedMutexSynchronizer.initializeMaster()
   }
@@ -188,7 +211,6 @@ export class SharedMutex {
    */
   protected static async sendAction(key: string, action: string, hash: string, data: any = null): Promise<void> {
     const message = {
-      __mutexMessage__: true,
       action,
       key,
       hash,
@@ -200,12 +222,15 @@ export class SharedMutex {
       await SharedMutex.verifyMaster()
 
       // send action
-      // TODO send it to some layer
-      process.send({
-        ...message,
-        workerId: cluster.worker?.id,
-      })
+      SharedMutex.comm.processSend(message)
     } else {
+      if (!SharedMutexSynchronizer.masterHandler?.masterIncomingMessage) {
+        throw new MutexError(
+          ERROR.MUTEX_MASTER_NOT_INITIALIZED,
+          'Master process does not have initialized mutex synchronizer. Usualy by missed call of SharedMutex.initialize() in master process.',
+        )
+      }
+
       SharedMutexSynchronizer.masterHandler.masterIncomingMessage({
         ...message,
         workerId: MASTER_ID,
@@ -217,7 +242,7 @@ export class SharedMutex {
    * Handle incomming IPC message
    */
   protected static handleMessage(message: any) {
-    if (message.__mutexMessage__ && message.action === ACTION.VERIFY_COMPLETE) {
+    if (message.action === ACTION.VERIFY_COMPLETE) {
       if (SharedMutex.masterVerifiedTimeout) {
         clearTimeout(SharedMutex.masterVerifiedTimeout)
         SharedMutex.masterVerifiedTimeout = null
@@ -234,7 +259,7 @@ export class SharedMutex {
       } else {
         throw new MutexError(ERROR.MUTEX_REDUNDANT_VERIFICATION, 'This is usualy caused by more than one instance of SharedMutex installed together.')
       }
-    } else if (message.__mutexMessage__ && message.hash) {
+    } else if (message.hash) {
       const foundItem = SharedMutex.waitingMessagesHandlers.find(item => item.hash === message.hash)
       if (foundItem) {
         foundItem.resolve(message)
@@ -251,20 +276,24 @@ export class SharedMutex {
     }
 
     if (SharedMutex.masterVerifiedTimeout === null) {
-      // TODO send it to some layer
-      process.send({
-        __mutexMessage__: true,
-        workerId: cluster.worker?.id,
+      SharedMutex.comm.processSend({
         action: ACTION.VERIFY,
         usingCustomConfig: SharedMutex.configuration !== defaultConfiguration,
       })
       SharedMutex.masterVerifiedTimeout = setTimeout(() => {
-        throw new MutexError(ERROR.MUTEX_MASTER_NOT_INITIALIZED)
+        throw new MutexError(
+          ERROR.MUTEX_MASTER_NOT_INITIALIZED,
+          'Master process does not have initialized mutex synchronizer. Usualy by missed call of SharedMutex.initialize() in master process.',
+        )
       }, VERIFY_MASTER_MAX_TIMEOUT)
     }
 
     await SharedMutex.masterVerificationWaiter.wait()
   }
+
+  /**
+   * Get configuration
+   */
 }
 
 SharedMutex.attachHandler()

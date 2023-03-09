@@ -3,20 +3,13 @@ import cluster from './utils/cluster'
 import { LocalLockItem, LockDescriptor, SharedMutexConfiguration } from './utils/interfaces'
 import { SecondarySynchronizer } from './SecondarySynchronizer'
 import { keysRelatedMatch, sanitizeLock } from './utils/utils'
-import { ACTION, ERROR, MASTER_ID, SYNC_EVENTS } from './utils/constants'
+import { ACTION, DEBUG_INFO_REPORTS, ERROR, MASTER_ID, SYNC_EVENTS } from './utils/constants'
 import { MutexError } from './utils/MutexError'
 import { MutexGlobalStorage } from './utils/MutexGlobalStorage'
 import version from './utils/version'
 import { MutexCommLayer } from './comm/MutexCommLayer'
 import { IPCMutexCommLayer } from './comm/IPCMutexCommLayer'
 import { Awaiter } from './utils/Awaiter'
-
-export const DEBUG_INFO_REPORTS = {
-  LOCK_TIMEOUT: 'LOCK_TIMEOUT',
-  SCOPE_WAITING: 'SCOPE_WAITING',
-  SCOPE_EXIT: 'SCOPE_EXIT',
-  SCOPE_CONTINUE: 'SCOPE_CONTINUE',
-}
 
 /**********************************
  *

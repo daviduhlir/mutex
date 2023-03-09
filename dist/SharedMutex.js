@@ -119,11 +119,14 @@ class SharedMutex {
         if (configuration) {
             SharedMutex.configuration = Object.assign(Object.assign({}, exports.defaultConfiguration), configuration);
         }
-        if (!SharedMutex.configuration.communicationLayer) {
+        if (typeof SharedMutex.configuration.communicationLayer === 'undefined') {
             SharedMutex.comm = new IPCMutexCommLayer_1.IPCMutexCommLayer();
         }
         else {
             SharedMutex.comm = SharedMutex.configuration.communicationLayer;
+        }
+        if (!SharedMutex.comm) {
+            return;
         }
         SharedMutex.attachHandler();
         SharedMutexSynchronizer_1.SharedMutexSynchronizer.initializeMaster(SharedMutex.configuration);

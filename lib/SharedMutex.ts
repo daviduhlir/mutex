@@ -213,10 +213,15 @@ export class SharedMutex {
     }
 
     // setup comm layer
-    if (!SharedMutex.configuration.communicationLayer) {
+    if (typeof SharedMutex.configuration.communicationLayer === 'undefined') {
       SharedMutex.comm = new IPCMutexCommLayer()
     } else {
       SharedMutex.comm = SharedMutex.configuration.communicationLayer
+    }
+
+    // comm is not prepared and is not set yet... wait for next init call
+    if (!SharedMutex.comm) {
+      return
     }
 
     // attach handlers

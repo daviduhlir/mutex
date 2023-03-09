@@ -39,6 +39,10 @@ interface SharedMutexConfiguration {
    * Default locking time, which will be used for all locks, if it's undefined, it will keep it unset
    */
   defaultMaxLockingTime: number
+  /**
+   * Communication layer
+   */
+  communicationLayer?: MutexCommLayer
 }
 ```
 

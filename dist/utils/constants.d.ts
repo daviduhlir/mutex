@@ -19,3 +19,9 @@ export declare const SYNC_EVENTS: {
     UNLOCK: string;
     CONTINUE: string;
 };
+export declare const DEBUG_INFO_REPORTS: {
+    LOCK_TIMEOUT: string;
+    SCOPE_WAITING: string;
+    SCOPE_EXIT: string;
+    SCOPE_CONTINUE: string;
+};

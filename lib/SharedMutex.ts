@@ -1,14 +1,13 @@
 import cluster from './utils/cluster'
 import { keysRelatedMatch, parseLockKey, randomHash } from './utils/utils'
-import { SharedMutexSynchronizer } from './SharedMutexSynchronizer'
+import { SharedMutexSynchronizer } from './components/SharedMutexSynchronizer'
 import { LockKey, SharedMutexConfiguration } from './utils/interfaces'
-import AsyncLocalStorage from './utils/AsyncLocalStorage'
+import AsyncLocalStorage from './components/AsyncLocalStorage'
 import { ACTION, ERROR, MASTER_ID, VERIFY_MASTER_MAX_TIMEOUT } from './utils/constants'
 import { MutexError } from './utils/MutexError'
 import { Awaiter } from './utils/Awaiter'
 import version from './utils/version'
-import { MutexCommLayer } from './comm/MutexCommLayer'
-import { IPCMutexCommLayer } from './comm/IPCMutexCommLayer'
+import { SharedMutexConfigManager } from './components/SharedMutexConfigManager'
 
 /**
  * Unlock handler
@@ -31,20 +30,14 @@ export interface LockConfiguration {
   forceInstantContinue?: boolean
 }
 
-export const defaultConfiguration: SharedMutexConfiguration = {
-  strictMode: false,
-  defaultMaxLockingTime: undefined,
-}
-
 /**
  * Shared mutex class can lock some worker and wait for key,
  * that will be unlocked in another fork.
  */
 export class SharedMutex {
   /**
-   * configuration
+   * Waiting handlers
    */
-  protected static configuration: SharedMutexConfiguration = defaultConfiguration
   protected static waitingMessagesHandlers: { resolve: (message: any) => void; hash: string }[] = []
 
   /**
@@ -57,16 +50,6 @@ export class SharedMutex {
    */
   protected static masterVerificationWaiter: Awaiter = new Awaiter()
   protected static masterVerifiedTimeout = null
-
-  /**
-   * communication
-   */
-  protected static comm: MutexCommLayer
-
-  /**
-   * initialization
-   */
-  protected static initAwaiter: Awaiter = new Awaiter()
 
   /**
    * storage of data for nested keys
@@ -111,7 +94,9 @@ export class SharedMutex {
 
     const nestedInRelatedItems = stack.filter(i => keysRelatedMatch(i.key, myStackItem.key))
 
-    if (nestedInRelatedItems.length && SharedMutex.configuration.strictMode) {
+    const strictMode = (await SharedMutexConfigManager.getConfiguration()).strictMode
+
+    if (nestedInRelatedItems.length && strictMode) {
       /*
        * Nested mutexes are not allowed, because in javascript it's complicated to tract scope, where it was locked.
        * Basicaly this kind of locks will cause you application will never continue,
@@ -124,13 +109,13 @@ export class SharedMutex {
     }
 
     // override lock for nested related locks in non strict mode
-    const shouldSkipLock = nestedInRelatedItems.length && !SharedMutex.configuration.strictMode
+    const shouldSkipLock = nestedInRelatedItems.length && !strictMode
 
     // lock all sub keys
     const m = await SharedMutex.lock(key, {
       singleAccess,
-      maxLockingTime: maxLockingTime === undefined ? SharedMutex.configuration.defaultMaxLockingTime : maxLockingTime,
-      strictMode: SharedMutex.configuration.strictMode,
+      maxLockingTime: maxLockingTime === undefined ? (await SharedMutexConfigManager.getConfiguration()).defaultMaxLockingTime : maxLockingTime,
+      strictMode,
       forceInstantContinue: shouldSkipLock,
     })
     let result
@@ -189,12 +174,12 @@ export class SharedMutex {
   /**
    * Attach handlers
    */
-  static attachHandler() {
+  static async attachHandler() {
     if (!SharedMutex.attached) {
       SharedMutex.attached = true
       // TODO listen it on some handler
       if (cluster.isWorker) {
-        SharedMutex.comm.onProcessMessage(SharedMutex.handleMessage)
+        ;(await SharedMutexConfigManager.getComm()).onProcessMessage(SharedMutex.handleMessage)
       } else {
         SharedMutexSynchronizer.masterHandler.emitter.on('message', SharedMutex.handleMessage)
       }
@@ -204,34 +189,17 @@ export class SharedMutex {
   /**
    * Initialize master handler
    */
-  static initialize(configuration?: Partial<SharedMutexConfiguration>) {
-    if (configuration) {
-      SharedMutex.configuration = {
-        ...defaultConfiguration,
-        ...configuration,
-      }
-    }
-
-    // setup comm layer
-    if (typeof SharedMutex.configuration.communicationLayer === 'undefined') {
-      SharedMutex.comm = new IPCMutexCommLayer()
-    } else {
-      SharedMutex.comm = SharedMutex.configuration.communicationLayer
-    }
-
+  static async initialize(configuration?: Partial<SharedMutexConfiguration>) {
     // comm is not prepared and is not set yet... wait for next init call
-    if (!SharedMutex.comm) {
+    if (!(await SharedMutexConfigManager.initialize(configuration))) {
       return
     }
 
     // attach handlers
-    SharedMutex.attachHandler()
+    await SharedMutex.attachHandler()
 
     // initialize synchronizer
-    SharedMutexSynchronizer.initializeMaster(SharedMutex.configuration)
-
-    // init complete
-    SharedMutex.initAwaiter.resolve()
+    await SharedMutexSynchronizer.initializeMaster()
   }
 
   /**
@@ -251,11 +219,8 @@ export class SharedMutex {
       // is master verified? if not, send verify message to master
       await SharedMutex.verifyMaster()
 
-      // wait for initialize
-      await SharedMutex.initAwaiter.wait()
-
       // send action
-      SharedMutex.comm.processSend(message)
+      ;(await SharedMutexConfigManager.getComm()).processSend(message)
     } else {
       if (!SharedMutexSynchronizer.masterHandler?.masterIncomingMessage) {
         throw new MutexError(
@@ -309,13 +274,10 @@ export class SharedMutex {
     }
 
     if (SharedMutex.masterVerifiedTimeout === null) {
-      // wait for initialize
-      await SharedMutex.initAwaiter.wait()
-
       // send verify ask
-      SharedMutex.comm.processSend({
+      ;(await SharedMutexConfigManager.getComm()).processSend({
         action: ACTION.VERIFY,
-        usingCustomConfig: SharedMutex.configuration !== defaultConfiguration,
+        usingCustomConfig: await SharedMutexConfigManager.getUsingDefaultConfig(),
       })
 
       // timeout for wait to init

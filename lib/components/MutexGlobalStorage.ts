@@ -1,4 +1,4 @@
-import { LocalLockItem } from './interfaces'
+import { LocalLockItem } from '../utils/interfaces'
 
 const LOCAL_LOCKS_QUEUE_PROPERTY = '__sharedMutex_localLocksQueue__'
 const ALREADY_INITIALIZED_PROPERTY = '__sharedMutex_initialized__'

@@ -1,4 +1,4 @@
-import { MutexCommLayer } from '../comm/MutexCommLayer'
+import { MutexCommLayer } from '../components/comm/MutexCommLayer'
 
 /**
  * Configuration

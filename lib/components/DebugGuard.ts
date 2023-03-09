@@ -1,6 +1,6 @@
-import { DEBUG_INFO_REPORTS } from './utils/constants'
-import { LocalLockItem } from './utils/interfaces'
-import { keysRelatedMatch } from './utils/utils'
+import { DEBUG_INFO_REPORTS } from '../utils/constants'
+import { LocalLockItem } from '../utils/interfaces'
+import { keysRelatedMatch } from '../utils/utils'
 
 const LOG_PREFIX = `MUTEX_DEBUG`
 

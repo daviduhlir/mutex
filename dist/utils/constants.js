@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SYNC_EVENTS = exports.ERROR = exports.VERIFY_MASTER_MAX_TIMEOUT = exports.MASTER_ID = exports.ACTION = void 0;
+exports.DEBUG_INFO_REPORTS = exports.SYNC_EVENTS = exports.ERROR = exports.VERIFY_MASTER_MAX_TIMEOUT = exports.MASTER_ID = exports.ACTION = void 0;
 exports.ACTION = {
     LOCK: 'lock',
     UNLOCK: 'unlock',
@@ -21,5 +21,11 @@ exports.SYNC_EVENTS = {
     LOCK: 'LOCK',
     UNLOCK: 'UNLOCK',
     CONTINUE: 'CONTINUE',
+};
+exports.DEBUG_INFO_REPORTS = {
+    LOCK_TIMEOUT: 'LOCK_TIMEOUT',
+    SCOPE_WAITING: 'SCOPE_WAITING',
+    SCOPE_EXIT: 'SCOPE_EXIT',
+    SCOPE_CONTINUE: 'SCOPE_CONTINUE',
 };
 //# sourceMappingURL=constants.js.map

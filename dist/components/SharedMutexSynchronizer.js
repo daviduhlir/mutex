@@ -12,22 +12,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SharedMutexSynchronizer = exports.DEBUG_INFO_REPORTS = void 0;
+exports.SharedMutexSynchronizer = void 0;
 const events_1 = require("events");
-const cluster_1 = __importDefault(require("./utils/cluster"));
-const utils_1 = require("./utils/utils");
-const constants_1 = require("./utils/constants");
-const MutexError_1 = require("./utils/MutexError");
-const MutexGlobalStorage_1 = require("./utils/MutexGlobalStorage");
-const version_1 = __importDefault(require("./utils/version"));
-const IPCMutexCommLayer_1 = require("./comm/IPCMutexCommLayer");
-const Awaiter_1 = require("./utils/Awaiter");
-exports.DEBUG_INFO_REPORTS = {
-    LOCK_TIMEOUT: 'LOCK_TIMEOUT',
-    SCOPE_WAITING: 'SCOPE_WAITING',
-    SCOPE_EXIT: 'SCOPE_EXIT',
-    SCOPE_CONTINUE: 'SCOPE_CONTINUE',
-};
+const cluster_1 = __importDefault(require("../utils/cluster"));
+const utils_1 = require("../utils/utils");
+const constants_1 = require("../utils/constants");
+const MutexError_1 = require("../utils/MutexError");
+const MutexGlobalStorage_1 = require("./MutexGlobalStorage");
+const version_1 = __importDefault(require("../utils/version"));
+const SharedMutexConfigManager_1 = require("./SharedMutexConfigManager");
 class SharedMutexSynchronizer {
     static setSecondarySynchronizer(secondarySynchronizer) {
         SharedMutexSynchronizer.secondarySynchronizer = secondarySynchronizer;
@@ -60,24 +53,19 @@ class SharedMutexSynchronizer {
             }
         }
     }
-    static initializeMaster(configuration) {
-        SharedMutexSynchronizer.configuration = configuration;
-        if (!SharedMutexSynchronizer.configuration.communicationLayer) {
-            SharedMutexSynchronizer.comm = new IPCMutexCommLayer_1.IPCMutexCommLayer();
-        }
-        else {
-            SharedMutexSynchronizer.comm = SharedMutexSynchronizer.configuration.communicationLayer;
-        }
-        if (MutexGlobalStorage_1.MutexGlobalStorage.getInitialized() || !cluster_1.default.isMaster) {
-            return;
-        }
-        if (cluster_1.default && typeof cluster_1.default.on === 'function') {
-            SharedMutexSynchronizer.comm.onClusterMessage(SharedMutexSynchronizer.handleClusterMessage);
-            cluster_1.default.on('exit', worker => SharedMutexSynchronizer.workerUnlockForced(worker.id));
-        }
-        SharedMutexSynchronizer.masterHandler.masterIncomingMessage = SharedMutexSynchronizer.masterIncomingMessage;
-        MutexGlobalStorage_1.MutexGlobalStorage.setInitialized();
-        SharedMutexSynchronizer.initAwaiter.resolve();
+    static initializeMaster() {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (MutexGlobalStorage_1.MutexGlobalStorage.getInitialized() || !cluster_1.default.isMaster) {
+                return;
+            }
+            MutexGlobalStorage_1.MutexGlobalStorage.setInitialized();
+            if (cluster_1.default && typeof cluster_1.default.on === 'function') {
+                ;
+                (yield SharedMutexConfigManager_1.SharedMutexConfigManager.getComm()).onClusterMessage(SharedMutexSynchronizer.handleClusterMessage);
+                cluster_1.default.on('exit', worker => SharedMutexSynchronizer.workerUnlockForced(worker.id));
+            }
+            SharedMutexSynchronizer.masterHandler.masterIncomingMessage = SharedMutexSynchronizer.masterIncomingMessage;
+        });
     }
     static lock(item) {
         const nItem = Object.assign({}, item);
@@ -88,7 +76,7 @@ class SharedMutexSynchronizer {
         if (SharedMutexSynchronizer.secondarySynchronizer) {
             SharedMutexSynchronizer.secondarySynchronizer.lock(nItem);
         }
-        SharedMutexSynchronizer.reportDebugInfo(exports.DEBUG_INFO_REPORTS.SCOPE_WAITING, nItem);
+        SharedMutexSynchronizer.reportDebugInfo(constants_1.DEBUG_INFO_REPORTS.SCOPE_WAITING, nItem);
         SharedMutexSynchronizer.mutexTickNext();
     }
     static unlock(hash) {
@@ -99,7 +87,7 @@ class SharedMutexSynchronizer {
         if (f.timeout) {
             clearTimeout(f.timeout);
         }
-        SharedMutexSynchronizer.reportDebugInfo(exports.DEBUG_INFO_REPORTS.SCOPE_EXIT, f);
+        SharedMutexSynchronizer.reportDebugInfo(constants_1.DEBUG_INFO_REPORTS.SCOPE_EXIT, f);
         MutexGlobalStorage_1.MutexGlobalStorage.setLocalLocksQueue(MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue().filter(item => item.hash !== hash));
         if (SharedMutexSynchronizer.secondarySynchronizer) {
             SharedMutexSynchronizer.secondarySynchronizer.unlock(hash);
@@ -142,7 +130,7 @@ class SharedMutexSynchronizer {
         const message = {
             hash: item.hash,
         };
-        SharedMutexSynchronizer.reportDebugInfo(exports.DEBUG_INFO_REPORTS.SCOPE_CONTINUE, item);
+        SharedMutexSynchronizer.reportDebugInfo(constants_1.DEBUG_INFO_REPORTS.SCOPE_CONTINUE, item);
         SharedMutexSynchronizer.masterHandler.emitter.emit('message', message);
         Object.keys(cluster_1.default.workers).forEach(workerId => { var _a; return SharedMutexSynchronizer.send((_a = cluster_1.default.workers) === null || _a === void 0 ? void 0 : _a[workerId], message); });
         if (SharedMutexSynchronizer.secondarySynchronizer) {
@@ -182,15 +170,14 @@ class SharedMutexSynchronizer {
     }
     static send(worker, message) {
         return __awaiter(this, void 0, void 0, function* () {
-            yield SharedMutexSynchronizer.initAwaiter.wait();
-            SharedMutexSynchronizer.comm.workerSend(worker, message);
+            ;
+            (yield SharedMutexConfigManager_1.SharedMutexConfigManager.getComm()).workerSend(worker, message);
         });
     }
 }
 exports.SharedMutexSynchronizer = SharedMutexSynchronizer;
 SharedMutexSynchronizer.reportDebugInfo = (state, item) => { };
 SharedMutexSynchronizer.secondarySynchronizer = null;
-SharedMutexSynchronizer.initAwaiter = new Awaiter_1.Awaiter();
 SharedMutexSynchronizer.masterHandler = {
     masterIncomingMessage: null,
     emitter: new events_1.EventEmitter(),
@@ -201,7 +188,7 @@ SharedMutexSynchronizer.timeoutHandler = (hash) => {
     if (!info) {
         return;
     }
-    SharedMutexSynchronizer.reportDebugInfo(exports.DEBUG_INFO_REPORTS.LOCK_TIMEOUT, MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === hash));
+    SharedMutexSynchronizer.reportDebugInfo(constants_1.DEBUG_INFO_REPORTS.LOCK_TIMEOUT, MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === hash));
     console.error(constants_1.ERROR.MUTEX_LOCK_TIMEOUT, info);
     if (info.workerId === constants_1.MASTER_ID) {
         throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_LOCK_TIMEOUT);

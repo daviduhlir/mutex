@@ -12,11 +12,11 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const SharedMutex_1 = require("./SharedMutex");
 __exportStar(require("./SharedMutex"), exports);
-__exportStar(require("./SharedMutexDecorators"), exports);
-__exportStar(require("./SecondarySynchronizer"), exports);
-__exportStar(require("./SharedMutexSynchronizer"), exports);
-__exportStar(require("./DebugGuard"), exports);
-__exportStar(require("./comm/MutexCommLayer"), exports);
+__exportStar(require("./components/SharedMutexDecorators"), exports);
+__exportStar(require("./components/SecondarySynchronizer"), exports);
+__exportStar(require("./components/SharedMutexSynchronizer"), exports);
+__exportStar(require("./components/DebugGuard"), exports);
+__exportStar(require("./components/comm/MutexCommLayer"), exports);
 __exportStar(require("./utils/interfaces"), exports);
 SharedMutex_1.SharedMutex.initialize();
 //# sourceMappingURL=index.js.map

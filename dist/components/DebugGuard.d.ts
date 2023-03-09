@@ -1,4 +1,4 @@
-import { LocalLockItem } from './utils/interfaces';
+import { LocalLockItem } from '../utils/interfaces';
 export interface StateInfo {
     opened: boolean;
     key: string;

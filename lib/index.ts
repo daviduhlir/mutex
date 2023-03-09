@@ -1,11 +1,11 @@
 import cluster from './utils/cluster'
 import { SharedMutex } from './SharedMutex'
 export * from './SharedMutex'
-export * from './SharedMutexDecorators'
-export * from './SecondarySynchronizer'
-export * from './SharedMutexSynchronizer'
-export * from './DebugGuard'
-export * from './comm/MutexCommLayer'
+export * from './components/SharedMutexDecorators'
+export * from './components/SecondarySynchronizer'
+export * from './components/SharedMutexSynchronizer'
+export * from './components/DebugGuard'
+export * from './components/comm/MutexCommLayer'
 export * from './utils/interfaces'
 
 SharedMutex.initialize()

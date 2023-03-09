@@ -10,8 +10,6 @@ export declare const DEBUG_INFO_REPORTS: {
 };
 export declare class SharedMutexSynchronizer {
     static reportDebugInfo: (state: string, item: LocalLockItem) => void;
-    protected static localLocksQueue: LocalLockItem[];
-    protected static alreadyInitialized: boolean;
     protected static secondarySynchronizer: SecondarySynchronizer;
     static setSecondarySynchronizer(secondarySynchronizer: SecondarySynchronizer): void;
     static readonly masterHandler: {

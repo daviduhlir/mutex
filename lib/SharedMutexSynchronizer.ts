@@ -29,6 +29,9 @@ export class SharedMutexSynchronizer {
   // secondary arbitter
   protected static secondarySynchronizer: SecondarySynchronizer = null
 
+  // configuration checked
+  protected static usingCustomConfiguration: boolean
+
   /**
    * Setup secondary synchronizer - prepared for mesh
    */
@@ -130,7 +133,9 @@ export class SharedMutexSynchronizer {
 
     // if we are using clusters at all
     if (cluster && typeof cluster.on === 'function') {
+      // TODO listen it on some layer
       cluster.on('message', SharedMutexSynchronizer.handleClusterMessage)
+
       cluster.on('exit', worker => SharedMutexSynchronizer.workerUnlockForced(worker.id))
     }
 
@@ -295,6 +300,15 @@ export class SharedMutexSynchronizer {
       SharedMutexSynchronizer.unlock(message.hash)
       // verify master handler
     } else if (message.action === ACTION.VERIFY) {
+
+      // check if somebody overrided default config
+      if (typeof SharedMutexSynchronizer.usingCustomConfiguration === 'undefined') {
+        SharedMutexSynchronizer.usingCustomConfiguration = message.usingCustomConfig
+      } else if (SharedMutexSynchronizer.usingCustomConfiguration !== message.usingCustomConfig) {
+        // and if somebody changed it and somebody not, it should crash with it
+        throw new MutexError(ERROR.MUTEX_CUSTOM_CONFIGURATION, 'This is usualy caused by setting custom configuration by calling initialize({...}) only in some of forks, on only in master. You need to call it everywhere with same (*or compatible) config.')
+      }
+
       SharedMutexSynchronizer.send(worker, {
         action: ACTION.VERIFY_COMPLETE,
         version,
@@ -316,6 +330,7 @@ export class SharedMutexSynchronizer {
    * Send message to worker
    */
   protected static send(worker: any, message: any) {
+    // TODO send it to layer!
     worker.send(
       {
         __mutexMessage__: true,

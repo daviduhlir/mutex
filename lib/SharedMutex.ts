@@ -8,6 +8,10 @@ import { MutexError } from './utils/MutexError'
 import { Awaiter } from './utils/Awaiter'
 import version from './utils/version'
 
+export interface SharedMutexConfiguration {
+  strictMode: boolean
+}
+
 /**
  * Unlock handler
  */
@@ -29,12 +33,16 @@ export interface LockConfiguration {
   forceInstantContinue?: boolean
 }
 
+export const defaultConfiguration: SharedMutexConfiguration = {
+  strictMode: false,
+}
+
 /**
  * Shared mutex class can lock some worker and wait for key,
  * that will be unlocked in another fork.
  */
 export class SharedMutex {
-  static strictMode = false
+  protected static configuration: SharedMutexConfiguration = defaultConfiguration
   protected static waitingMessagesHandlers: { resolve: (message: any) => void; hash: string }[] = []
   protected static attached: boolean = false
 
@@ -81,7 +89,7 @@ export class SharedMutex {
 
     const nestedInRelatedItems = stack.filter(i => keysRelatedMatch(i.key, myStackItem.key))
 
-    if (nestedInRelatedItems.length && SharedMutex.strictMode) {
+    if (nestedInRelatedItems.length && SharedMutex.configuration.strictMode) {
       /*
        * Nested mutexes are not allowed, because in javascript it's complicated to tract scope, where it was locked.
        * Basicaly this kind of locks will cause you application will never continue,
@@ -94,10 +102,10 @@ export class SharedMutex {
     }
 
     // override lock for nested related locks in non strict mode
-    const shouldSkipLock = nestedInRelatedItems.length && !SharedMutex.strictMode
+    const shouldSkipLock = nestedInRelatedItems.length && !SharedMutex.configuration.strictMode
 
     // lock all sub keys
-    const m = await SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode: SharedMutex.strictMode, forceInstantContinue: shouldSkipLock })
+    const m = await SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode: SharedMutex.configuration.strictMode, forceInstantContinue: shouldSkipLock })
     let result
     try {
       result = await SharedMutex.stackStorage.run([...stack, myStackItem], fnc)
@@ -157,6 +165,7 @@ export class SharedMutex {
   static attachHandler() {
     if (!SharedMutex.attached) {
       SharedMutex.attached = true
+      // TODO listen it on some handler
       ;(cluster.isWorker ? process : SharedMutexSynchronizer.masterHandler.emitter).on('message', SharedMutex.handleMessage)
     }
   }
@@ -164,7 +173,11 @@ export class SharedMutex {
   /**
    * Initialize master handler
    */
-  static initializeMaster() {
+  static initialize(configuration: Partial<SharedMutexConfiguration> = {}) {
+    SharedMutex.configuration = {
+      ...defaultConfiguration,
+      ...configuration,
+    }
     SharedMutexSynchronizer.initializeMaster()
   }
 
@@ -187,12 +200,12 @@ export class SharedMutex {
       await SharedMutex.verifyMaster()
 
       // send action
+      // TODO send it to some layer
       process.send({
         ...message,
         workerId: cluster.worker?.id,
       })
     } else {
-      // SharedMutex.masterVerified = true
       SharedMutexSynchronizer.masterHandler.masterIncomingMessage({
         ...message,
         workerId: MASTER_ID,
@@ -238,10 +251,12 @@ export class SharedMutex {
     }
 
     if (SharedMutex.masterVerifiedTimeout === null) {
+      // TODO send it to some layer
       process.send({
         __mutexMessage__: true,
         workerId: cluster.worker?.id,
         action: ACTION.VERIFY,
+        usingCustomConfig: SharedMutex.configuration !== defaultConfiguration,
       })
       SharedMutex.masterVerifiedTimeout = setTimeout(() => {
         throw new MutexError(ERROR.MUTEX_MASTER_NOT_INITIALIZED)

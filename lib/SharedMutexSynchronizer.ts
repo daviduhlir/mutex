@@ -5,6 +5,7 @@ import { SecondarySynchronizer } from './SecondarySynchronizer'
 import { keysRelatedMatch, sanitizeLock } from './utils/utils'
 import { ACTION, ERROR, MASTER_ID, SYNC_EVENTS } from './utils/constants'
 import { MutexError } from './utils/MutexError'
+import { MutexGlobalStorage } from './utils/MutexGlobalStorage'
 
 export const DEBUG_INFO_REPORTS = {
   LOCK_TIMEOUT: 'LOCK_TIMEOUT',
@@ -24,9 +25,7 @@ export class SharedMutexSynchronizer {
    */
   static reportDebugInfo = (state: string, item: LocalLockItem) => {}
 
-  // internal locks array
-  protected static localLocksQueue: LocalLockItem[] = []
-  protected static alreadyInitialized: boolean = false
+  // secondary arbitter
   protected static secondarySynchronizer: SecondarySynchronizer = null
 
   /**
@@ -67,7 +66,7 @@ export class SharedMutexSynchronizer {
     // debug info
     SharedMutexSynchronizer.reportDebugInfo(
       DEBUG_INFO_REPORTS.LOCK_TIMEOUT,
-      SharedMutexSynchronizer.localLocksQueue.find(i => i.hash === hash),
+      MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === hash),
     )
 
     console.error(ERROR.MUTEX_LOCK_TIMEOUT, info)
@@ -89,7 +88,7 @@ export class SharedMutexSynchronizer {
    * @returns
    */
   static getLockInfo(hash: string): LockDescriptor {
-    const item = this.localLocksQueue.find(i => i.hash === hash)
+    const item = MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === hash)
     if (item) {
       return {
         workerId: item.workerId,
@@ -106,7 +105,7 @@ export class SharedMutexSynchronizer {
    * @returns
    */
   static resetLockTimeout(hash: string, newMaxLockingTime?: number) {
-    const item = this.localLocksQueue.find(i => i.hash === hash)
+    const item = MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === hash)
     if (item) {
       if (typeof newMaxLockingTime === 'number') {
         item.maxLockingTime = newMaxLockingTime
@@ -124,7 +123,7 @@ export class SharedMutexSynchronizer {
    * Initialize master handler
    */
   static initializeMaster() {
-    if (SharedMutexSynchronizer.alreadyInitialized || !cluster.isMaster) {
+    if (MutexGlobalStorage.getInitialized() || !cluster.isMaster) {
       return
     }
 
@@ -138,7 +137,7 @@ export class SharedMutexSynchronizer {
     SharedMutexSynchronizer.masterHandler.masterIncomingMessage = SharedMutexSynchronizer.masterIncomingMessage
 
     // already initialized
-    SharedMutexSynchronizer.alreadyInitialized = true
+    MutexGlobalStorage.setInitialized()
   }
 
   /**
@@ -147,7 +146,7 @@ export class SharedMutexSynchronizer {
   protected static lock(item: LocalLockItem) {
     // add it to locks
     const nItem = { ...item }
-    SharedMutexSynchronizer.localLocksQueue.push(nItem)
+    MutexGlobalStorage.getLocalLocksQueue().push(nItem)
 
     // set timeout if provided
     if (nItem.maxLockingTime) {
@@ -175,7 +174,7 @@ export class SharedMutexSynchronizer {
    * @param workerId
    */
   protected static unlock(hash?: string) {
-    const f = SharedMutexSynchronizer.localLocksQueue.find(foundItem => foundItem.hash === hash)
+    const f = MutexGlobalStorage.getLocalLocksQueue().find(foundItem => foundItem.hash === hash)
     if (!f) {
       return
     }
@@ -189,7 +188,7 @@ export class SharedMutexSynchronizer {
     SharedMutexSynchronizer.reportDebugInfo(DEBUG_INFO_REPORTS.SCOPE_EXIT, f)
 
     // remove from queue
-    SharedMutexSynchronizer.localLocksQueue = SharedMutexSynchronizer.localLocksQueue.filter(item => item.hash !== hash)
+    MutexGlobalStorage.setLocalLocksQueue(MutexGlobalStorage.getLocalLocksQueue().filter(item => item.hash !== hash))
 
     // send to secondary
     if (SharedMutexSynchronizer.secondarySynchronizer) {
@@ -210,24 +209,24 @@ export class SharedMutexSynchronizer {
     }
 
     // continue, if item was forced to continue
-    const topItem = SharedMutexSynchronizer.localLocksQueue[SharedMutexSynchronizer.localLocksQueue.length - 1]
+    const topItem = MutexGlobalStorage.getLocalLocksQueue()[MutexGlobalStorage.getLocalLocksQueue().length - 1]
     if (topItem?.forceInstantContinue) {
       SharedMutexSynchronizer.continue(topItem)
     }
 
-    const allKeys = SharedMutexSynchronizer.localLocksQueue.reduce((acc, i) => {
+    const allKeys = MutexGlobalStorage.getLocalLocksQueue().reduce((acc, i) => {
       return [...acc, i.key].filter((value, ind, self) => self.indexOf(value) === ind)
     }, [])
 
     for (const key of allKeys) {
-      const queue = SharedMutexSynchronizer.localLocksQueue.filter(i => i.key === key)
+      const queue = MutexGlobalStorage.getLocalLocksQueue().filter(i => i.key === key)
 
       // if there is something to continue
       if (queue?.length) {
         const runnings = queue.filter(i => i.isRunning)
 
         // find posible blocking parents or childs
-        const posibleBlockingItems = SharedMutexSynchronizer.localLocksQueue.filter(i => i.isRunning && keysRelatedMatch(key, i.key) && key !== i.key)
+        const posibleBlockingItems = MutexGlobalStorage.getLocalLocksQueue().filter(i => i.isRunning && keysRelatedMatch(key, i.key) && key !== i.key)
 
         // if next is for single access
         if (queue[0].singleAccess && !runnings?.length && !posibleBlockingItems.length) {
@@ -306,7 +305,9 @@ export class SharedMutexSynchronizer {
    * @param id
    */
   protected static workerUnlockForced(workerId: number) {
-    SharedMutexSynchronizer.localLocksQueue.filter(i => i.workerId === workerId).forEach(i => SharedMutexSynchronizer.unlock(i.hash))
+    MutexGlobalStorage.getLocalLocksQueue()
+      .filter(i => i.workerId === workerId)
+      .forEach(i => SharedMutexSynchronizer.unlock(i.hash))
   }
 
   /**

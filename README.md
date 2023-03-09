@@ -46,6 +46,25 @@ interface SharedMutexConfiguration {
 }
 ```
 
+## Overriding IPC communication
+
+By default all forks and master are communicating by IPC messages. This behaviour is set by communicationLayer property in configuration. Default value is 'IPC', that means, it will creates IPC layer and will communicate through it. You can set your own instance of MutexCommLayer into config, and it will be used immediatly. All message operations are waiting, until complete configuration will be set. This can be used for creating this layer asynchronous. In case of asynchronous layer (like some socket), you need to set this value to null for first touch, and then you have time to create and connect your layer, after that you should call initialize again and it will unblock all messages and continue.
+
+Like in this example:
+```ts
+SharedMutex.initialize({
+  communicationLayer: null,
+})
+
+const layer = new MyOwnCommLayer()
+
+layer.on('complete', () => {
+  SharedMutex.initialize({
+    communicationLayer: layer,
+  })
+})
+```
+
 ## Mechanics of locks
 
 Every each lock before going into scope is asking synchronizer, if we are able to continue. This happening immediately after lock call, but after another lock being unlocked. We calling it mutex tick. Internaly all locks are sorted into queue, in order how it's arrived to synchronizer. Tick will decide, who can continue, and who should be first in order.

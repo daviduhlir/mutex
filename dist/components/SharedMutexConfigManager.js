@@ -15,19 +15,21 @@ const Awaiter_1 = require("../utils/Awaiter");
 exports.defaultConfiguration = {
     strictMode: false,
     defaultMaxLockingTime: undefined,
+    communicationLayer: 'IPC',
 };
 class SharedMutexConfigManager {
     static initialize(configuration) {
         if (configuration) {
             SharedMutexConfigManager.configuration = Object.assign(Object.assign({}, exports.defaultConfiguration), configuration);
         }
-        if (typeof SharedMutexConfigManager.configuration.communicationLayer === 'undefined') {
+        if (SharedMutexConfigManager.configuration.communicationLayer === 'IPC') {
             SharedMutexConfigManager.comm = new IPCMutexCommLayer_1.IPCMutexCommLayer();
         }
         else {
             SharedMutexConfigManager.comm = SharedMutexConfigManager.configuration.communicationLayer;
         }
         if (!SharedMutexConfigManager.comm) {
+            SharedMutexConfigManager.initAwaiter = new Awaiter_1.Awaiter();
             return false;
         }
         SharedMutexConfigManager.initAwaiter.resolve();

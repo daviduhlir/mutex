@@ -6,6 +6,7 @@ import { SharedMutexConfiguration } from '../utils/interfaces'
 export const defaultConfiguration: SharedMutexConfiguration = {
   strictMode: false,
   defaultMaxLockingTime: undefined,
+  communicationLayer: 'IPC',
 }
 
 export class SharedMutexConfigManager {
@@ -25,7 +26,7 @@ export class SharedMutexConfigManager {
     }
 
     // setup comm layer
-    if (typeof SharedMutexConfigManager.configuration.communicationLayer === 'undefined') {
+    if (SharedMutexConfigManager.configuration.communicationLayer === 'IPC') {
       SharedMutexConfigManager.comm = new IPCMutexCommLayer()
     } else {
       SharedMutexConfigManager.comm = SharedMutexConfigManager.configuration.communicationLayer
@@ -33,6 +34,7 @@ export class SharedMutexConfigManager {
 
     // comm is not prepared and is not set yet... wait for next init call
     if (!SharedMutexConfigManager.comm) {
+      SharedMutexConfigManager.initAwaiter = new Awaiter()
       return false
     }
 

@@ -2,7 +2,13 @@ import { MutexCommLayer } from '../components/comm/MutexCommLayer';
 export interface SharedMutexConfiguration {
     strictMode: boolean;
     defaultMaxLockingTime: number;
-    communicationLayer?: MutexCommLayer;
+    communicationLayer: MutexCommLayer | 'IPC' | null;
+}
+export interface LockConfiguration {
+    strictMode?: boolean;
+    singleAccess?: boolean;
+    maxLockingTime?: number;
+    forceInstantContinue?: boolean;
 }
 export interface LockDescriptor {
     workerId: number | 'master';

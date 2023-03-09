@@ -1,16 +1,10 @@
-import { LockKey, SharedMutexConfiguration } from './utils/interfaces';
+import { LockConfiguration, LockKey, SharedMutexConfiguration } from './utils/interfaces';
 import { Awaiter } from './utils/Awaiter';
 export declare class SharedMutexUnlockHandler {
     readonly key: string;
     readonly hash: string;
     constructor(key: string, hash: string);
     unlock(): void;
-}
-export interface LockConfiguration {
-    strictMode?: boolean;
-    singleAccess?: boolean;
-    maxLockingTime?: number;
-    forceInstantContinue?: boolean;
 }
 export declare class SharedMutex {
     protected static waitingMessagesHandlers: {
@@ -29,9 +23,8 @@ export declare class SharedMutex {
     static lockAccess<T>(key: LockKey, fnc: () => Promise<T>, singleAccess?: boolean, maxLockingTime?: number): Promise<T>;
     static lock(key: LockKey, config: LockConfiguration): Promise<SharedMutexUnlockHandler>;
     static unlock(key: LockKey, hash: string): void;
-    static attachHandler(): Promise<void>;
     static initialize(configuration?: Partial<SharedMutexConfiguration>): Promise<void>;
     protected static sendAction(key: string, action: string, hash: string, data?: any): Promise<void>;
     protected static handleMessage(message: any): void;
-    protected static verifyMaster(): Promise<void>;
+    protected static verifyMaster(): Promise<any>;
 }

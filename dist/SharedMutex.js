@@ -101,8 +101,11 @@ class SharedMutex {
     static unlock(key, hash) {
         SharedMutex.sendAction(utils_1.parseLockKey(key), constants_1.ACTION.UNLOCK, hash);
     }
-    static attachHandler() {
+    static initialize(configuration) {
         return __awaiter(this, void 0, void 0, function* () {
+            if (!(yield SharedMutexConfigManager_1.SharedMutexConfigManager.initialize(configuration))) {
+                return;
+            }
             if (!SharedMutex.attached) {
                 SharedMutex.attached = true;
                 if (cluster_1.default.isWorker) {
@@ -113,14 +116,6 @@ class SharedMutex {
                     SharedMutexSynchronizer_1.SharedMutexSynchronizer.masterHandler.emitter.on('message', SharedMutex.handleMessage);
                 }
             }
-        });
-    }
-    static initialize(configuration) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!(yield SharedMutexConfigManager_1.SharedMutexConfigManager.initialize(configuration))) {
-                return;
-            }
-            yield SharedMutex.attachHandler();
             yield SharedMutexSynchronizer_1.SharedMutexSynchronizer.initializeMaster();
         });
     }
@@ -178,7 +173,7 @@ class SharedMutex {
                     throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_MASTER_NOT_INITIALIZED, 'Master process does not has initialized mutex synchronizer. Usualy by missed call of SharedMutex.initialize() in master process.');
                 }, constants_1.VERIFY_MASTER_MAX_TIMEOUT);
             }
-            yield SharedMutex.masterVerificationWaiter.wait();
+            return SharedMutex.masterVerificationWaiter.wait();
         });
     }
 }

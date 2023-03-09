@@ -1,7 +1,7 @@
 import cluster from './utils/cluster'
 import { keysRelatedMatch, parseLockKey, randomHash } from './utils/utils'
 import { SharedMutexSynchronizer } from './components/SharedMutexSynchronizer'
-import { LockKey, SharedMutexConfiguration } from './utils/interfaces'
+import { LockConfiguration, LockKey, SharedMutexConfiguration } from './utils/interfaces'
 import AsyncLocalStorage from './components/AsyncLocalStorage'
 import { ACTION, ERROR, MASTER_ID, VERIFY_MASTER_MAX_TIMEOUT } from './utils/constants'
 import { MutexError } from './utils/MutexError'
@@ -18,16 +18,6 @@ export class SharedMutexUnlockHandler {
   unlock(): void {
     SharedMutex.unlock(this.key, this.hash)
   }
-}
-
-/**
- * Single lock configuration
- */
-export interface LockConfiguration {
-  strictMode?: boolean
-  singleAccess?: boolean
-  maxLockingTime?: number
-  forceInstantContinue?: boolean
 }
 
 /**
@@ -172,21 +162,6 @@ export class SharedMutex {
   }
 
   /**
-   * Attach handlers
-   */
-  static async attachHandler() {
-    if (!SharedMutex.attached) {
-      SharedMutex.attached = true
-      // TODO listen it on some handler
-      if (cluster.isWorker) {
-        ;(await SharedMutexConfigManager.getComm()).onProcessMessage(SharedMutex.handleMessage)
-      } else {
-        SharedMutexSynchronizer.masterHandler.emitter.on('message', SharedMutex.handleMessage)
-      }
-    }
-  }
-
-  /**
    * Initialize master handler
    */
   static async initialize(configuration?: Partial<SharedMutexConfiguration>) {
@@ -196,11 +171,25 @@ export class SharedMutex {
     }
 
     // attach handlers
-    await SharedMutex.attachHandler()
+    if (!SharedMutex.attached) {
+      SharedMutex.attached = true
+      // TODO listen it on some handler
+      if (cluster.isWorker) {
+        ;(await SharedMutexConfigManager.getComm()).onProcessMessage(SharedMutex.handleMessage)
+      } else {
+        SharedMutexSynchronizer.masterHandler.emitter.on('message', SharedMutex.handleMessage)
+      }
+    }
 
     // initialize synchronizer
     await SharedMutexSynchronizer.initializeMaster()
   }
+
+  /***********************
+   *
+   * Internal methods
+   *
+   ***********************/
 
   /**
    * Send action to master
@@ -229,6 +218,7 @@ export class SharedMutex {
         )
       }
 
+      // send message to master directly
       SharedMutexSynchronizer.masterHandler.masterIncomingMessage({
         ...message,
         workerId: MASTER_ID,
@@ -253,6 +243,7 @@ export class SharedMutex {
           )
         }
 
+        // resolve verification
         SharedMutex.masterVerificationWaiter.resolve()
       } else {
         throw new MutexError(ERROR.MUTEX_REDUNDANT_VERIFICATION, 'This is usualy caused by more than one instance of SharedMutex installed together.')
@@ -289,6 +280,7 @@ export class SharedMutex {
       }, VERIFY_MASTER_MAX_TIMEOUT)
     }
 
-    await SharedMutex.masterVerificationWaiter.wait()
+    // wait for verification done
+    return SharedMutex.masterVerificationWaiter.wait()
   }
 }

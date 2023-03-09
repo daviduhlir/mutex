@@ -15,7 +15,17 @@ export interface SharedMutexConfiguration {
   /**
    * Communication layer
    */
-  communicationLayer?: MutexCommLayer
+  communicationLayer: MutexCommLayer | 'IPC' | null
+}
+
+/**
+ * Single lock configuration
+ */
+export interface LockConfiguration {
+  strictMode?: boolean
+  singleAccess?: boolean
+  maxLockingTime?: number
+  forceInstantContinue?: boolean
 }
 
 /**

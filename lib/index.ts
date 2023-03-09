@@ -1,4 +1,3 @@
-import cluster from './utils/cluster'
 import { SharedMutex } from './SharedMutex'
 export * from './SharedMutex'
 export * from './components/SharedMutexDecorators'

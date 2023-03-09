@@ -1,3 +1,9 @@
+import { MutexCommLayer } from '../comm/MutexCommLayer';
+export interface SharedMutexConfiguration {
+    strictMode: boolean;
+    defaultMaxLockingTime: number;
+    communicationLayer?: MutexCommLayer;
+}
 export interface LockDescriptor {
     workerId: number | 'master';
     singleAccess: boolean;

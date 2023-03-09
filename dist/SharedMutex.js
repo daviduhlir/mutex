@@ -21,7 +21,7 @@ const constants_1 = require("./utils/constants");
 const MutexError_1 = require("./utils/MutexError");
 const Awaiter_1 = require("./utils/Awaiter");
 const version_1 = __importDefault(require("./utils/version"));
-const MutexCommLayer_1 = require("./utils/MutexCommLayer");
+const IPCMutexCommLayer_1 = require("./comm/IPCMutexCommLayer");
 class SharedMutexUnlockHandler {
     constructor(key, hash) {
         this.key = key;
@@ -107,14 +107,27 @@ class SharedMutex {
     static attachHandler() {
         if (!SharedMutex.attached) {
             SharedMutex.attached = true;
-            (cluster_1.default.isWorker ? process : SharedMutexSynchronizer_1.SharedMutexSynchronizer.masterHandler.emitter).on('message', SharedMutex.handleMessage);
+            if (cluster_1.default.isWorker) {
+                SharedMutex.comm.onProcessMessage(SharedMutex.handleMessage);
+            }
+            else {
+                SharedMutexSynchronizer_1.SharedMutexSynchronizer.masterHandler.emitter.on('message', SharedMutex.handleMessage);
+            }
         }
     }
     static initialize(configuration) {
         if (configuration) {
             SharedMutex.configuration = Object.assign(Object.assign({}, exports.defaultConfiguration), configuration);
         }
-        SharedMutexSynchronizer_1.SharedMutexSynchronizer.initializeMaster();
+        if (!SharedMutex.configuration.communicationLayer) {
+            SharedMutex.comm = new IPCMutexCommLayer_1.IPCMutexCommLayer();
+        }
+        else {
+            SharedMutex.comm = SharedMutex.configuration.communicationLayer;
+        }
+        SharedMutex.attachHandler();
+        SharedMutexSynchronizer_1.SharedMutexSynchronizer.initializeMaster(SharedMutex.configuration);
+        SharedMutex.initAwaiter.resolve();
     }
     static sendAction(key, action, hash, data = null) {
         var _a;
@@ -124,11 +137,12 @@ class SharedMutex {
                 hash }, data);
             if (cluster_1.default.isWorker) {
                 yield SharedMutex.verifyMaster();
+                yield SharedMutex.initAwaiter.wait();
                 SharedMutex.comm.processSend(message);
             }
             else {
                 if (!((_a = SharedMutexSynchronizer_1.SharedMutexSynchronizer.masterHandler) === null || _a === void 0 ? void 0 : _a.masterIncomingMessage)) {
-                    throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_MASTER_NOT_INITIALIZED, 'Master process does not have initialized mutex synchronizer. Usualy by missed call of SharedMutex.initialize() in master process.');
+                    throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_MASTER_NOT_INITIALIZED, 'Master process does not has initialized mutex synchronizer. Usualy by missed call of SharedMutex.initialize() in master process.');
                 }
                 SharedMutexSynchronizer_1.SharedMutexSynchronizer.masterHandler.masterIncomingMessage(Object.assign(Object.assign({}, message), { workerId: constants_1.MASTER_ID }));
             }
@@ -161,12 +175,13 @@ class SharedMutex {
                 return;
             }
             if (SharedMutex.masterVerifiedTimeout === null) {
+                yield SharedMutex.initAwaiter.wait();
                 SharedMutex.comm.processSend({
                     action: constants_1.ACTION.VERIFY,
                     usingCustomConfig: SharedMutex.configuration !== exports.defaultConfiguration,
                 });
                 SharedMutex.masterVerifiedTimeout = setTimeout(() => {
-                    throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_MASTER_NOT_INITIALIZED, 'Master process does not have initialized mutex synchronizer. Usualy by missed call of SharedMutex.initialize() in master process.');
+                    throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_MASTER_NOT_INITIALIZED, 'Master process does not has initialized mutex synchronizer. Usualy by missed call of SharedMutex.initialize() in master process.');
                 }, constants_1.VERIFY_MASTER_MAX_TIMEOUT);
             }
             yield SharedMutex.masterVerificationWaiter.wait();
@@ -179,7 +194,6 @@ SharedMutex.waitingMessagesHandlers = [];
 SharedMutex.attached = false;
 SharedMutex.masterVerificationWaiter = new Awaiter_1.Awaiter();
 SharedMutex.masterVerifiedTimeout = null;
-SharedMutex.comm = new MutexCommLayer_1.MutexCommLayer();
+SharedMutex.initAwaiter = new Awaiter_1.Awaiter();
 SharedMutex.stackStorage = new AsyncLocalStorage_1.default();
-SharedMutex.attachHandler();
 //# sourceMappingURL=SharedMutex.js.map

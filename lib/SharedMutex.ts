@@ -1,24 +1,14 @@
 import cluster from './utils/cluster'
 import { keysRelatedMatch, parseLockKey, randomHash } from './utils/utils'
 import { SharedMutexSynchronizer } from './SharedMutexSynchronizer'
-import { LockKey } from './utils/interfaces'
+import { LockKey, SharedMutexConfiguration } from './utils/interfaces'
 import AsyncLocalStorage from './utils/AsyncLocalStorage'
 import { ACTION, ERROR, MASTER_ID, VERIFY_MASTER_MAX_TIMEOUT } from './utils/constants'
 import { MutexError } from './utils/MutexError'
 import { Awaiter } from './utils/Awaiter'
 import version from './utils/version'
-import { MutexCommLayer } from './utils/MutexCommLayer'
-
-export interface SharedMutexConfiguration {
-  /**
-   * Strict mode, how to deal with nested locks
-   */
-  strictMode: boolean
-  /**
-   * Default locking time, which will be used for all locks, if it's undefined, it will keep it unset
-   */
-  defaultMaxLockingTime: number
-}
+import { MutexCommLayer } from './comm/MutexCommLayer'
+import { IPCMutexCommLayer } from './comm/IPCMutexCommLayer'
 
 /**
  * Unlock handler
@@ -51,20 +41,36 @@ export const defaultConfiguration: SharedMutexConfiguration = {
  * that will be unlocked in another fork.
  */
 export class SharedMutex {
-  // configuration
+  /**
+   * configuration
+   */
   protected static configuration: SharedMutexConfiguration = defaultConfiguration
   protected static waitingMessagesHandlers: { resolve: (message: any) => void; hash: string }[] = []
 
-  // is attached
+  /**
+   *  is attached
+   */
   protected static attached: boolean = false
 
-  // master verify
+  /**
+   * master verify
+   */
   protected static masterVerificationWaiter: Awaiter = new Awaiter()
   protected static masterVerifiedTimeout = null
 
-  // communication
-  protected static comm: MutexCommLayer = new MutexCommLayer()
+  /**
+   * communication
+   */
+  protected static comm: MutexCommLayer
 
+  /**
+   * initialization
+   */
+  protected static initAwaiter: Awaiter = new Awaiter()
+
+  /**
+   * storage of data for nested keys
+   */
   protected static stackStorage = new AsyncLocalStorage<
     {
       key: string
@@ -187,7 +193,11 @@ export class SharedMutex {
     if (!SharedMutex.attached) {
       SharedMutex.attached = true
       // TODO listen it on some handler
-      ;(cluster.isWorker ? process : SharedMutexSynchronizer.masterHandler.emitter).on('message', SharedMutex.handleMessage)
+      if (cluster.isWorker) {
+        SharedMutex.comm.onProcessMessage(SharedMutex.handleMessage)
+      } else {
+        SharedMutexSynchronizer.masterHandler.emitter.on('message', SharedMutex.handleMessage)
+      }
     }
   }
 
@@ -201,7 +211,22 @@ export class SharedMutex {
         ...configuration,
       }
     }
-    SharedMutexSynchronizer.initializeMaster()
+
+    // setup comm layer
+    if (!SharedMutex.configuration.communicationLayer) {
+      SharedMutex.comm = new IPCMutexCommLayer()
+    } else {
+      SharedMutex.comm = SharedMutex.configuration.communicationLayer
+    }
+
+    // attach handlers
+    SharedMutex.attachHandler()
+
+    // initialize synchronizer
+    SharedMutexSynchronizer.initializeMaster(SharedMutex.configuration)
+
+    // init complete
+    SharedMutex.initAwaiter.resolve()
   }
 
   /**
@@ -221,13 +246,16 @@ export class SharedMutex {
       // is master verified? if not, send verify message to master
       await SharedMutex.verifyMaster()
 
+      // wait for initialize
+      await SharedMutex.initAwaiter.wait()
+
       // send action
       SharedMutex.comm.processSend(message)
     } else {
       if (!SharedMutexSynchronizer.masterHandler?.masterIncomingMessage) {
         throw new MutexError(
           ERROR.MUTEX_MASTER_NOT_INITIALIZED,
-          'Master process does not have initialized mutex synchronizer. Usualy by missed call of SharedMutex.initialize() in master process.',
+          'Master process does not has initialized mutex synchronizer. Usualy by missed call of SharedMutex.initialize() in master process.',
         )
       }
 
@@ -276,24 +304,24 @@ export class SharedMutex {
     }
 
     if (SharedMutex.masterVerifiedTimeout === null) {
+      // wait for initialize
+      await SharedMutex.initAwaiter.wait()
+
+      // send verify ask
       SharedMutex.comm.processSend({
         action: ACTION.VERIFY,
         usingCustomConfig: SharedMutex.configuration !== defaultConfiguration,
       })
+
+      // timeout for wait to init
       SharedMutex.masterVerifiedTimeout = setTimeout(() => {
         throw new MutexError(
           ERROR.MUTEX_MASTER_NOT_INITIALIZED,
-          'Master process does not have initialized mutex synchronizer. Usualy by missed call of SharedMutex.initialize() in master process.',
+          'Master process does not has initialized mutex synchronizer. Usualy by missed call of SharedMutex.initialize() in master process.',
         )
       }, VERIFY_MASTER_MAX_TIMEOUT)
     }
 
     await SharedMutex.masterVerificationWaiter.wait()
   }
-
-  /**
-   * Get configuration
-   */
 }
-
-SharedMutex.attachHandler()

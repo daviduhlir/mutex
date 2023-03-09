@@ -1,4 +1,13 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -11,7 +20,8 @@ const constants_1 = require("./utils/constants");
 const MutexError_1 = require("./utils/MutexError");
 const MutexGlobalStorage_1 = require("./utils/MutexGlobalStorage");
 const version_1 = __importDefault(require("./utils/version"));
-const MutexCommLayer_1 = require("./utils/MutexCommLayer");
+const IPCMutexCommLayer_1 = require("./comm/IPCMutexCommLayer");
+const Awaiter_1 = require("./utils/Awaiter");
 exports.DEBUG_INFO_REPORTS = {
     LOCK_TIMEOUT: 'LOCK_TIMEOUT',
     SCOPE_WAITING: 'SCOPE_WAITING',
@@ -50,7 +60,14 @@ class SharedMutexSynchronizer {
             }
         }
     }
-    static initializeMaster() {
+    static initializeMaster(configuration) {
+        SharedMutexSynchronizer.configuration = configuration;
+        if (!SharedMutexSynchronizer.configuration.communicationLayer) {
+            SharedMutexSynchronizer.comm = new IPCMutexCommLayer_1.IPCMutexCommLayer();
+        }
+        else {
+            SharedMutexSynchronizer.comm = SharedMutexSynchronizer.configuration.communicationLayer;
+        }
         if (MutexGlobalStorage_1.MutexGlobalStorage.getInitialized() || !cluster_1.default.isMaster) {
             return;
         }
@@ -60,6 +77,7 @@ class SharedMutexSynchronizer {
         }
         SharedMutexSynchronizer.masterHandler.masterIncomingMessage = SharedMutexSynchronizer.masterIncomingMessage;
         MutexGlobalStorage_1.MutexGlobalStorage.setInitialized();
+        SharedMutexSynchronizer.initAwaiter.resolve();
     }
     static lock(item) {
         const nItem = Object.assign({}, item);
@@ -163,13 +181,16 @@ class SharedMutexSynchronizer {
             .forEach(i => SharedMutexSynchronizer.unlock(i.hash));
     }
     static send(worker, message) {
-        SharedMutexSynchronizer.comm.workerSend(worker, message);
+        return __awaiter(this, void 0, void 0, function* () {
+            yield SharedMutexSynchronizer.initAwaiter.wait();
+            SharedMutexSynchronizer.comm.workerSend(worker, message);
+        });
     }
 }
 exports.SharedMutexSynchronizer = SharedMutexSynchronizer;
 SharedMutexSynchronizer.reportDebugInfo = (state, item) => { };
 SharedMutexSynchronizer.secondarySynchronizer = null;
-SharedMutexSynchronizer.comm = new MutexCommLayer_1.MutexCommLayer();
+SharedMutexSynchronizer.initAwaiter = new Awaiter_1.Awaiter();
 SharedMutexSynchronizer.masterHandler = {
     masterIncomingMessage: null,
     emitter: new events_1.EventEmitter(),

@@ -1,10 +1,11 @@
 import cluster from 'cluster'
+import { MutexCommLayer } from './MutexCommLayer'
 
 /**
  * Mutexes communication layer,
  * All comm between forks and master are called here
  */
-export class MutexCommLayer {
+export class IPCMutexCommLayer extends MutexCommLayer {
   /**
    * Listen all messages from cluster (for master)
    */

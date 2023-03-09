@@ -1,13 +1,15 @@
 import { EventEmitter } from 'events'
 import cluster from './utils/cluster'
-import { LocalLockItem, LockDescriptor } from './utils/interfaces'
+import { LocalLockItem, LockDescriptor, SharedMutexConfiguration } from './utils/interfaces'
 import { SecondarySynchronizer } from './SecondarySynchronizer'
 import { keysRelatedMatch, sanitizeLock } from './utils/utils'
 import { ACTION, ERROR, MASTER_ID, SYNC_EVENTS } from './utils/constants'
 import { MutexError } from './utils/MutexError'
 import { MutexGlobalStorage } from './utils/MutexGlobalStorage'
 import version from './utils/version'
-import { MutexCommLayer } from './utils/MutexCommLayer'
+import { MutexCommLayer } from './comm/MutexCommLayer'
+import { IPCMutexCommLayer } from './comm/IPCMutexCommLayer'
+import { Awaiter } from './utils/Awaiter'
 
 export const DEBUG_INFO_REPORTS = {
   LOCK_TIMEOUT: 'LOCK_TIMEOUT',
@@ -23,18 +25,34 @@ export const DEBUG_INFO_REPORTS = {
  ***********************************/
 export class SharedMutexSynchronizer {
   /**
+   * Duplicit configuration received from SharedMutex
+   */
+  protected static configuration: SharedMutexConfiguration
+
+  /**
    * Report debug info, you can use console log inside to track, whats going on
    */
   static reportDebugInfo = (state: string, item: LocalLockItem) => {}
 
-  // secondary arbitter
+  /**
+   * secondary arbitter
+   */
   protected static secondarySynchronizer: SecondarySynchronizer = null
 
-  // configuration checked
+  /**
+   * configuration checked
+   */
   protected static usingCustomConfiguration: boolean
 
-  // communication
-  protected static comm: MutexCommLayer = new MutexCommLayer()
+  /**
+   * communication
+   */
+  protected static comm: MutexCommLayer
+
+  /**
+   * await for init
+   */
+  protected static initAwaiter: Awaiter = new Awaiter()
 
   /**
    * Setup secondary synchronizer - prepared for mesh
@@ -125,14 +143,24 @@ export class SharedMutexSynchronizer {
   /**
    * Initialize master handler
    */
-  static initializeMaster() {
+  static initializeMaster(configuration: SharedMutexConfiguration) {
+    // set config
+    SharedMutexSynchronizer.configuration = configuration
+
+    // setup comm layer
+    if (!SharedMutexSynchronizer.configuration.communicationLayer) {
+      SharedMutexSynchronizer.comm = new IPCMutexCommLayer()
+    } else {
+      SharedMutexSynchronizer.comm = SharedMutexSynchronizer.configuration.communicationLayer
+    }
+
+    // skip double init
     if (MutexGlobalStorage.getInitialized() || !cluster.isMaster) {
       return
     }
 
     // if we are using clusters at all
     if (cluster && typeof cluster.on === 'function') {
-      // TODO listen it on some layer
       SharedMutexSynchronizer.comm.onClusterMessage(SharedMutexSynchronizer.handleClusterMessage)
 
       cluster.on('exit', worker => SharedMutexSynchronizer.workerUnlockForced(worker.id))
@@ -143,6 +171,9 @@ export class SharedMutexSynchronizer {
 
     // already initialized
     MutexGlobalStorage.setInitialized()
+
+    // init complete
+    SharedMutexSynchronizer.initAwaiter.resolve()
   }
 
   /**
@@ -326,7 +357,8 @@ export class SharedMutexSynchronizer {
   /**
    * Send message to worker
    */
-  protected static send(worker: any, message: any) {
+  protected static async send(worker: any, message: any) {
+    await SharedMutexSynchronizer.initAwaiter.wait()
     SharedMutexSynchronizer.comm.workerSend(worker, message)
   }
 }

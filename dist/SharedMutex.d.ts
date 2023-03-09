@@ -1,10 +1,6 @@
-import { LockKey } from './utils/interfaces';
+import { LockKey, SharedMutexConfiguration } from './utils/interfaces';
 import { Awaiter } from './utils/Awaiter';
-import { MutexCommLayer } from './utils/MutexCommLayer';
-export interface SharedMutexConfiguration {
-    strictMode: boolean;
-    defaultMaxLockingTime: number;
-}
+import { MutexCommLayer } from './comm/MutexCommLayer';
 export declare class SharedMutexUnlockHandler {
     readonly key: string;
     readonly hash: string;
@@ -28,6 +24,7 @@ export declare class SharedMutex {
     protected static masterVerificationWaiter: Awaiter;
     protected static masterVerifiedTimeout: any;
     protected static comm: MutexCommLayer;
+    protected static initAwaiter: Awaiter;
     protected static stackStorage: import("./utils/AsyncLocalStorage").AsyncLocalStorageMock<{
         key: string;
         singleAccess: boolean;

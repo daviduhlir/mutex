@@ -1,3 +1,26 @@
+import { MutexCommLayer } from '../comm/MutexCommLayer'
+
+/**
+ * Configuration
+ */
+export interface SharedMutexConfiguration {
+  /**
+   * Strict mode, how to deal with nested locks
+   */
+  strictMode: boolean
+  /**
+   * Default locking time, which will be used for all locks, if it's undefined, it will keep it unset
+   */
+  defaultMaxLockingTime: number
+  /**
+   * Communication layer
+   */
+  communicationLayer?: MutexCommLayer
+}
+
+/**
+ * Internal lock descriptor
+ */
 export interface LockDescriptor {
   workerId: number | 'master'
   singleAccess: boolean
@@ -6,10 +29,16 @@ export interface LockDescriptor {
   maxLockingTime?: number
 }
 
+/**
+ * Local lock item in queue
+ */
 export interface LocalLockItem extends LockDescriptor {
   timeout?: any
   isRunning?: boolean
   forceInstantContinue?: boolean
 }
 
+/**
+ * Mutex keey
+ */
 export type LockKey = string | string[]

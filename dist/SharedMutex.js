@@ -20,6 +20,7 @@ const AsyncLocalStorage_1 = __importDefault(require("./utils/AsyncLocalStorage")
 const constants_1 = require("./utils/constants");
 const MutexError_1 = require("./utils/MutexError");
 const Awaiter_1 = require("./utils/Awaiter");
+const version_1 = __importDefault(require("./utils/version"));
 class SharedMutexUnlockHandler {
     constructor(key, hash) {
         this.key = key;
@@ -122,6 +123,9 @@ class SharedMutex {
             if (SharedMutex.masterVerifiedTimeout) {
                 clearTimeout(SharedMutex.masterVerifiedTimeout);
                 SharedMutex.masterVerifiedTimeout = null;
+                if (message.version !== version_1.default) {
+                    throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_DIFFERENT_VERSIONS, 'This is usualy caused by more than one instance of SharedMutex installed together in different version. Version of mutexes must be completly same.');
+                }
                 SharedMutex.masterVerificationWaiter.resolve();
             }
             else {

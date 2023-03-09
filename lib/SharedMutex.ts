@@ -6,6 +6,7 @@ import AsyncLocalStorage from './utils/AsyncLocalStorage'
 import { ACTION, ERROR, MASTER_ID, VERIFY_MASTER_MAX_TIMEOUT } from './utils/constants'
 import { MutexError } from './utils/MutexError'
 import { Awaiter } from './utils/Awaiter'
+import version from './utils/version'
 
 /**
  * Unlock handler
@@ -207,6 +208,15 @@ export class SharedMutex {
       if (SharedMutex.masterVerifiedTimeout) {
         clearTimeout(SharedMutex.masterVerifiedTimeout)
         SharedMutex.masterVerifiedTimeout = null
+
+        // verify version
+        if (message.version !== version) {
+          throw new MutexError(
+            ERROR.MUTEX_DIFFERENT_VERSIONS,
+            'This is usualy caused by more than one instance of SharedMutex installed together in different version. Version of mutexes must be completly same.',
+          )
+        }
+
         SharedMutex.masterVerificationWaiter.resolve()
       } else {
         throw new MutexError(ERROR.MUTEX_REDUNDANT_VERIFICATION, 'This is usualy caused by more than one instance of SharedMutex installed together.')

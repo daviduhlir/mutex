@@ -10,6 +10,7 @@ const utils_1 = require("./utils/utils");
 const constants_1 = require("./utils/constants");
 const MutexError_1 = require("./utils/MutexError");
 const MutexGlobalStorage_1 = require("./utils/MutexGlobalStorage");
+const version_1 = __importDefault(require("./utils/version"));
 exports.DEBUG_INFO_REPORTS = {
     LOCK_TIMEOUT: 'LOCK_TIMEOUT',
     SCOPE_WAITING: 'SCOPE_WAITING',
@@ -146,6 +147,7 @@ class SharedMutexSynchronizer {
         else if (message.action === constants_1.ACTION.VERIFY) {
             SharedMutexSynchronizer.send(worker, {
                 action: constants_1.ACTION.VERIFY_COMPLETE,
+                version: version_1.default,
             });
         }
     }

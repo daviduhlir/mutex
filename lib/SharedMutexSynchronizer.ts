@@ -6,6 +6,7 @@ import { keysRelatedMatch, sanitizeLock } from './utils/utils'
 import { ACTION, ERROR, MASTER_ID, SYNC_EVENTS } from './utils/constants'
 import { MutexError } from './utils/MutexError'
 import { MutexGlobalStorage } from './utils/MutexGlobalStorage'
+import version from './utils/version'
 
 export const DEBUG_INFO_REPORTS = {
   LOCK_TIMEOUT: 'LOCK_TIMEOUT',
@@ -296,6 +297,7 @@ export class SharedMutexSynchronizer {
     } else if (message.action === ACTION.VERIFY) {
       SharedMutexSynchronizer.send(worker, {
         action: ACTION.VERIFY_COMPLETE,
+        version,
       })
     }
   }

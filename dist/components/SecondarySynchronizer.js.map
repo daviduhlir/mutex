@@ -1,0 +1,1 @@
+{"version":3,"file":"SecondarySynchronizer.js","sourceRoot":"","sources":["../../lib/components/SecondarySynchronizer.ts"],"names":[],"mappings":";;;AACA,mCAAqC;AACrC,MAAa,qBAAsB,SAAQ,qBAAY;IAC9C,IAAI,CAAC,IAAmB,IAAG,CAAC;IAE5B,MAAM,CAAC,IAAY,IAAG,CAAC;IAEvB,QAAQ,CAAC,IAAmB,IAAG,CAAC;IAEvC,IAAW,UAAU;QACnB,OAAO,IAAI,CAAA;IACb,CAAC;CACF;AAVD,sDAUC"}

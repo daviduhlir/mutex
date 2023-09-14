@@ -8,14 +8,61 @@ Single-access means, only one scope can be opened in time, all other locks with 
 
 Key in locks are used to connect locks together, if you will use same key, it will wait until other locks with same key will be unlocked - in case of single access locks. Key can be specified by 'layers', it means, if you will use '/' (or put keys to array in right order), you can specify groups of locks, that will be connected together, it means, if parent key (like `parent` in `parent/myKey/child`) will be locked, we need to wait, until it unlocks, and it works in oposite way as well, so child key (like `parent/myKey/child`), needs to be unlocked before locking of your scope.
 
-If you wan't to use it with workers in cluster, keep in mind this module needs to be imported to master process to initialize synchronizer. Best way how to do it is to call initialize in master like shown in this example:
+If you wan't to use it with workers in cluster, keep in mind this module needs to be imported to master process to initialize synchronizer. Best way how to do it is to call initialize in very begining of your application like shown in this example. You can call it in master and forks same way, and it will do all neccessary setup:
 ```ts
 import { SharedMutex } from '@david.uhlir/mutex'
 import * as cluster from 'cluster'
 
-if (cluster.isMaster) {
-    SharedMutex.initializeMaster()
+SharedMutex.initialize()
+```
+
+You can also pass your own configuration during initialize. But keep in mind, in all forks (and also in master), configuration must be completly same. Example of configuration:
+
+```ts
+import { SharedMutex } from '@david.uhlir/mutex'
+import * as cluster from 'cluster'
+
+SharedMutex.initialize({
+  defaultMaxLockingTime: 1000,
+})
+
+```
+
+configuration interface:
+```ts
+interface SharedMutexConfiguration {
+  /**
+   * Strict mode, how to deal with nested locks
+   */
+  strictMode: boolean
+  /**
+   * Default locking time, which will be used for all locks, if it's undefined, it will keep it unset
+   */
+  defaultMaxLockingTime: number
+  /**
+   * Communication layer
+   */
+  communicationLayer?: MutexCommLayer
 }
+```
+
+## Overriding IPC communication
+
+By default all forks and master are communicating by IPC messages. This behaviour is set by communicationLayer property in configuration. Default value is 'IPC', that means, it will creates IPC layer and will communicate through it. You can set your own instance of MutexCommLayer into config, and it will be used immediatly. All message operations are waiting, until complete configuration will be set. This can be used for creating this layer asynchronous. In case of asynchronous layer (like some socket), you need to set this value to null for first touch, and then you have time to create and connect your layer, after that you should call initialize again and it will unblock all messages and continue.
+
+Like in this example:
+```ts
+SharedMutex.initialize({
+  communicationLayer: null,
+})
+
+const layer = new MyOwnCommLayer()
+
+layer.on('complete', () => {
+  SharedMutex.initialize({
+    communicationLayer: layer,
+  })
+})
 ```
 
 ## Mechanics of locks
@@ -27,7 +74,7 @@ Lock, that can continue must have "clear way", it means, there can't by any othe
 
 There is several flags and definitions, that can change behaviour of locks.
 Every lock can has specified maxLockingTime, it's longest time, when scope can be locked. After this time, mutex will throw exception to prevent keeping app in frozen state. This behaviour can be overrided by setting `SharedMutexSynchronizer.timeoutHandler` handler to your custom.
-Globaly you can turn off or on strict mode by setting `SharedMutex.strict`, which will change behaviour in nested locks. If we detecting nested lock with related key (key, that can affect your key), it will writes warning and open this scope in case, strict mode is off. In strict mode this will cause application to crash (or fork only).
+Globaly you can turn off or on strict mode by setting `strictMode` in configuration to true, which will change behaviour in nested locks. If we detecting nested lock with related key (key, that can affect your key), it will writes warning and open this scope in case, strict mode is off. In strict mode this will cause application to crash (or fork only).
 
 ## Usage of locks
 

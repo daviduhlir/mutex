@@ -1,12 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DebugGuard = void 0;
-const utils_1 = require("./utils/utils");
-const SharedMutexSynchronizer_1 = require("./SharedMutexSynchronizer");
+const constants_1 = require("../utils/constants");
+const utils_1 = require("../utils/utils");
 const LOG_PREFIX = `MUTEX_DEBUG`;
 class DebugGuard {
     static reportDebugInfo(state, item) {
-        if (state === SharedMutexSynchronizer_1.DEBUG_INFO_REPORTS.SCOPE_WAITING) {
+        if (state === constants_1.DEBUG_INFO_REPORTS.SCOPE_WAITING) {
             if (!DebugGuard.currentStates[item.hash]) {
                 DebugGuard.currentStates[item.hash] = {
                     key: item.key,
@@ -26,7 +26,7 @@ class DebugGuard {
                 DebugGuard.currentStates[item.hash].waitingFirstTick = false;
             });
         }
-        else if (state === SharedMutexSynchronizer_1.DEBUG_INFO_REPORTS.SCOPE_CONTINUE) {
+        else if (state === constants_1.DEBUG_INFO_REPORTS.SCOPE_CONTINUE) {
             if (DebugGuard.currentStates[item.hash]) {
                 if (!DebugGuard.currentStates[item.hash].waitingFirstTick) {
                     DebugGuard.writeFunction(LOG_PREFIX, item.key, `Continue into scope`);
@@ -34,7 +34,7 @@ class DebugGuard {
                 DebugGuard.currentStates[item.hash].opened = true;
             }
         }
-        else if (state === SharedMutexSynchronizer_1.DEBUG_INFO_REPORTS.SCOPE_EXIT) {
+        else if (state === constants_1.DEBUG_INFO_REPORTS.SCOPE_EXIT) {
             if (DebugGuard.currentStates[item.hash]) {
                 DebugGuard.writeFunction(LOG_PREFIX, item.key, `Leaving scope`);
                 delete DebugGuard.currentStates[item.hash];

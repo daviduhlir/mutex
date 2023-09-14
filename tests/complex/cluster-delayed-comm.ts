@@ -2,6 +2,16 @@ import { SharedMutex } from '../../dist'
 import cluster from 'cluster'
 import { delay } from '../utils'
 
+SharedMutex.initialize({
+  communicationLayer: null,
+})
+
+setTimeout(() => {
+  SharedMutex.initialize({
+    communicationLayer: 'IPC',
+  })
+}, 500)
+
 ;(async function () {
   if (cluster.isMaster) {
     for(let index = 0; index < 4; index++) {

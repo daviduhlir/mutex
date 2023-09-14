@@ -1,11 +1,10 @@
-import cluster from './utils/cluster'
-import { SharedMutexSynchronizer } from './SharedMutexSynchronizer'
+import { SharedMutex } from './SharedMutex'
 export * from './SharedMutex'
-export * from './SharedMutexDecorators'
-export * from './SecondarySynchronizer'
-export * from './SharedMutexSynchronizer'
-export * from './DebugGuard'
+export * from './components/SharedMutexDecorators'
+export * from './components/SecondarySynchronizer'
+export * from './components/SharedMutexSynchronizer'
+export * from './components/DebugGuard'
+export * from './components/comm/MutexCommLayer'
+export * from './utils/interfaces'
 
-if (cluster.isMaster) {
-  SharedMutexSynchronizer.initializeMaster()
-}
+SharedMutex.initialize()

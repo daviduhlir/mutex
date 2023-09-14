@@ -1,5 +1,5 @@
-import { SharedMutex } from './SharedMutex'
-import { LockKey } from './utils/interfaces'
+import { SharedMutex } from '../SharedMutex'
+import { LockKey } from '../utils/interfaces'
 
 /**
  * Shared mutex decorator utils class

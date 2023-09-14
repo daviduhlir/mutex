@@ -54,7 +54,7 @@ export class SharedMutex {
    * @param keysPath
    * @param fnc
    */
-  static async lockSingleAccess<T>(key: LockKey, handler: () => Promise<T> | MutexSafeCallbackHandler<T>, maxLockingTime?: number): Promise<T> {
+  static async lockSingleAccess<T>(key: LockKey, handler: (() => Promise<T>) | MutexSafeCallbackHandler<T>, maxLockingTime?: number): Promise<T> {
     return this.lockAccess(key, handler, true, maxLockingTime)
   }
 
@@ -63,7 +63,7 @@ export class SharedMutex {
    * @param keysPath
    * @param fnc
    */
-  static async lockMultiAccess<T>(key: LockKey, handler: () => Promise<T> | MutexSafeCallbackHandler<T>, maxLockingTime?: number): Promise<T> {
+  static async lockMultiAccess<T>(key: LockKey, handler: (() => Promise<T>) | MutexSafeCallbackHandler<T>, maxLockingTime?: number): Promise<T> {
     return this.lockAccess(key, handler, false, maxLockingTime)
   }
 
@@ -74,7 +74,7 @@ export class SharedMutex {
    */
   static async lockAccess<T>(
     key: LockKey,
-    handler: () => Promise<T> | MutexSafeCallbackHandler<T>,
+    handler: (() => Promise<T>) | MutexSafeCallbackHandler<T>,
     singleAccess?: boolean,
     maxLockingTime?: number,
   ): Promise<T> {
@@ -118,7 +118,7 @@ export class SharedMutex {
     let fnc
     if (handler instanceof MutexSafeCallbackHandler) {
       fnc = handler.fnc
-      handler[__mutexSafeCallbackInjector] = unlocker
+      handler[__mutexSafeCallbackInjector](unlocker)
     } else {
       fnc = handler
     }

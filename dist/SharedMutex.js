@@ -66,7 +66,7 @@ class SharedMutex {
             let fnc;
             if (handler instanceof MutexSafeCallbackHandler_1.MutexSafeCallbackHandler) {
                 fnc = handler.fnc;
-                handler[MutexSafeCallbackHandler_1.__mutexSafeCallbackInjector] = unlocker;
+                handler[MutexSafeCallbackHandler_1.__mutexSafeCallbackInjector](unlocker);
             }
             else {
                 fnc = handler;

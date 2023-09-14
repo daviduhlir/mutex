@@ -12,7 +12,7 @@ export class MutexSafeCallbackHandler<T> {
   protected unlockCallback: () => void
   protected timeoutHandler
 
-  constructor(public fnc: () => Promise<T>, protected timeout?: number) {}
+  constructor(public fnc: () => Promise<T>, protected timeout?: number, protected onStartCallback?: (handler: MutexSafeCallbackHandler<T>) => void) {}
 
   /**
    * Reject this callback
@@ -25,18 +25,25 @@ export class MutexSafeCallbackHandler<T> {
     }
   }
 
-  [__mutexSafeCallbackInjector](callback: () => void) {
+  /**
+   * Injectors
+   */
+  [__mutexSafeCallbackInjector] = (callback: () => void) => {
     if (this.unlockCallback) {
       throw new MutexError(ERROR.MUTEX_SAFE_CALLBACK_ALREADY_USED)
     }
     this.unlockCallback = callback
 
     if (this.timeout) {
-      this.timeoutHandler = setTimeout(this.unlock, this.timeout)
+      this.timeoutHandler = setTimeout(() => this.unlock(), this.timeout)
     }
-  }
 
-  [__mutexSafeCallbackDispose]() {
+    if (this.onStartCallback) {
+      this.onStartCallback(this)
+    }
+  };
+
+  [__mutexSafeCallbackDispose] = () => {
     clearTimeout(this.timeoutHandler)
     this.timeoutHandler = null
     this.unlockCallback = null

@@ -12,10 +12,7 @@ export class MutexSafeCallbackHandler<T> {
   protected unlockCallback: () => void
   protected timeoutHandler
 
-  constructor(
-    public fnc: () => Promise<T>,
-    protected timeout?: number
-  ) {}
+  constructor(public fnc: () => Promise<T>, protected timeout?: number) {}
 
   /**
    * Reject this callback

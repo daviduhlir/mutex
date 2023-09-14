@@ -72,7 +72,12 @@ export class SharedMutex {
    * @param keysPath
    * @param fnc
    */
-  static async lockAccess<T>(key: LockKey, handler: () => Promise<T> | MutexSafeCallbackHandler<T>, singleAccess?: boolean, maxLockingTime?: number): Promise<T> {
+  static async lockAccess<T>(
+    key: LockKey,
+    handler: () => Promise<T> | MutexSafeCallbackHandler<T>,
+    singleAccess?: boolean,
+    maxLockingTime?: number,
+  ): Promise<T> {
     // detect of nested locks as death ends!
     const stack = [...(SharedMutex.stackStorage.getStore() || [])]
     const myStackItem = {

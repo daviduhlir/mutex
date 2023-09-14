@@ -20,7 +20,7 @@ class MutexSafeCallbackHandler {
                 this.timeoutHandler = setTimeout(() => this.unlock(), this.timeout);
             }
             if (this.onStartCallback) {
-                this.onStartCallback();
+                this.onStartCallback(this);
             }
         };
         this[_b] = () => {

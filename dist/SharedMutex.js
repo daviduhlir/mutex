@@ -21,6 +21,7 @@ const constants_1 = require("./utils/constants");
 const MutexError_1 = require("./utils/MutexError");
 const Awaiter_1 = require("./utils/Awaiter");
 const version_1 = __importDefault(require("./utils/version"));
+const MutexSafeCallbackHandler_1 = require("./components/MutexSafeCallbackHandler");
 class SharedMutexUnlockHandler {
     constructor(key, hash) {
         this.key = key;
@@ -32,17 +33,17 @@ class SharedMutexUnlockHandler {
 }
 exports.SharedMutexUnlockHandler = SharedMutexUnlockHandler;
 class SharedMutex {
-    static lockSingleAccess(key, fnc, maxLockingTime) {
+    static lockSingleAccess(key, handler, maxLockingTime) {
         return __awaiter(this, void 0, void 0, function* () {
-            return this.lockAccess(key, fnc, true, maxLockingTime);
+            return this.lockAccess(key, handler, true, maxLockingTime);
         });
     }
-    static lockMultiAccess(key, fnc, maxLockingTime) {
+    static lockMultiAccess(key, handler, maxLockingTime) {
         return __awaiter(this, void 0, void 0, function* () {
-            return this.lockAccess(key, fnc, false, maxLockingTime);
+            return this.lockAccess(key, handler, false, maxLockingTime);
         });
     }
-    static lockAccess(key, fnc, singleAccess, maxLockingTime) {
+    static lockAccess(key, handler, singleAccess, maxLockingTime) {
         return __awaiter(this, void 0, void 0, function* () {
             const stack = [...(SharedMutex.stackStorage.getStore() || [])];
             const myStackItem = {
@@ -54,16 +55,31 @@ class SharedMutex {
                 throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_NESTED_SCOPES, `ERROR Found nested locks with same key (${myStackItem.key}), which will cause death end of your application, because one of stacked lock is marked as single access only.`);
             }
             const shouldSkipLock = nestedInRelatedItems.length && !SharedMutex.strictMode;
-            const m = yield SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode: SharedMutex.strictMode, forceInstantContinue: shouldSkipLock });
+            let m = yield SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode: SharedMutex.strictMode, forceInstantContinue: shouldSkipLock });
+            const unlocker = () => {
+                m === null || m === void 0 ? void 0 : m.unlock();
+                m = null;
+                if (handler instanceof MutexSafeCallbackHandler_1.MutexSafeCallbackHandler) {
+                    handler[MutexSafeCallbackHandler_1.__mutexSafeCallbackDispose]();
+                }
+            };
+            let fnc;
+            if (handler instanceof MutexSafeCallbackHandler_1.MutexSafeCallbackHandler) {
+                fnc = handler.fnc;
+                handler[MutexSafeCallbackHandler_1.__mutexSafeCallbackInjector] = unlocker;
+            }
+            else {
+                fnc = handler;
+            }
             let result;
             try {
                 result = yield SharedMutex.stackStorage.run([...stack, myStackItem], fnc);
             }
             catch (e) {
-                m.unlock();
+                unlocker();
                 throw e;
             }
-            m === null || m === void 0 ? void 0 : m.unlock();
+            unlocker();
             return result;
         });
     }

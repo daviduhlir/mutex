@@ -1,5 +1,6 @@
 import { LockKey } from './utils/interfaces';
 import { Awaiter } from './utils/Awaiter';
+import { MutexSafeCallbackHandler } from './components/MutexSafeCallbackHandler';
 export declare class SharedMutexUnlockHandler {
     readonly key: string;
     readonly hash: string;
@@ -25,9 +26,9 @@ export declare class SharedMutex {
         key: string;
         singleAccess: boolean;
     }[]>;
-    static lockSingleAccess<T>(key: LockKey, fnc: () => Promise<T>, maxLockingTime?: number): Promise<T>;
-    static lockMultiAccess<T>(key: LockKey, fnc: () => Promise<T>, maxLockingTime?: number): Promise<T>;
-    static lockAccess<T>(key: LockKey, fnc: () => Promise<T>, singleAccess?: boolean, maxLockingTime?: number): Promise<T>;
+    static lockSingleAccess<T>(key: LockKey, handler: () => Promise<T> | MutexSafeCallbackHandler<T>, maxLockingTime?: number): Promise<T>;
+    static lockMultiAccess<T>(key: LockKey, handler: () => Promise<T> | MutexSafeCallbackHandler<T>, maxLockingTime?: number): Promise<T>;
+    static lockAccess<T>(key: LockKey, handler: () => Promise<T> | MutexSafeCallbackHandler<T>, singleAccess?: boolean, maxLockingTime?: number): Promise<T>;
     static lock(key: LockKey, config: LockConfiguration): Promise<SharedMutexUnlockHandler>;
     static unlock(key: LockKey, hash: string): void;
     static attachHandler(): void;

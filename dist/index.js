@@ -20,6 +20,9 @@ __exportStar(require("./SharedMutexDecorators"), exports);
 __exportStar(require("./SecondarySynchronizer"), exports);
 __exportStar(require("./SharedMutexSynchronizer"), exports);
 __exportStar(require("./DebugGuard"), exports);
+var MutexSafeCallbackHandler_1 = require("./components/MutexSafeCallbackHandler");
+Object.defineProperty(exports, "MutexSafeCallbackHandler", { enumerable: true, get: function () { return MutexSafeCallbackHandler_1.MutexSafeCallbackHandler; } });
+__exportStar(require("./utils/interfaces"), exports);
 if (cluster_1.default.isMaster) {
     SharedMutexSynchronizer_1.SharedMutexSynchronizer.initializeMaster();
 }

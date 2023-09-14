@@ -130,6 +130,7 @@ class Test {
     console.log(`Lock test`)
   }
 }
+```
 
 ## Safe handling of frozen promises
 
@@ -140,8 +141,6 @@ This is example how to use it with predefined timeout:
 ```ts
 const safeCallback = new MutexSafeCallbackHandler(async () => delay(1000), 100)
 const result = SharedMutex.lockSingleAccess('mutex', safeCallback, 200)
-```
-
 ```
 
 ## Debugging

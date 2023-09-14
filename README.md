@@ -131,6 +131,17 @@ class Test {
   }
 }
 
+## Safe handling of frozen promises
+
+There is mechanics, that you can use in case some of your promise will be frozen and you dont want to takes a care about that (eg. some child process freezes).
+You can use MutexSafeCallbackHandler as callback in lockSingleAccess, lockMultiAccess, and lockAccess methods. There is method unlock() on this handler, you can use it to force unlock this scope. If you will provides timeout parameter, it will triggers this force unlock automaticaly. If you want to handle it by yourself, leave timeout as undefined and use onStartCallback parameter to setup your own timeout mechanics, that will be able to call unlock on it.
+
+This is example how to use it with predefined timeout:
+```ts
+const safeCallback = new MutexSafeCallbackHandler(async () => delay(1000), 100)
+const result = SharedMutex.lockSingleAccess('mutex', safeCallback, 200)
+```
+
 ```
 
 ## Debugging

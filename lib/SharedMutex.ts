@@ -7,6 +7,7 @@ import { ACTION, ERROR, MASTER_ID, VERIFY_MASTER_MAX_TIMEOUT } from './utils/con
 import { MutexError } from './utils/MutexError'
 import { Awaiter } from './utils/Awaiter'
 import version from './utils/version'
+import { MutexSafeCallbackHandler, __mutexSafeCallbackDispose, __mutexSafeCallbackInjector } from './components/MutexSafeCallbackHandler'
 import { SharedMutexConfigManager } from './components/SharedMutexConfigManager'
 
 /**
@@ -56,8 +57,8 @@ export class SharedMutex {
    * @param keysPath
    * @param fnc
    */
-  static async lockSingleAccess<T>(key: LockKey, fnc: () => Promise<T>, maxLockingTime?: number): Promise<T> {
-    return this.lockAccess(key, fnc, true, maxLockingTime)
+  static async lockSingleAccess<T>(key: LockKey, handler: (() => Promise<T>) | MutexSafeCallbackHandler<T>, maxLockingTime?: number): Promise<T> {
+    return this.lockAccess(key, handler, true, maxLockingTime)
   }
 
   /**
@@ -65,8 +66,8 @@ export class SharedMutex {
    * @param keysPath
    * @param fnc
    */
-  static async lockMultiAccess<T>(key: LockKey, fnc: () => Promise<T>, maxLockingTime?: number): Promise<T> {
-    return this.lockAccess(key, fnc, false, maxLockingTime)
+  static async lockMultiAccess<T>(key: LockKey, handler: (() => Promise<T>) | MutexSafeCallbackHandler<T>, maxLockingTime?: number): Promise<T> {
+    return this.lockAccess(key, handler, false, maxLockingTime)
   }
 
   /**
@@ -74,7 +75,12 @@ export class SharedMutex {
    * @param keysPath
    * @param fnc
    */
-  static async lockAccess<T>(key: LockKey, fnc: () => Promise<T>, singleAccess?: boolean, maxLockingTime?: number): Promise<T> {
+  static async lockAccess<T>(
+    key: LockKey,
+    handler: (() => Promise<T>) | MutexSafeCallbackHandler<T>,
+    singleAccess?: boolean,
+    maxLockingTime?: number,
+  ): Promise<T> {
     // detect of nested locks as death ends!
     const stack = [...(SharedMutex.stackStorage.getStore() || [])]
     const myStackItem = {
@@ -102,22 +108,37 @@ export class SharedMutex {
     const shouldSkipLock = nestedInRelatedItems.length && !strictMode
 
     // lock all sub keys
-    const m = await SharedMutex.lock(key, {
-      singleAccess,
-      maxLockingTime: maxLockingTime === undefined ? (await SharedMutexConfigManager.getConfiguration()).defaultMaxLockingTime : maxLockingTime,
-      strictMode,
-      forceInstantContinue: shouldSkipLock,
-    })
+    let m = await SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode, forceInstantContinue: shouldSkipLock })
+
+    // unlock function with clearing mutex ref
+    const unlocker = () => {
+      m?.unlock()
+      m = null
+      if (handler instanceof MutexSafeCallbackHandler) {
+        handler[__mutexSafeCallbackDispose]()
+      }
+    }
+
+    // safe callback handling
+    let fnc
+    if (handler instanceof MutexSafeCallbackHandler) {
+      fnc = handler.fnc
+      handler[__mutexSafeCallbackInjector](unlocker)
+    } else {
+      fnc = handler
+    }
+
+    // run function
     let result
     try {
       result = await SharedMutex.stackStorage.run([...stack, myStackItem], fnc)
     } catch (e) {
       // unlock all keys
-      m.unlock()
+      unlocker()
       throw e
     }
     // unlock all keys
-    m?.unlock()
+    unlocker()
 
     return result
   }

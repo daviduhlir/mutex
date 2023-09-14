@@ -1,4 +1,4 @@
-import { LocalLockItem } from './utils/interfaces'
+import { LocalLockItem } from '../utils/interfaces'
 import { EventEmitter } from 'events'
 export class SecondarySynchronizer extends EventEmitter {
   public lock(item: LocalLockItem) {}

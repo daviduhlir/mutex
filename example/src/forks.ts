@@ -1,4 +1,4 @@
-import { SharedMutexDecorators } from '@david.uhlir/mutex'
+import { SharedMutexDecorators, SharedMutex } from '@david.uhlir/mutex'
 import cluster from 'cluster'
 
 /**

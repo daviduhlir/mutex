@@ -1,4 +1,4 @@
-import { LocalLockItem } from './interfaces'
+import { LocalLockItem } from '../utils/interfaces'
 
 const LOCAL_LOCKS_QUEUE_PROPERTY = '__sharedMutex_localLocksQueue__'
 const ALREADY_INITIALIZED_PROPERTY = '__sharedMutex_initialized__'
@@ -20,12 +20,12 @@ export class MutexGlobalStorage {
     global[LOCAL_LOCKS_QUEUE_PROPERTY] = items
   }
 
-  // get internal locks array
+  // get already initialized
   public static getInitialized(): boolean {
     return !!global[ALREADY_INITIALIZED_PROPERTY]
   }
 
-  // set internal locks array
+  // set already initialized
   public static setInitialized() {
     global[ALREADY_INITIALIZED_PROPERTY] = true
   }

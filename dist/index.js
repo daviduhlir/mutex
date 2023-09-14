@@ -9,21 +9,16 @@ var __createBinding = (this && this.__createBinding) || (Object.create ? (functi
 var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !exports.hasOwnProperty(p)) __createBinding(exports, m, p);
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-const cluster_1 = __importDefault(require("./utils/cluster"));
-const SharedMutexSynchronizer_1 = require("./SharedMutexSynchronizer");
+const SharedMutex_1 = require("./SharedMutex");
 __exportStar(require("./SharedMutex"), exports);
-__exportStar(require("./SharedMutexDecorators"), exports);
-__exportStar(require("./SecondarySynchronizer"), exports);
-__exportStar(require("./SharedMutexSynchronizer"), exports);
-__exportStar(require("./DebugGuard"), exports);
+__exportStar(require("./components/SharedMutexDecorators"), exports);
+__exportStar(require("./components/SecondarySynchronizer"), exports);
+__exportStar(require("./components/SharedMutexSynchronizer"), exports);
+__exportStar(require("./components/DebugGuard"), exports);
+__exportStar(require("./components/comm/MutexCommLayer"), exports);
+__exportStar(require("./utils/interfaces"), exports);
 var MutexSafeCallbackHandler_1 = require("./components/MutexSafeCallbackHandler");
 Object.defineProperty(exports, "MutexSafeCallbackHandler", { enumerable: true, get: function () { return MutexSafeCallbackHandler_1.MutexSafeCallbackHandler; } });
-__exportStar(require("./utils/interfaces"), exports);
-if (cluster_1.default.isMaster) {
-    SharedMutexSynchronizer_1.SharedMutexSynchronizer.initializeMaster();
-}
+SharedMutex_1.SharedMutex.initialize();
 //# sourceMappingURL=index.js.map

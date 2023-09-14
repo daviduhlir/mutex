@@ -9,6 +9,9 @@ class MutexError extends Error {
         if (!this.message) {
             this.message = this.key;
         }
+        else {
+            this.message = `${this.key}: ${this.message}`;
+        }
         const actualProto = new.target.prototype;
         if (Object.setPrototypeOf) {
             Object.setPrototypeOf(this, actualProto);

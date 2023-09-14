@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SharedMutexDecorators = void 0;
-const SharedMutex_1 = require("./SharedMutex");
+const SharedMutex_1 = require("../SharedMutex");
 class SharedMutexDecorators {
     static lockSingleAccess(key, maxLockingTime) {
         return SharedMutexDecorators.lockAccess(key, true, maxLockingTime);

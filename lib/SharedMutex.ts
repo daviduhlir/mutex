@@ -1,13 +1,14 @@
 import cluster from './utils/cluster'
 import { keysRelatedMatch, parseLockKey, randomHash } from './utils/utils'
-import { SharedMutexSynchronizer } from './SharedMutexSynchronizer'
-import { LockKey } from './utils/interfaces'
-import AsyncLocalStorage from './utils/AsyncLocalStorage'
+import { SharedMutexSynchronizer } from './components/SharedMutexSynchronizer'
+import { LockConfiguration, LockKey, SharedMutexConfiguration } from './utils/interfaces'
+import AsyncLocalStorage from './components/AsyncLocalStorage'
 import { ACTION, ERROR, MASTER_ID, VERIFY_MASTER_MAX_TIMEOUT } from './utils/constants'
 import { MutexError } from './utils/MutexError'
 import { Awaiter } from './utils/Awaiter'
 import version from './utils/version'
 import { MutexSafeCallbackHandler, __mutexSafeCallbackDispose, __mutexSafeCallbackInjector } from './components/MutexSafeCallbackHandler'
+import { SharedMutexConfigManager } from './components/SharedMutexConfigManager'
 
 /**
  * Unlock handler
@@ -21,27 +22,29 @@ export class SharedMutexUnlockHandler {
 }
 
 /**
- * Single lock configuration
- */
-export interface LockConfiguration {
-  strictMode?: boolean
-  singleAccess?: boolean
-  maxLockingTime?: number
-  forceInstantContinue?: boolean
-}
-
-/**
  * Shared mutex class can lock some worker and wait for key,
  * that will be unlocked in another fork.
  */
 export class SharedMutex {
-  static strictMode = false
+  /**
+   * Waiting handlers
+   */
   protected static waitingMessagesHandlers: { resolve: (message: any) => void; hash: string }[] = []
+
+  /**
+   *  is attached
+   */
   protected static attached: boolean = false
 
+  /**
+   * master verify
+   */
   protected static masterVerificationWaiter: Awaiter = new Awaiter()
   protected static masterVerifiedTimeout = null
 
+  /**
+   * storage of data for nested keys
+   */
   protected static stackStorage = new AsyncLocalStorage<
     {
       key: string
@@ -87,7 +90,9 @@ export class SharedMutex {
 
     const nestedInRelatedItems = stack.filter(i => keysRelatedMatch(i.key, myStackItem.key))
 
-    if (nestedInRelatedItems.length && SharedMutex.strictMode) {
+    const strictMode = (await SharedMutexConfigManager.getConfiguration()).strictMode
+
+    if (nestedInRelatedItems.length && strictMode) {
       /*
        * Nested mutexes are not allowed, because in javascript it's complicated to tract scope, where it was locked.
        * Basicaly this kind of locks will cause you application will never continue,
@@ -100,10 +105,10 @@ export class SharedMutex {
     }
 
     // override lock for nested related locks in non strict mode
-    const shouldSkipLock = nestedInRelatedItems.length && !SharedMutex.strictMode
+    const shouldSkipLock = nestedInRelatedItems.length && !strictMode
 
     // lock all sub keys
-    let m = await SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode: SharedMutex.strictMode, forceInstantContinue: shouldSkipLock })
+    let m = await SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode, forceInstantContinue: shouldSkipLock })
 
     // unlock function with clearing mutex ref
     const unlocker = () => {
@@ -123,6 +128,7 @@ export class SharedMutex {
       fnc = handler
     }
 
+    // run function
     let result
     try {
       result = await SharedMutex.stackStorage.run([...stack, myStackItem], fnc)
@@ -149,7 +155,7 @@ export class SharedMutex {
       SharedMutex.waitingMessagesHandlers.push({
         hash,
         resolve: message => {
-          if (message.__mutexMessage__ && message.hash === hash) {
+          if (message.hash === hash) {
             SharedMutex.waitingMessagesHandlers = SharedMutex.waitingMessagesHandlers.filter(i => i.hash !== hash)
             resolve(null)
           }
@@ -177,21 +183,34 @@ export class SharedMutex {
   }
 
   /**
-   * Attach handlers
-   */
-  static attachHandler() {
-    if (!SharedMutex.attached) {
-      SharedMutex.attached = true
-      ;(cluster.isWorker ? process : SharedMutexSynchronizer.masterHandler.emitter).on('message', SharedMutex.handleMessage)
-    }
-  }
-
-  /**
    * Initialize master handler
    */
-  static initializeMaster() {
-    SharedMutexSynchronizer.initializeMaster()
+  static async initialize(configuration?: Partial<SharedMutexConfiguration>) {
+    // comm is not prepared and is not set yet... wait for next init call
+    if (!(await SharedMutexConfigManager.initialize(configuration))) {
+      return
+    }
+
+    // attach handlers
+    if (!SharedMutex.attached) {
+      SharedMutex.attached = true
+      // TODO listen it on some handler
+      if (cluster.isWorker) {
+        ;(await SharedMutexConfigManager.getComm()).onProcessMessage(SharedMutex.handleMessage)
+      } else {
+        SharedMutexSynchronizer.masterHandler.emitter.on('message', SharedMutex.handleMessage)
+      }
+    }
+
+    // initialize synchronizer
+    await SharedMutexSynchronizer.initializeMaster()
   }
+
+  /***********************
+   *
+   * Internal methods
+   *
+   ***********************/
 
   /**
    * Send action to master
@@ -200,7 +219,6 @@ export class SharedMutex {
    */
   protected static async sendAction(key: string, action: string, hash: string, data: any = null): Promise<void> {
     const message = {
-      __mutexMessage__: true,
       action,
       key,
       hash,
@@ -212,12 +230,16 @@ export class SharedMutex {
       await SharedMutex.verifyMaster()
 
       // send action
-      process.send({
-        ...message,
-        workerId: cluster.worker?.id,
-      })
+      ;(await SharedMutexConfigManager.getComm()).processSend(message)
     } else {
-      // SharedMutex.masterVerified = true
+      if (!SharedMutexSynchronizer.masterHandler?.masterIncomingMessage) {
+        throw new MutexError(
+          ERROR.MUTEX_MASTER_NOT_INITIALIZED,
+          'Master process does not has initialized mutex synchronizer. Usualy by missed call of SharedMutex.initialize() in master process.',
+        )
+      }
+
+      // send message to master directly
       SharedMutexSynchronizer.masterHandler.masterIncomingMessage({
         ...message,
         workerId: MASTER_ID,
@@ -229,7 +251,7 @@ export class SharedMutex {
    * Handle incomming IPC message
    */
   protected static handleMessage(message: any) {
-    if (message.__mutexMessage__ && message.action === ACTION.VERIFY_COMPLETE) {
+    if (message.action === ACTION.VERIFY_COMPLETE) {
       if (SharedMutex.masterVerifiedTimeout) {
         clearTimeout(SharedMutex.masterVerifiedTimeout)
         SharedMutex.masterVerifiedTimeout = null
@@ -242,11 +264,12 @@ export class SharedMutex {
           )
         }
 
+        // resolve verification
         SharedMutex.masterVerificationWaiter.resolve()
       } else {
         throw new MutexError(ERROR.MUTEX_REDUNDANT_VERIFICATION, 'This is usualy caused by more than one instance of SharedMutex installed together.')
       }
-    } else if (message.__mutexMessage__ && message.hash) {
+    } else if (message.hash) {
       const foundItem = SharedMutex.waitingMessagesHandlers.find(item => item.hash === message.hash)
       if (foundItem) {
         foundItem.resolve(message)
@@ -263,18 +286,22 @@ export class SharedMutex {
     }
 
     if (SharedMutex.masterVerifiedTimeout === null) {
-      process.send({
-        __mutexMessage__: true,
-        workerId: cluster.worker?.id,
+      // send verify ask
+      ;(await SharedMutexConfigManager.getComm()).processSend({
         action: ACTION.VERIFY,
+        usingCustomConfig: await SharedMutexConfigManager.getUsingDefaultConfig(),
       })
+
+      // timeout for wait to init
       SharedMutex.masterVerifiedTimeout = setTimeout(() => {
-        throw new MutexError(ERROR.MUTEX_MASTER_NOT_INITIALIZED)
+        throw new MutexError(
+          ERROR.MUTEX_MASTER_NOT_INITIALIZED,
+          'Master process does not has initialized mutex synchronizer. Usualy by missed call of SharedMutex.initialize() in master process.',
+        )
       }, VERIFY_MASTER_MAX_TIMEOUT)
     }
 
-    await SharedMutex.masterVerificationWaiter.wait()
+    // wait for verification done
+    return SharedMutex.masterVerificationWaiter.wait()
   }
 }
-
-SharedMutex.attachHandler()

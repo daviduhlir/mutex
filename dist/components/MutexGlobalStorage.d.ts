@@ -1,4 +1,4 @@
-import { LocalLockItem } from './interfaces';
+import { LocalLockItem } from '../utils/interfaces';
 export declare class MutexGlobalStorage {
     static getLocalLocksQueue(): LocalLockItem[];
     static setLocalLocksQueue(items: LocalLockItem[]): void;

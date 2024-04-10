@@ -21,11 +21,11 @@ export declare class SharedMutex {
     }[]>;
     static lockSingleAccess<T>(key: LockKey, handler: (() => Promise<T>) | MutexSafeCallbackHandler<T>, maxLockingTime?: number): Promise<T>;
     static lockMultiAccess<T>(key: LockKey, handler: (() => Promise<T>) | MutexSafeCallbackHandler<T>, maxLockingTime?: number): Promise<T>;
-    static lockAccess<T>(key: LockKey, handler: (() => Promise<T>) | MutexSafeCallbackHandler<T>, singleAccess?: boolean, maxLockingTime?: number): Promise<T>;
-    static lock(key: LockKey, config: LockConfiguration): Promise<SharedMutexUnlockHandler>;
+    static lockAccess<T>(key: LockKey, handler: (() => Promise<T>) | MutexSafeCallbackHandler<T>, singleAccess?: boolean, maxLockingTime?: number, codeStack?: string): Promise<T>;
+    static lock(key: LockKey, config: LockConfiguration, codeStack?: string): Promise<SharedMutexUnlockHandler>;
     static unlock(key: LockKey, hash: string): void;
     static initialize(configuration?: Partial<SharedMutexConfiguration>): Promise<void>;
-    protected static sendAction(key: string, action: string, hash: string, data?: any): Promise<void>;
+    protected static sendAction(key: string, action: string, hash: string, data?: any, codeStack?: any): Promise<void>;
     protected static handleMessage(message: any): void;
     protected static verifyMaster(): Promise<any>;
 }

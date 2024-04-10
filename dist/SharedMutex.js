@@ -23,6 +23,7 @@ const Awaiter_1 = require("./utils/Awaiter");
 const version_1 = __importDefault(require("./utils/version"));
 const MutexSafeCallbackHandler_1 = require("./components/MutexSafeCallbackHandler");
 const SharedMutexConfigManager_1 = require("./components/SharedMutexConfigManager");
+const stack_1 = require("./utils/stack");
 class SharedMutexUnlockHandler {
     constructor(key, hash) {
         this.key = key;
@@ -36,16 +37,21 @@ exports.SharedMutexUnlockHandler = SharedMutexUnlockHandler;
 class SharedMutex {
     static lockSingleAccess(key, handler, maxLockingTime) {
         return __awaiter(this, void 0, void 0, function* () {
-            return this.lockAccess(key, handler, true, maxLockingTime);
+            const codeStack = stack_1.getStackFrom('lockSingleAccess');
+            return this.lockAccess(key, handler, true, maxLockingTime, codeStack);
         });
     }
     static lockMultiAccess(key, handler, maxLockingTime) {
         return __awaiter(this, void 0, void 0, function* () {
-            return this.lockAccess(key, handler, false, maxLockingTime);
+            const codeStack = stack_1.getStackFrom('lockMultiAccess');
+            return this.lockAccess(key, handler, false, maxLockingTime, codeStack);
         });
     }
-    static lockAccess(key, handler, singleAccess, maxLockingTime) {
+    static lockAccess(key, handler, singleAccess, maxLockingTime, codeStack) {
         return __awaiter(this, void 0, void 0, function* () {
+            if (!codeStack) {
+                codeStack = stack_1.getStackFrom('lockAccess');
+            }
             const stack = [...(SharedMutex.stackStorage.getStore() || [])];
             const myStackItem = {
                 key: utils_1.parseLockKey(key),
@@ -57,7 +63,7 @@ class SharedMutex {
                 throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_NESTED_SCOPES, `ERROR Found nested locks with same key (${myStackItem.key}), which will cause death end of your application, because one of stacked lock is marked as single access only.`);
             }
             const shouldSkipLock = nestedInRelatedItems.length && !strictMode;
-            let m = yield SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode, forceInstantContinue: shouldSkipLock });
+            let m = yield SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode, forceInstantContinue: shouldSkipLock }, codeStack);
             const unlocker = () => {
                 m === null || m === void 0 ? void 0 : m.unlock();
                 m = null;
@@ -85,8 +91,11 @@ class SharedMutex {
             return result;
         });
     }
-    static lock(key, config) {
+    static lock(key, config, codeStack) {
         return __awaiter(this, void 0, void 0, function* () {
+            if (!codeStack) {
+                codeStack = stack_1.getStackFrom('lock');
+            }
             const hash = utils_1.randomHash();
             const waiter = new Promise((resolve) => {
                 SharedMutex.waitingMessagesHandlers.push({
@@ -104,7 +113,7 @@ class SharedMutex {
                 maxLockingTime: config.maxLockingTime,
                 singleAccess: config.singleAccess,
                 forceInstantContinue: config.forceInstantContinue,
-            });
+            }, codeStack);
             yield waiter;
             return new SharedMutexUnlockHandler(lockKey, hash);
         });
@@ -130,12 +139,13 @@ class SharedMutex {
             yield SharedMutexSynchronizer_1.SharedMutexSynchronizer.initializeMaster();
         });
     }
-    static sendAction(key, action, hash, data = null) {
+    static sendAction(key, action, hash, data = null, codeStack) {
         var _a;
         return __awaiter(this, void 0, void 0, function* () {
             const message = Object.assign({ action,
                 key,
-                hash }, data);
+                hash,
+                codeStack }, data);
             if (cluster_1.default.isWorker) {
                 yield SharedMutex.verifyMaster();
                 (yield SharedMutexConfigManager_1.SharedMutexConfigManager.getComm()).processSend(message);

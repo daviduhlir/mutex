@@ -67,14 +67,14 @@ layer.on('complete', () => {
 
 ## Mechanics of locks
 
-Every each lock before going into scope is asking synchronizer, if we are able to continue. This happening immediately after lock call, but after another lock being unlocked. We calling it mutex tick. Internaly all locks are sorted into queue, in order how it's arrived to synchronizer. Tick will decide, who can continue, and who should be first in order.
-Lock, that can continue must have "clear way", it means, there can't by any other locked lock with same key (or child key, parental key) in case of single acces, or locked locks needs to have multi access enabled - in case we are working with multi access lock.
+Every each lock before going into scope is asking synchronizer, if we are able to continue. This is happening immediately after lock method call and after another lock being unlocked. We calling it mutex tick. Internaly all locks are sorted into queue, in order how it's arrived to synchronizer. Tick will decide, who can continue, and who should be first in order.
+Lock, that can continue must have "clear way", it means, there can't by any other locked lock with same key (or child key, parental key) in case of single acces, or locked locks needs to have multi access enabled - in case we are working with multi access lock. Multi access locks can enter theirs scopes together, selecting of locks, that can enter theirs scopes in same time is drivven by order in queue, if there is multi access items queued up in a row, it will open them together.
 
 ## Locks setup
 
 There is several flags and definitions, that can change behaviour of locks.
 Every lock can has specified maxLockingTime, it's longest time, when scope can be locked. After this time, mutex will throw exception to prevent keeping app in frozen state. This behaviour can be overrided by setting `SharedMutexSynchronizer.timeoutHandler` handler to your custom.
-Globaly you can turn off or on strict mode by setting `strictMode` in configuration to true, which will change behaviour in nested locks. If we detecting nested lock with related key (key, that can affect your key), it will writes warning and open this scope in case, strict mode is off. In strict mode this will cause application to crash (or fork only).
+Globaly you can turn off or on strict mode by setting `strictMode` in configuration to true, which will change behaviour in nested locks. In case, strict mode is off, when we detecting nested lock with related key (key, that can affect parent key), it will logs warning and opens this scope immediately, otherwise, when strict mode is on, it will crash your application. In strict mode this will cause application to crash (or fork only).
 
 ## Usage of locks
 
@@ -146,8 +146,9 @@ const result = SharedMutex.lockSingleAccess('mutex', safeCallback, 200)
 ## Debugging
 
 This is experimental feature, but in case you want extra level of info, what's going on inside of scopes, you can use reportDebugInfo function on SharedMutexSynchronizer class. This method is callen when any of mutexes changing it's state. To better see, how mutexes entering scopes, you can use DebugGuard class, which will provides you all neccessary data pairing and will write it to console.
+There is posibility to write stack info in debug messages by settings `SharedMutexSynchronizer.debugWithStack` to true.
 
-To use this feature, just write this to begining of your code:
+To use debugger features, just write this to begining of your code:
 
 ```ts
 SharedMutexSynchronizer.reportDebugInfo = DebugGuard.reportDebugInfo
@@ -164,11 +165,30 @@ SCOPE_CONTINUE
 This is example of output of guard:
 
 ```
-MUTEX_DEBUG mutex Entering scope
-MUTEX_DEBUG mutex/deep Waiting outside of scope. Posible blockers:  mutex
-MUTEX_DEBUG mutex Leaving scope
-MUTEX_DEBUG mutex/deep Continue into scope
-MUTEX_DEBUG mutex/deep Leaving scope
+MUTEX_DEBUG mutex (S) Entering scope
+MUTEX_DEBUG mutex/deepx (S) Waiting outside of scope. Posible blockers:  mutex
+MUTEX_DEBUG mutexx (S) Leaving scope
+MUTEX_DEBUG mutex/deepx (S) Continue into scope
+MUTEX_DEBUG mutex/deepx (S) Leaving scope
 ```
+
+You can use your own debugger report method, and handle states by yourself.
+DebugGuard can be also configured, to prevent messy log, and log only important messages, like scopes, that was locked too long, or scopes, that was waiting for unlock too long. It can be setup by changing flags in `DebugGuard.options`.
+
+This is options interface:
+
+```ts
+interface DebugGuardOptions {
+  logEnterScope: boolean
+  logWaitingOutside: boolean
+  logContinue: boolean
+  logLeave: boolean
+  logDetail: boolean
+  logContinueMinTime: number
+  logLeaveMinTime: number
+}
+```
+
+All the times is in miliseconds.
 
 ISC

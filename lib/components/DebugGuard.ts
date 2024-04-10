@@ -94,7 +94,7 @@ export class DebugGuard {
             waitingTime = Date.now() - DebugGuard.currentStates[item.hash].firstAttempTime
             DebugGuard.currentStates[item.hash].enteredTime = Date.now()
           }
-          if (DebugGuard.options.logContinue && waitingTime > DebugGuard.options.logContinueMinTime) {
+          if (DebugGuard.options.logContinue && waitingTime >= DebugGuard.options.logContinueMinTime) {
             const blockedByCount = DebugGuard.currentStates[item.hash].wasBlockedBy.length
             const blockedBy = DebugGuard.currentStates[item.hash].wasBlockedBy.filter((value, index, array) => array.indexOf(value) === index)
             DebugGuard.writeFunction(

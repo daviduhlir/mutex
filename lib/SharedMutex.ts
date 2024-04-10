@@ -264,7 +264,7 @@ export class SharedMutex {
       if (!SharedMutexSynchronizer.masterHandler?.masterIncomingMessage) {
         throw new MutexError(
           ERROR.MUTEX_MASTER_NOT_INITIALIZED,
-          'Master process does not has initialized mutex synchronizer. Usualy by missed call of SharedMutex.initialize() in master process.',
+          'Master process has not initialized mutex synchronizer. usually by missing call of SharedMutex.initialize() in master process.',
         )
       }
 
@@ -289,14 +289,14 @@ export class SharedMutex {
         if (message.version !== version) {
           throw new MutexError(
             ERROR.MUTEX_DIFFERENT_VERSIONS,
-            'This is usualy caused by more than one instance of SharedMutex installed together in different version. Version of mutexes must be completly same.',
+            'This is usually caused by more than one instance of SharedMutex package installed together.',
           )
         }
 
         // resolve verification
         SharedMutex.masterVerificationWaiter.resolve()
       } else {
-        throw new MutexError(ERROR.MUTEX_REDUNDANT_VERIFICATION, 'This is usualy caused by more than one instance of SharedMutex installed together.')
+        throw new MutexError(ERROR.MUTEX_REDUNDANT_VERIFICATION, 'This is usually caused by more than one instance of SharedMutex package installed together.')
       }
     } else if (message.hash) {
       const foundItem = SharedMutex.waitingMessagesHandlers.find(item => item.hash === message.hash)
@@ -325,7 +325,7 @@ export class SharedMutex {
       SharedMutex.masterVerifiedTimeout = setTimeout(() => {
         throw new MutexError(
           ERROR.MUTEX_MASTER_NOT_INITIALIZED,
-          'Master process does not has initialized mutex synchronizer. Usualy by missed call of SharedMutex.initialize() in master process.',
+          'Master process does not has initialized mutex synchronizer. usually by missed call of SharedMutex.initialize() in master process.',
         )
       }, VERIFY_MASTER_MAX_TIMEOUT)
     }

@@ -49,7 +49,7 @@ class DebugGuard {
                         waitingTime = Date.now() - DebugGuard.currentStates[item.hash].firstAttempTime;
                         DebugGuard.currentStates[item.hash].enteredTime = Date.now();
                     }
-                    if (DebugGuard.options.logContinue && waitingTime > DebugGuard.options.logContinueMinTime) {
+                    if (DebugGuard.options.logContinue && waitingTime >= DebugGuard.options.logContinueMinTime) {
                         const blockedByCount = DebugGuard.currentStates[item.hash].wasBlockedBy.length;
                         const blockedBy = DebugGuard.currentStates[item.hash].wasBlockedBy.filter((value, index, array) => array.indexOf(value) === index);
                         DebugGuard.writeFunction(LOG_PREFIX, item.key + (item.singleAccess ? ' (S)' : ' (M)'), `Continue into scope (Blocked for ${waitingTime}ms by ${blockedBy} ${blockedByCount}x)`, DebugGuard.currentStates[item.hash].enterStack && DebugGuard.options.logDetail

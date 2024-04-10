@@ -158,7 +158,7 @@ class SharedMutex {
             }
             else {
                 if (!((_a = SharedMutexSynchronizer_1.SharedMutexSynchronizer.masterHandler) === null || _a === void 0 ? void 0 : _a.masterIncomingMessage)) {
-                    throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_MASTER_NOT_INITIALIZED, 'Master process does not has initialized mutex synchronizer. usually by missed call of SharedMutex.initialize() in master process.');
+                    throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_MASTER_NOT_INITIALIZED, 'Master process has not initialized mutex synchronizer. usually by missing call of SharedMutex.initialize() in master process.');
                 }
                 SharedMutexSynchronizer_1.SharedMutexSynchronizer.masterHandler.masterIncomingMessage(Object.assign(Object.assign({}, message), { workerId: constants_1.MASTER_ID }));
             }
@@ -170,12 +170,12 @@ class SharedMutex {
                 clearTimeout(SharedMutex.masterVerifiedTimeout);
                 SharedMutex.masterVerifiedTimeout = null;
                 if (message.version !== version_1.default) {
-                    throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_DIFFERENT_VERSIONS, 'This is usually caused by more than one instance of SharedMutex installed together in different version. Version of mutexes must be completly same.');
+                    throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_DIFFERENT_VERSIONS, 'This is usually caused by more than one instance of SharedMutex package installed together.');
                 }
                 SharedMutex.masterVerificationWaiter.resolve();
             }
             else {
-                throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_REDUNDANT_VERIFICATION, 'This is usually caused by more than one instance of SharedMutex installed together.');
+                throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_REDUNDANT_VERIFICATION, 'This is usually caused by more than one instance of SharedMutex package installed together.');
             }
         }
         else if (message.hash) {

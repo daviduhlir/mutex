@@ -2,6 +2,8 @@ import { LocalLockItem } from '../utils/interfaces';
 export interface StateInfo {
     opened: boolean;
     key: string;
+    hash: string;
+    singleAccess: boolean;
     waitingFirstTick: boolean;
     firstAttempTime?: number;
     enteredTime?: number;

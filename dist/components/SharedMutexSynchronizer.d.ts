@@ -16,6 +16,7 @@ export declare class SharedMutexSynchronizer {
     static getLockInfo(hash: string): LockDescriptor;
     static resetLockTimeout(hash: string, newMaxLockingTime?: number): void;
     static initializeMaster(): Promise<void>;
+    static getLocksCount(): number;
     protected static lock(item: LocalLockItem, codeStack?: string): void;
     protected static unlock(hash?: string, codeStack?: string): void;
     protected static mutexTickNext(): void;

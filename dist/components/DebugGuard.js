@@ -10,6 +10,8 @@ class DebugGuard {
             if (!DebugGuard.currentStates[item.hash]) {
                 DebugGuard.currentStates[item.hash] = {
                     key: item.key,
+                    hash: item.hash,
+                    singleAccess: item.singleAccess,
                     opened: false,
                     waitingFirstTick: true,
                     firstAttempTime: Date.now(),
@@ -22,15 +24,18 @@ class DebugGuard {
                     const allRelated = DebugGuard.getAllRelated(item.key, item.hash);
                     DebugGuard.currentStates[item.hash].wasBlockedBy = allRelated.map(i => i.key);
                     if (DebugGuard.options.logWaitingOutside) {
-                        DebugGuard.writeFunction(LOG_PREFIX, item.key, `Waiting outside of scope. Posible blockers: `, DebugGuard.currentStates[item.hash].wasBlockedBy, DebugGuard.currentStates[item.hash].enterStack && DebugGuard.options.logDetail
+                        const blockedByCount = DebugGuard.currentStates[item.hash].wasBlockedBy.length;
+                        const blockedBy = DebugGuard.currentStates[item.hash].wasBlockedBy.filter((value, index, array) => array.indexOf(value) === index);
+                        DebugGuard.writeFunction(LOG_PREFIX, item.key + (item.singleAccess ? ' (S)' : ' (M)'), `Waiting outside of scope. Posible blockers: `, `${blockedBy} ${blockedByCount}x`, DebugGuard.currentStates[item.hash].enterStack && DebugGuard.options.logDetail
                             ? `\n${DebugGuard.currentStates[item.hash].enterStack}`
                             : undefined);
                     }
                 }
                 else {
+                    DebugGuard.currentStates[item.hash].wasBlockedBy = [];
                     DebugGuard.currentStates[item.hash].enteredTime = Date.now();
                     if (DebugGuard.options.logEnterScope) {
-                        DebugGuard.writeFunction(LOG_PREFIX, item.key, `Entering scope`);
+                        DebugGuard.writeFunction(LOG_PREFIX, item.key + (item.singleAccess ? ' (S)' : ' (M)'), `Entering scope`);
                     }
                 }
                 DebugGuard.currentStates[item.hash].waitingFirstTick = false;
@@ -45,7 +50,9 @@ class DebugGuard {
                         DebugGuard.currentStates[item.hash].enteredTime = Date.now();
                     }
                     if (DebugGuard.options.logContinue && waitingTime > DebugGuard.options.logContinueMinTime) {
-                        DebugGuard.writeFunction(LOG_PREFIX, item.key, `Continue into scope (Blocked for ${waitingTime}ms by ${DebugGuard.currentStates[item.hash].wasBlockedBy})`, DebugGuard.currentStates[item.hash].enterStack && DebugGuard.options.logDetail
+                        const blockedByCount = DebugGuard.currentStates[item.hash].wasBlockedBy.length;
+                        const blockedBy = DebugGuard.currentStates[item.hash].wasBlockedBy.filter((value, index, array) => array.indexOf(value) === index);
+                        DebugGuard.writeFunction(LOG_PREFIX, item.key + (item.singleAccess ? ' (S)' : ' (M)'), `Continue into scope (Blocked for ${waitingTime}ms by ${blockedBy} ${blockedByCount}x)`, DebugGuard.currentStates[item.hash].enterStack && DebugGuard.options.logDetail
                             ? `\n${DebugGuard.currentStates[item.hash].enterStack}`
                             : undefined);
                     }
@@ -56,8 +63,8 @@ class DebugGuard {
         else if (state === constants_1.DEBUG_INFO_REPORTS.SCOPE_EXIT) {
             if (DebugGuard.currentStates[item.hash]) {
                 const lockedTime = Date.now() - DebugGuard.currentStates[item.hash].enteredTime;
-                if (DebugGuard.options.logLeave && lockedTime > DebugGuard.options.logLeaveMinTime) {
-                    DebugGuard.writeFunction(LOG_PREFIX, item.key, `Leaving scope (Locked for ${lockedTime}ms)`, DebugGuard.currentStates[item.hash].enterStack && DebugGuard.options.logDetail
+                if (DebugGuard.options.logLeave && lockedTime >= DebugGuard.options.logLeaveMinTime) {
+                    DebugGuard.writeFunction(LOG_PREFIX, item.key + (item.singleAccess ? ' (S)' : ' (M)'), `Leaving scope (Locked for ${lockedTime}ms)`, DebugGuard.currentStates[item.hash].enterStack && DebugGuard.options.logDetail
                         ? `\n${DebugGuard.currentStates[item.hash].enterStack}`
                         : undefined);
                 }

@@ -67,6 +67,9 @@ class SharedMutexSynchronizer {
             SharedMutexSynchronizer.masterHandler.masterIncomingMessage = SharedMutexSynchronizer.masterIncomingMessage;
         });
     }
+    static getLocksCount() {
+        return MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue().length;
+    }
     static lock(item, codeStack) {
         const nItem = Object.assign({}, item);
         MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue().push(nItem);

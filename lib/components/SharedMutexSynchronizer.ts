@@ -145,6 +145,14 @@ export class SharedMutexSynchronizer {
   }
 
   /**
+   * Get count of locks currently
+   * @returns
+   */
+  static getLocksCount(): number {
+    return MutexGlobalStorage.getLocalLocksQueue().length
+  }
+
+  /**
    * Lock mutex
    */
   protected static lock(item: LocalLockItem, codeStack?: string) {

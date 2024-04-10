@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events'
 import cluster from '../utils/cluster'
-import { LocalLockItem, LockDescriptor, SharedMutexConfiguration } from '../utils/interfaces'
+import { LocalLockItem, LockDescriptor } from '../utils/interfaces'
 import { SecondarySynchronizer } from './SecondarySynchronizer'
 import { keysRelatedMatch, sanitizeLock } from '../utils/utils'
 import { ACTION, DEBUG_INFO_REPORTS, ERROR, MASTER_ID, SYNC_EVENTS } from '../utils/constants'
@@ -18,7 +18,12 @@ export class SharedMutexSynchronizer {
   /**
    * Report debug info, you can use console log inside to track, whats going on
    */
-  static reportDebugInfo = (state: string, item: LocalLockItem) => {}
+  static reportDebugInfo = (state: string, item: LocalLockItem, codeStack?: string) => {}
+
+  /**
+   * Report debug info with stack
+   */
+  static debugWithStack: boolean = false
 
   /**
    * secondary arbitter
@@ -142,7 +147,7 @@ export class SharedMutexSynchronizer {
   /**
    * Lock mutex
    */
-  protected static lock(item: LocalLockItem) {
+  protected static lock(item: LocalLockItem, codeStack?: string) {
     // add it to locks
     const nItem = { ...item }
     MutexGlobalStorage.getLocalLocksQueue().push(nItem)
@@ -158,7 +163,7 @@ export class SharedMutexSynchronizer {
     }
 
     // debug info
-    SharedMutexSynchronizer.reportDebugInfo(DEBUG_INFO_REPORTS.SCOPE_WAITING, nItem)
+    SharedMutexSynchronizer.reportDebugInfo(DEBUG_INFO_REPORTS.SCOPE_WAITING, nItem, codeStack)
 
     // next tick... unlock something, if waiting
     SharedMutexSynchronizer.mutexTickNext()
@@ -169,7 +174,7 @@ export class SharedMutexSynchronizer {
    * @param key
    * @param workerId
    */
-  protected static unlock(hash?: string) {
+  protected static unlock(hash?: string, codeStack?: string) {
     const f = MutexGlobalStorage.getLocalLocksQueue().find(foundItem => foundItem.hash === hash)
     if (!f) {
       return
@@ -181,7 +186,7 @@ export class SharedMutexSynchronizer {
     }
 
     // report debug info
-    SharedMutexSynchronizer.reportDebugInfo(DEBUG_INFO_REPORTS.SCOPE_EXIT, f)
+    SharedMutexSynchronizer.reportDebugInfo(DEBUG_INFO_REPORTS.SCOPE_EXIT, f, codeStack)
 
     // remove from queue
     MutexGlobalStorage.setLocalLocksQueue(MutexGlobalStorage.getLocalLocksQueue().filter(item => item.hash !== hash))
@@ -245,7 +250,7 @@ export class SharedMutexSynchronizer {
    * Continue worker in queue
    * @param key
    */
-  protected static continue(item: LocalLockItem) {
+  protected static continue(item: LocalLockItem, originalStack?: string) {
     item.isRunning = true
 
     const message = {
@@ -253,7 +258,7 @@ export class SharedMutexSynchronizer {
     }
 
     // report debug info
-    SharedMutexSynchronizer.reportDebugInfo(DEBUG_INFO_REPORTS.SCOPE_CONTINUE, item)
+    SharedMutexSynchronizer.reportDebugInfo(DEBUG_INFO_REPORTS.SCOPE_CONTINUE, item, originalStack)
 
     // emit it
     SharedMutexSynchronizer.masterHandler.emitter.emit('message', message)
@@ -283,10 +288,10 @@ export class SharedMutexSynchronizer {
 
     // lock
     if (message.action === ACTION.LOCK) {
-      SharedMutexSynchronizer.lock(sanitizeLock(message))
+      SharedMutexSynchronizer.lock(sanitizeLock(message), message.codeStack)
       // unlock
     } else if (message.action === ACTION.UNLOCK) {
-      SharedMutexSynchronizer.unlock(message.hash)
+      SharedMutexSynchronizer.unlock(message.hash, message.codeStack)
       // verify master handler
     } else if (message.action === ACTION.VERIFY) {
       // check if somebody overrided default config

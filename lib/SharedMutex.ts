@@ -9,6 +9,7 @@ import { Awaiter } from './utils/Awaiter'
 import version from './utils/version'
 import { MutexSafeCallbackHandler, __mutexSafeCallbackDispose, __mutexSafeCallbackInjector } from './components/MutexSafeCallbackHandler'
 import { SharedMutexConfigManager } from './components/SharedMutexConfigManager'
+import { getStackFrom } from './utils/stack'
 
 /**
  * Unlock handler
@@ -58,7 +59,8 @@ export class SharedMutex {
    * @param fnc
    */
   static async lockSingleAccess<T>(key: LockKey, handler: (() => Promise<T>) | MutexSafeCallbackHandler<T>, maxLockingTime?: number): Promise<T> {
-    return this.lockAccess(key, handler, true, maxLockingTime)
+    const codeStack = getStackFrom('lockSingleAccess')
+    return this.lockAccess(key, handler, true, maxLockingTime, codeStack)
   }
 
   /**
@@ -67,7 +69,8 @@ export class SharedMutex {
    * @param fnc
    */
   static async lockMultiAccess<T>(key: LockKey, handler: (() => Promise<T>) | MutexSafeCallbackHandler<T>, maxLockingTime?: number): Promise<T> {
-    return this.lockAccess(key, handler, false, maxLockingTime)
+    const codeStack = getStackFrom('lockMultiAccess')
+    return this.lockAccess(key, handler, false, maxLockingTime, codeStack)
   }
 
   /**
@@ -80,7 +83,12 @@ export class SharedMutex {
     handler: (() => Promise<T>) | MutexSafeCallbackHandler<T>,
     singleAccess?: boolean,
     maxLockingTime?: number,
+    codeStack?: string,
   ): Promise<T> {
+    if (!codeStack) {
+      codeStack = getStackFrom('lockAccess')
+    }
+
     // detect of nested locks as death ends!
     const stack = [...(SharedMutex.stackStorage.getStore() || [])]
     const myStackItem = {
@@ -108,7 +116,7 @@ export class SharedMutex {
     const shouldSkipLock = nestedInRelatedItems.length && !strictMode
 
     // lock all sub keys
-    let m = await SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode, forceInstantContinue: shouldSkipLock })
+    let m = await SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode, forceInstantContinue: shouldSkipLock }, codeStack)
 
     // unlock function with clearing mutex ref
     const unlocker = () => {
@@ -147,7 +155,11 @@ export class SharedMutex {
    * Lock key
    * @param key
    */
-  static async lock(key: LockKey, config: LockConfiguration): Promise<SharedMutexUnlockHandler> {
+  static async lock(key: LockKey, config: LockConfiguration, codeStack?: string): Promise<SharedMutexUnlockHandler> {
+    if (!codeStack) {
+      codeStack = getStackFrom('lock')
+    }
+
     const hash = randomHash()
 
     // waiter function
@@ -164,11 +176,17 @@ export class SharedMutex {
     })
 
     const lockKey = parseLockKey(key)
-    await SharedMutex.sendAction(lockKey, ACTION.LOCK, hash, {
-      maxLockingTime: config.maxLockingTime,
-      singleAccess: config.singleAccess,
-      forceInstantContinue: config.forceInstantContinue,
-    })
+    await SharedMutex.sendAction(
+      lockKey,
+      ACTION.LOCK,
+      hash,
+      {
+        maxLockingTime: config.maxLockingTime,
+        singleAccess: config.singleAccess,
+        forceInstantContinue: config.forceInstantContinue,
+      },
+      codeStack,
+    )
 
     await waiter
     return new SharedMutexUnlockHandler(lockKey, hash)
@@ -217,11 +235,12 @@ export class SharedMutex {
    * @param key
    * @param action
    */
-  protected static async sendAction(key: string, action: string, hash: string, data: any = null): Promise<void> {
+  protected static async sendAction(key: string, action: string, hash: string, data: any = null, codeStack?: any): Promise<void> {
     const message = {
       action,
       key,
       hash,
+      codeStack,
       ...data,
     }
 

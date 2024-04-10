@@ -99,6 +99,7 @@ export class SharedMutex {
     const nestedInRelatedItems = stack.filter(i => keysRelatedMatch(i.key, myStackItem.key))
 
     const strictMode = (await SharedMutexConfigManager.getConfiguration()).strictMode
+    const defaultMaxLockingTime = (await SharedMutexConfigManager.getConfiguration()).defaultMaxLockingTime
 
     if (nestedInRelatedItems.length && strictMode) {
       /*
@@ -116,7 +117,16 @@ export class SharedMutex {
     const shouldSkipLock = nestedInRelatedItems.length && !strictMode
 
     // lock all sub keys
-    let m = await SharedMutex.lock(key, { singleAccess, maxLockingTime, strictMode, forceInstantContinue: shouldSkipLock }, codeStack)
+    let m = await SharedMutex.lock(
+      key,
+      {
+        singleAccess,
+        maxLockingTime: typeof maxLockingTime === 'number' ? maxLockingTime : defaultMaxLockingTime,
+        strictMode,
+        forceInstantContinue: shouldSkipLock,
+      },
+      codeStack,
+    )
 
     // unlock function with clearing mutex ref
     const unlocker = () => {

@@ -10,9 +10,31 @@ export interface StateInfo {
   waitingFirstTick: boolean
   firstAttempTime?: number
   enteredTime?: number
+  wasBlockedBy?: string[]
+  enterStack?: string
+}
+
+export interface DebugGuardOptions {
+  logEnterScope: boolean
+  logWaitingOutside: boolean
+  logContinue: boolean
+  logLeave: boolean
+  logDetail: boolean
+  logContinueMinTime: number
+  logLeaveMinTime: number
 }
 
 export class DebugGuard {
+  static options: DebugGuardOptions = {
+    logEnterScope: true,
+    logWaitingOutside: true,
+    logContinue: true,
+    logLeave: true,
+    logDetail: false,
+    logContinueMinTime: 0,
+    logLeaveMinTime: 0,
+  }
+
   static writeFunction: (...msgs: any[]) => void = console.log
 
   protected static currentStates: {
@@ -29,20 +51,29 @@ export class DebugGuard {
           firstAttempTime: Date.now(),
         }
       }
+      DebugGuard.currentStates[item.hash].enterStack = codeStack
 
       setImmediate(() => {
         if (!DebugGuard.currentStates[item.hash]?.opened) {
           const allRelated = DebugGuard.getAllRelated(item.key, item.hash)
-          DebugGuard.writeFunction(
-            LOG_PREFIX,
-            item.key,
-            `Waiting outside of scope. Posible blockers: `,
-            allRelated.map(i => i.key),
-            codeStack ? `\n${codeStack}` : undefined,
-          )
+          DebugGuard.currentStates[item.hash].wasBlockedBy = allRelated.map(i => i.key)
+
+          if (DebugGuard.options.logWaitingOutside) {
+            DebugGuard.writeFunction(
+              LOG_PREFIX,
+              item.key,
+              `Waiting outside of scope. Posible blockers: `,
+              DebugGuard.currentStates[item.hash].wasBlockedBy,
+              DebugGuard.currentStates[item.hash].enterStack && DebugGuard.options.logDetail
+                ? `\n${DebugGuard.currentStates[item.hash].enterStack}`
+                : undefined,
+            )
+          }
         } else {
           DebugGuard.currentStates[item.hash].enteredTime = Date.now()
-          DebugGuard.writeFunction(LOG_PREFIX, item.key, `Entering scope`)
+          if (DebugGuard.options.logEnterScope) {
+            DebugGuard.writeFunction(LOG_PREFIX, item.key, `Entering scope`)
+          }
         }
 
         DebugGuard.currentStates[item.hash].waitingFirstTick = false
@@ -55,14 +86,32 @@ export class DebugGuard {
             waitingTime = Date.now() - DebugGuard.currentStates[item.hash].firstAttempTime
             DebugGuard.currentStates[item.hash].enteredTime = Date.now()
           }
-          DebugGuard.writeFunction(LOG_PREFIX, item.key, `Continue into scope` + (waitingTime ? ` (Blocked for ${waitingTime}ms)` : ''))
+          if (DebugGuard.options.logContinue && waitingTime > DebugGuard.options.logContinueMinTime) {
+            DebugGuard.writeFunction(
+              LOG_PREFIX,
+              item.key,
+              `Continue into scope (Blocked for ${waitingTime}ms by ${DebugGuard.currentStates[item.hash].wasBlockedBy})`,
+              DebugGuard.currentStates[item.hash].enterStack && DebugGuard.options.logDetail
+                ? `\n${DebugGuard.currentStates[item.hash].enterStack}`
+                : undefined,
+            )
+          }
         }
         DebugGuard.currentStates[item.hash].opened = true
       }
     } else if (state === DEBUG_INFO_REPORTS.SCOPE_EXIT) {
       if (DebugGuard.currentStates[item.hash]) {
         const lockedTime = Date.now() - DebugGuard.currentStates[item.hash].enteredTime
-        DebugGuard.writeFunction(LOG_PREFIX, item.key, `Leaving scope` + (lockedTime ? ` (Locked for ${lockedTime}ms)` : ''))
+        if (DebugGuard.options.logLeave && lockedTime > DebugGuard.options.logLeaveMinTime) {
+          DebugGuard.writeFunction(
+            LOG_PREFIX,
+            item.key,
+            `Leaving scope (Locked for ${lockedTime}ms)`,
+            DebugGuard.currentStates[item.hash].enterStack && DebugGuard.options.logDetail
+              ? `\n${DebugGuard.currentStates[item.hash].enterStack}`
+              : undefined,
+          )
+        }
         delete DebugGuard.currentStates[item.hash]
       }
     }

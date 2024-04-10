@@ -10,6 +10,12 @@ describe('Debugger test', function() {
   it('Test simple debug scopes', async function() {
     const debuggerOutputCollector: string[] = []
     DebugGuard.writeFunction = (...msgs: any[]) => debuggerOutputCollector.push(msgs.map(i => i?.toString?.() || '').join(' '))
+    /*DebugGuard.options.logDetail = true
+    DebugGuard.options.logEnterScope = false
+    DebugGuard.options.logWaitingOutside = false
+    DebugGuard.options.logLeaveMinTime = 100
+    DebugGuard.options.logContinueMinTime = 100
+    SharedMutexSynchronizer.debugWithStack = true*/
     SharedMutexSynchronizer.reportDebugInfo = DebugGuard.reportDebugInfo
 
     const result = await Promise.all([
@@ -17,7 +23,7 @@ describe('Debugger test', function() {
         await delay(100)
       }),
       SharedMutex.lockSingleAccess('mutex/deep', async () => {
-        await delay(100)
+        await delay(10)
       }),
     ])
 
@@ -31,8 +37,8 @@ describe('Debugger test', function() {
 
     SharedMutexSynchronizer.reportDebugInfo = () => void 0
 
-    let isSame = true
-    for(let i = 0; i < debuggerOutputCollector.length; i++) {
+    let isSame = debuggerOutputCollector.length === compare.length
+    for(let i = 0; i < debuggerOutputCollector.length && isSame; i++) {
       if (!debuggerOutputCollector[i].startsWith(compare[i])) {
         isSame = false
         break

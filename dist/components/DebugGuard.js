@@ -21,6 +21,9 @@ class DebugGuard {
             DebugGuard.currentStates[item.hash].enterStack = codeStack;
             setImmediate(() => {
                 var _a, _b, _c, _d, _e, _f, _g, _h;
+                if (!DebugGuard.currentStates[item.hash]) {
+                    return;
+                }
                 if (!((_a = DebugGuard.currentStates[item.hash]) === null || _a === void 0 ? void 0 : _a.opened)) {
                     const allRelated = DebugGuard.getAllRelated(item.key, item.hash);
                     if (DebugGuard.currentStates[item.hash]) {

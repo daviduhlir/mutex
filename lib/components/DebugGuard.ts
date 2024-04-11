@@ -60,11 +60,14 @@ export class DebugGuard {
       setImmediate(() => {
         if (!DebugGuard.currentStates[item.hash]?.opened) {
           const allRelated = DebugGuard.getAllRelated(item.key, item.hash)
-          DebugGuard.currentStates[item.hash].wasBlockedBy = allRelated.map(i => i.key)
+
+          if (DebugGuard.currentStates[item.hash]) {
+            DebugGuard.currentStates[item.hash].wasBlockedBy = allRelated.map(i => i.key)
+          }
 
           if (DebugGuard.options.logWaitingOutside) {
-            const blockedByCount = DebugGuard.currentStates[item.hash].wasBlockedBy.length
-            const blockedBy = DebugGuard.currentStates[item.hash].wasBlockedBy.filter((value, index, array) => array.indexOf(value) === index)
+            const blockedByCount = DebugGuard.currentStates[item.hash]?.wasBlockedBy?.length || 0
+            const blockedBy = DebugGuard.currentStates[item.hash]?.wasBlockedBy?.filter?.((value, index, array) => array.indexOf(value) === index)?.join?.(', ')
 
             DebugGuard.writeFunction(
               LOG_PREFIX,
@@ -95,8 +98,8 @@ export class DebugGuard {
             DebugGuard.currentStates[item.hash].enteredTime = Date.now()
           }
           if (DebugGuard.options.logContinue && waitingTime >= DebugGuard.options.logContinueMinTime) {
-            const blockedByCount = DebugGuard.currentStates[item.hash].wasBlockedBy.length
-            const blockedBy = DebugGuard.currentStates[item.hash].wasBlockedBy.filter((value, index, array) => array.indexOf(value) === index)
+            const blockedByCount = DebugGuard.currentStates[item.hash]?.wasBlockedBy?.length || 0
+            const blockedBy = DebugGuard.currentStates[item.hash]?.wasBlockedBy?.filter?.((value, index, array) => array.indexOf(value) === index)?.join?.(', ')
             DebugGuard.writeFunction(
               LOG_PREFIX,
               item.key + (item.singleAccess ? ' (S)' : ' (M)'),

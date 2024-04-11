@@ -58,6 +58,10 @@ export class DebugGuard {
       DebugGuard.currentStates[item.hash].enterStack = codeStack
 
       setImmediate(() => {
+        if (!DebugGuard.currentStates[item.hash]) {
+          return
+        }
+
         if (!DebugGuard.currentStates[item.hash]?.opened) {
           const allRelated = DebugGuard.getAllRelated(item.key, item.hash)
 

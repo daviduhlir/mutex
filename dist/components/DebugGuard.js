@@ -6,6 +6,7 @@ const utils_1 = require("../utils/utils");
 const LOG_PREFIX = `MUTEX_DEBUG`;
 class DebugGuard {
     static reportDebugInfo(state, item, codeStack) {
+        var _a, _b, _c, _d, _e, _f, _g;
         if (state === constants_1.DEBUG_INFO_REPORTS.SCOPE_WAITING) {
             if (!DebugGuard.currentStates[item.hash]) {
                 DebugGuard.currentStates[item.hash] = {
@@ -19,13 +20,15 @@ class DebugGuard {
             }
             DebugGuard.currentStates[item.hash].enterStack = codeStack;
             setImmediate(() => {
-                var _a;
+                var _a, _b, _c, _d, _e, _f, _g, _h;
                 if (!((_a = DebugGuard.currentStates[item.hash]) === null || _a === void 0 ? void 0 : _a.opened)) {
                     const allRelated = DebugGuard.getAllRelated(item.key, item.hash);
-                    DebugGuard.currentStates[item.hash].wasBlockedBy = allRelated.map(i => i.key);
+                    if (DebugGuard.currentStates[item.hash]) {
+                        DebugGuard.currentStates[item.hash].wasBlockedBy = allRelated.map(i => i.key);
+                    }
                     if (DebugGuard.options.logWaitingOutside) {
-                        const blockedByCount = DebugGuard.currentStates[item.hash].wasBlockedBy.length;
-                        const blockedBy = DebugGuard.currentStates[item.hash].wasBlockedBy.filter((value, index, array) => array.indexOf(value) === index);
+                        const blockedByCount = ((_c = (_b = DebugGuard.currentStates[item.hash]) === null || _b === void 0 ? void 0 : _b.wasBlockedBy) === null || _c === void 0 ? void 0 : _c.length) || 0;
+                        const blockedBy = (_h = (_g = (_f = (_e = (_d = DebugGuard.currentStates[item.hash]) === null || _d === void 0 ? void 0 : _d.wasBlockedBy) === null || _e === void 0 ? void 0 : _e.filter) === null || _f === void 0 ? void 0 : _f.call(_e, (value, index, array) => array.indexOf(value) === index)) === null || _g === void 0 ? void 0 : _g.join) === null || _h === void 0 ? void 0 : _h.call(_g, ', ');
                         DebugGuard.writeFunction(LOG_PREFIX, item.key + (item.singleAccess ? ' (S)' : ' (M)'), `Waiting outside of scope. Posible blockers: `, `${blockedBy} ${blockedByCount}x`, DebugGuard.currentStates[item.hash].enterStack && DebugGuard.options.logDetail
                             ? `\n${DebugGuard.currentStates[item.hash].enterStack}`
                             : undefined);
@@ -50,8 +53,8 @@ class DebugGuard {
                         DebugGuard.currentStates[item.hash].enteredTime = Date.now();
                     }
                     if (DebugGuard.options.logContinue && waitingTime >= DebugGuard.options.logContinueMinTime) {
-                        const blockedByCount = DebugGuard.currentStates[item.hash].wasBlockedBy.length;
-                        const blockedBy = DebugGuard.currentStates[item.hash].wasBlockedBy.filter((value, index, array) => array.indexOf(value) === index);
+                        const blockedByCount = ((_b = (_a = DebugGuard.currentStates[item.hash]) === null || _a === void 0 ? void 0 : _a.wasBlockedBy) === null || _b === void 0 ? void 0 : _b.length) || 0;
+                        const blockedBy = (_g = (_f = (_e = (_d = (_c = DebugGuard.currentStates[item.hash]) === null || _c === void 0 ? void 0 : _c.wasBlockedBy) === null || _d === void 0 ? void 0 : _d.filter) === null || _e === void 0 ? void 0 : _e.call(_d, (value, index, array) => array.indexOf(value) === index)) === null || _f === void 0 ? void 0 : _f.join) === null || _g === void 0 ? void 0 : _g.call(_f, ', ');
                         DebugGuard.writeFunction(LOG_PREFIX, item.key + (item.singleAccess ? ' (S)' : ' (M)'), `Continue into scope (Blocked for ${waitingTime}ms by ${blockedBy} ${blockedByCount}x)`, DebugGuard.currentStates[item.hash].enterStack && DebugGuard.options.logDetail
                             ? `\n${DebugGuard.currentStates[item.hash].enterStack}`
                             : undefined);

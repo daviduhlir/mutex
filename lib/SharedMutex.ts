@@ -296,7 +296,10 @@ export class SharedMutex {
         // resolve verification
         SharedMutex.masterVerificationWaiter.resolve()
       } else {
-        throw new MutexError(ERROR.MUTEX_REDUNDANT_VERIFICATION, 'This is usually caused by more than one instance of SharedMutex package installed together.')
+        throw new MutexError(
+          ERROR.MUTEX_REDUNDANT_VERIFICATION,
+          'This is usually caused by more than one instance of SharedMutex package installed together.',
+        )
       }
     } else if (message.hash) {
       const foundItem = SharedMutex.waitingMessagesHandlers.find(item => item.hash === message.hash)

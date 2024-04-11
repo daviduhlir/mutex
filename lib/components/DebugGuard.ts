@@ -71,7 +71,9 @@ export class DebugGuard {
 
           if (DebugGuard.options.logWaitingOutside) {
             const blockedByCount = DebugGuard.currentStates[item.hash]?.wasBlockedBy?.length || 0
-            const blockedBy = DebugGuard.currentStates[item.hash]?.wasBlockedBy?.filter?.((value, index, array) => array.indexOf(value) === index)?.join?.(', ')
+            const blockedBy = DebugGuard.currentStates[item.hash]?.wasBlockedBy
+              ?.filter?.((value, index, array) => array.indexOf(value) === index)
+              ?.join?.(', ')
 
             DebugGuard.writeFunction(
               LOG_PREFIX,
@@ -103,7 +105,9 @@ export class DebugGuard {
           }
           if (DebugGuard.options.logContinue && waitingTime >= DebugGuard.options.logContinueMinTime) {
             const blockedByCount = DebugGuard.currentStates[item.hash]?.wasBlockedBy?.length || 0
-            const blockedBy = DebugGuard.currentStates[item.hash]?.wasBlockedBy?.filter?.((value, index, array) => array.indexOf(value) === index)?.join?.(', ')
+            const blockedBy = DebugGuard.currentStates[item.hash]?.wasBlockedBy
+              ?.filter?.((value, index, array) => array.indexOf(value) === index)
+              ?.join?.(', ')
             DebugGuard.writeFunction(
               LOG_PREFIX,
               item.key + (item.singleAccess ? ' (S)' : ' (M)'),

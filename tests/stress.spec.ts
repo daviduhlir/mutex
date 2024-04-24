@@ -1,6 +1,6 @@
-import { assert, expect } from 'chai'
+import { assert } from 'chai'
 import { SharedMutex } from '../dist'
-import { delay, RWSimulator } from './utils'
+import { delay } from './utils'
 
 /**
  * Locks with nested keys test

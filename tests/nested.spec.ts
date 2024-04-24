@@ -184,4 +184,26 @@ describe('Nested locks', function() {
 
     expect(marker).to.equal('ABCEFD')
   })
+
+  it('Nested locks with different keys', async function() {
+    let marker = ''
+    await Promise.all([
+      SharedMutex.lockSingleAccess('slave', async () => {
+        marker += 'E'
+        await delay(20)
+        marker += 'F'
+      }),
+      SharedMutex.lockSingleAccess('master', async () => {
+        marker += 'A'
+        await SharedMutex.lockSingleAccess('slave', async () => {
+          marker += 'B'
+          await delay(5)
+          marker += 'C'
+        })
+        marker += 'D'
+      }),
+    ])
+
+    expect(marker).to.equal('EAFBCD')
+  })
 })

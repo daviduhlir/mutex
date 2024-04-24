@@ -1,5 +1,5 @@
-import { expect, assert } from 'chai'
-import { RWSimulator, delay, checkLocksResults } from './utils'
+import { assert } from 'chai'
+import { delay } from './utils'
 import { MutexSafeCallbackHandler, SharedMutex } from '../dist'
 
 /**

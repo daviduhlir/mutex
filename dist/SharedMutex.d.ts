@@ -15,6 +15,7 @@ export declare class SharedMutex {
     protected static attached: boolean;
     protected static masterVerificationWaiter: Awaiter;
     protected static masterVerifiedTimeout: any;
+    protected static masterVerificationSent: boolean;
     protected static stackStorage: import("./components/AsyncLocalStorage").AsyncLocalStorageMock<{
         key: string;
         singleAccess: boolean;

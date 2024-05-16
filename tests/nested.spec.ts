@@ -60,7 +60,7 @@ describe('Nested locks', function() {
 
 
 
-  it('Strict, test exception', async function() {
+  /*it('Strict, test exception', async function() {
     SharedMutex.initialize({strictMode: true})
     let error
     try {
@@ -104,7 +104,7 @@ describe('Nested locks', function() {
 
     assert(notFreezeMarker, 'root/test should be still accesible as it is nested of root a strict if off.')
 
-  })
+  })*/
 
   it('Keep locked after exit nested #1', async function() {
     let marker = ''
@@ -228,5 +228,68 @@ describe('Nested locks', function() {
     ])
 
     expect(marker).to.equal('ABCDEF')
+  })
+
+  it('Nested parallel', async function() {
+    let marker = ''
+    await SharedMutex.lockSingleAccess('root', async () => {
+      marker += 'A:IN;'
+      await Promise.all([
+        SharedMutex.lockSingleAccess('root/test', async () => {
+          marker += 'B:IN;'
+          await delay(20)
+          marker += 'B:OUT;'
+        }),
+        SharedMutex.lockSingleAccess('root/test', async () => {
+          marker += 'C:IN;'
+          await delay(10)
+          marker += 'C:OUT;'
+        })
+      ])
+      marker += 'A:OUT;'
+    })
+    expect(marker).to.equal('A:IN;B:IN;B:OUT;C:IN;C:OUT;A:OUT;')
+  })
+
+  it('Nested parallel oposit way', async function() {
+    let marker = ''
+    await SharedMutex.lockSingleAccess('root/test', async () => {
+      marker += 'A:IN;'
+      await Promise.all([
+        SharedMutex.lockSingleAccess('root', async () => {
+          marker += 'B:IN;'
+          await delay(20)
+          marker += 'B:OUT;'
+        }),
+        SharedMutex.lockSingleAccess('root', async () => {
+          marker += 'C:IN;'
+          await delay(10)
+          marker += 'C:OUT;'
+        })
+      ])
+      marker += 'A:OUT;'
+    })
+    expect(marker).to.equal('A:IN;B:IN;B:OUT;C:IN;C:OUT;A:OUT;')
+  })
+
+  it('Nested parallel multi access together', async function() {
+    let marker = ''
+    await SharedMutex.lockSingleAccess('root', async () => {
+      marker += 'A:IN;'
+      await Promise.all([
+        SharedMutex.lockMultiAccess('root/test', async () => {
+          marker += 'B:IN;'
+          await delay(20)
+          marker += 'B:OUT;'
+        }),
+        SharedMutex.lockMultiAccess('root/test', async () => {
+          marker += 'C:IN;'
+          await delay(10)
+          marker += 'C:OUT;'
+        })
+      ])
+      marker += 'A:OUT;'
+    })
+    expect(marker).to.equal('A:IN;B:IN;C:IN;C:OUT;B:OUT;A:OUT;')
   })
 })

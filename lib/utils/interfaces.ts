@@ -5,10 +5,6 @@ import { MutexCommLayer } from '../components/comm/MutexCommLayer'
  */
 export interface SharedMutexConfiguration {
   /**
-   * Strict mode, how to deal with nested locks
-   */
-  strictMode: boolean
-  /**
    * Default locking time, which will be used for all locks, if it's undefined, it will keep it unset
    */
   defaultMaxLockingTime: number
@@ -22,10 +18,9 @@ export interface SharedMutexConfiguration {
  * Single lock configuration
  */
 export interface LockConfiguration {
-  strictMode?: boolean
   singleAccess?: boolean
   maxLockingTime?: number
-  forceInstantContinue?: boolean
+  parents: string[]
 }
 
 /**
@@ -45,7 +40,7 @@ export interface LockDescriptor {
 export interface LocalLockItem extends LockDescriptor {
   timeout?: any
   isRunning?: boolean
-  forceInstantContinue?: boolean
+  parents?: string[]
   stack?: any
 }
 

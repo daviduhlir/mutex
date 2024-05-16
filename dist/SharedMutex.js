@@ -52,23 +52,19 @@ class SharedMutex {
             if (!codeStack) {
                 codeStack = stack_1.getStackFrom('lockAccess');
             }
+            const hash = utils_1.randomHash();
             const stack = [...(SharedMutex.stackStorage.getStore() || [])];
             const myStackItem = {
+                hash,
                 key: utils_1.parseLockKey(key),
                 singleAccess,
             };
-            const nestedInRelatedItems = stack.filter(i => utils_1.keysRelatedMatch(i.key, myStackItem.key));
-            const strictMode = (yield SharedMutexConfigManager_1.SharedMutexConfigManager.getConfiguration()).strictMode;
+            const nestedInRelatedItems = stack.filter(i => utils_1.keysRelatedMatch(myStackItem.key, i.key));
             const defaultMaxLockingTime = (yield SharedMutexConfigManager_1.SharedMutexConfigManager.getConfiguration()).defaultMaxLockingTime;
-            if (nestedInRelatedItems.length && strictMode) {
-                throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_NESTED_SCOPES, `ERROR Found nested locks with same key (${myStackItem.key}), which will cause death end of your application, because one of stacked lock is marked as single access only.`);
-            }
-            const shouldSkipLock = nestedInRelatedItems.length && !strictMode;
-            let m = yield SharedMutex.lock(key, {
+            let m = yield SharedMutex.lock(hash, key, {
                 singleAccess,
                 maxLockingTime: typeof maxLockingTime === 'number' ? maxLockingTime : defaultMaxLockingTime,
-                strictMode,
-                forceInstantContinue: shouldSkipLock,
+                parents: nestedInRelatedItems.map(i => i.hash),
             }, codeStack);
             const unlocker = () => {
                 m === null || m === void 0 ? void 0 : m.unlock();
@@ -97,12 +93,11 @@ class SharedMutex {
             return result;
         });
     }
-    static lock(key, config, codeStack) {
+    static lock(hash, key, config, codeStack) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!codeStack) {
                 codeStack = stack_1.getStackFrom('lock');
             }
-            const hash = utils_1.randomHash();
             const waiter = new Promise((resolve) => {
                 SharedMutex.waitingMessagesHandlers.push({
                     hash,
@@ -118,7 +113,7 @@ class SharedMutex {
             yield SharedMutex.sendAction(lockKey, constants_1.ACTION.LOCK, hash, {
                 maxLockingTime: config.maxLockingTime,
                 singleAccess: config.singleAccess,
-                forceInstantContinue: config.forceInstantContinue,
+                parents: config.parents,
             }, codeStack);
             yield waiter;
             return new SharedMutexUnlockHandler(lockKey, hash);

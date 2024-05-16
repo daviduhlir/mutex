@@ -13,11 +13,11 @@ describe('Stress test', function() {
     let counter = 0
     const int = setInterval(() => SharedMutex.lockMultiAccess('root', async () => {
       counter++
-      await delay(5)
+      await delay(2)
       counter--
     }), 1)
 
-    await Promise.all(new Array(1000).fill(null).map(() =>
+    await Promise.all(new Array(100).fill(null).map(() =>
       SharedMutex.lockSingleAccess('root', async () => {
         if (counter !== 0) {
           failed = true

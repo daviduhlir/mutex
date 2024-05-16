@@ -16,13 +16,14 @@ export declare class SharedMutex {
     protected static masterVerificationWaiter: Awaiter;
     protected static masterVerifiedTimeout: any;
     protected static stackStorage: import("./components/AsyncLocalStorage").AsyncLocalStorageMock<{
+        hash: string;
         key: string;
         singleAccess: boolean;
     }[]>;
     static lockSingleAccess<T>(key: LockKey, handler: (() => Promise<T>) | MutexSafeCallbackHandler<T>, maxLockingTime?: number): Promise<T>;
     static lockMultiAccess<T>(key: LockKey, handler: (() => Promise<T>) | MutexSafeCallbackHandler<T>, maxLockingTime?: number): Promise<T>;
     static lockAccess<T>(key: LockKey, handler: (() => Promise<T>) | MutexSafeCallbackHandler<T>, singleAccess?: boolean, maxLockingTime?: number, codeStack?: string): Promise<T>;
-    static lock(key: LockKey, config: LockConfiguration, codeStack?: string): Promise<SharedMutexUnlockHandler>;
+    protected static lock(hash: string, key: LockKey, config: LockConfiguration, codeStack?: string): Promise<SharedMutexUnlockHandler>;
     static unlock(key: LockKey, hash: string): void;
     static initialize(configuration?: Partial<SharedMutexConfiguration>): Promise<void>;
     protected static sendAction(key: string, action: string, hash: string, data?: any, codeStack?: any): Promise<void>;

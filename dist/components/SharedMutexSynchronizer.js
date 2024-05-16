@@ -102,28 +102,17 @@ class SharedMutexSynchronizer {
         if (SharedMutexSynchronizer.secondarySynchronizer && !((_a = SharedMutexSynchronizer.secondarySynchronizer) === null || _a === void 0 ? void 0 : _a.isArbitter)) {
             return;
         }
-        const topItem = MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue()[MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue().length - 1];
-        if (topItem === null || topItem === void 0 ? void 0 : topItem.forceInstantContinue) {
-            SharedMutexSynchronizer.continue(topItem);
-        }
-        const allKeys = MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue().reduce((acc, i) => {
-            return [...acc, i.key].filter((value, ind, self) => self.indexOf(value) === ind);
-        }, []);
-        for (const key of allKeys) {
-            const queue = MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue().filter(i => i.key === key);
-            if (queue === null || queue === void 0 ? void 0 : queue.length) {
-                const runnings = queue.filter(i => i.isRunning);
-                const posibleBlockingItems = MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue().filter(i => i.isRunning && utils_1.keysRelatedMatch(key, i.key) && key !== i.key);
-                if (queue[0].singleAccess && !(runnings === null || runnings === void 0 ? void 0 : runnings.length) && !posibleBlockingItems.length) {
-                    SharedMutexSynchronizer.continue(queue[0]);
+        const queue = MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue();
+        for (const lock of queue) {
+            const posibleBlockingItems = MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue().filter(i => { var _a, _b; return !((_b = (_a = lock.parents) === null || _a === void 0 ? void 0 : _a.includes) === null || _b === void 0 ? void 0 : _b.call(_a, i.hash)) && i.hash !== lock.hash && i.isRunning && utils_1.keysRelatedMatch(lock.key, i.key); });
+            if (lock.singleAccess) {
+                if (posibleBlockingItems.length === 0) {
+                    SharedMutexSynchronizer.continue(lock);
                 }
-                else if (runnings.every(i => !i.singleAccess) && posibleBlockingItems.every(i => !(i === null || i === void 0 ? void 0 : i.singleAccess))) {
-                    for (const item of queue) {
-                        if (item.singleAccess) {
-                            break;
-                        }
-                        SharedMutexSynchronizer.continue(item);
-                    }
+            }
+            else {
+                if (posibleBlockingItems.every(item => !item.singleAccess)) {
+                    SharedMutexSynchronizer.continue(lock);
                 }
             }
         }

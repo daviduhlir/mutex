@@ -48,6 +48,7 @@ export class SharedMutex {
    */
   protected static stackStorage = new AsyncLocalStorage<
     {
+      hash: string
       key: string
       singleAccess: boolean
     }[]
@@ -89,41 +90,27 @@ export class SharedMutex {
       codeStack = getStackFrom('lockAccess')
     }
 
+    const hash = randomHash()
+
     // detect of nested locks as death ends!
     const stack = [...(SharedMutex.stackStorage.getStore() || [])]
     const myStackItem = {
+      hash,
       key: parseLockKey(key),
       singleAccess,
     }
 
-    const nestedInRelatedItems = stack.filter(i => keysRelatedMatch(i.key, myStackItem.key))
-
-    const strictMode = (await SharedMutexConfigManager.getConfiguration()).strictMode
+    const nestedInRelatedItems = stack.filter(i => keysRelatedMatch(myStackItem.key, i.key))
     const defaultMaxLockingTime = (await SharedMutexConfigManager.getConfiguration()).defaultMaxLockingTime
-
-    if (nestedInRelatedItems.length && strictMode) {
-      /*
-       * Nested mutexes are not allowed, because in javascript it's complicated to tract scope, where it was locked.
-       * Basicaly this kind of locks will cause you application will never continue,
-       * because nested can continue after parent will be finished, which is not posible.
-       */
-      throw new MutexError(
-        ERROR.MUTEX_NESTED_SCOPES,
-        `ERROR Found nested locks with same key (${myStackItem.key}), which will cause death end of your application, because one of stacked lock is marked as single access only.`,
-      )
-    }
-
-    // override lock for nested related locks in non strict mode
-    const shouldSkipLock = nestedInRelatedItems.length && !strictMode
 
     // lock all sub keys
     let m = await SharedMutex.lock(
+      hash,
       key,
       {
         singleAccess,
         maxLockingTime: typeof maxLockingTime === 'number' ? maxLockingTime : defaultMaxLockingTime,
-        strictMode,
-        forceInstantContinue: shouldSkipLock,
+        parents: nestedInRelatedItems.map(i => i.hash),
       },
       codeStack,
     )
@@ -165,12 +152,10 @@ export class SharedMutex {
    * Lock key
    * @param key
    */
-  static async lock(key: LockKey, config: LockConfiguration, codeStack?: string): Promise<SharedMutexUnlockHandler> {
+  protected static async lock(hash: string, key: LockKey, config: LockConfiguration, codeStack?: string): Promise<SharedMutexUnlockHandler> {
     if (!codeStack) {
       codeStack = getStackFrom('lock')
     }
-
-    const hash = randomHash()
 
     // waiter function
     const waiter = new Promise((resolve: (value: any) => void) => {
@@ -193,7 +178,7 @@ export class SharedMutex {
       {
         maxLockingTime: config.maxLockingTime,
         singleAccess: config.singleAccess,
-        forceInstantContinue: config.forceInstantContinue,
+        parents: config.parents,
       },
       codeStack,
     )

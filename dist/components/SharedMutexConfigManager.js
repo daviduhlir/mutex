@@ -13,7 +13,6 @@ exports.SharedMutexConfigManager = exports.defaultConfiguration = void 0;
 const IPCMutexCommLayer_1 = require("./comm/IPCMutexCommLayer");
 const Awaiter_1 = require("../utils/Awaiter");
 exports.defaultConfiguration = {
-    strictMode: false,
     defaultMaxLockingTime: undefined,
     communicationLayer: 'IPC',
 };

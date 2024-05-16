@@ -217,38 +217,18 @@ export class SharedMutexSynchronizer {
       return
     }
 
-    // continue, if item was forced to continue
-    const topItem = MutexGlobalStorage.getLocalLocksQueue()[MutexGlobalStorage.getLocalLocksQueue().length - 1]
-    if (topItem?.forceInstantContinue) {
-      SharedMutexSynchronizer.continue(topItem)
-    }
-
-    const allKeys = MutexGlobalStorage.getLocalLocksQueue().reduce((acc, i) => {
-      return [...acc, i.key].filter((value, ind, self) => self.indexOf(value) === ind)
-    }, [])
-
-    for (const key of allKeys) {
-      const queue = MutexGlobalStorage.getLocalLocksQueue().filter(i => i.key === key)
-
-      // if there is something to continue
-      if (queue?.length) {
-        const runnings = queue.filter(i => i.isRunning)
-
-        // find posible blocking parents or childs
-        const posibleBlockingItems = MutexGlobalStorage.getLocalLocksQueue().filter(i => i.isRunning && keysRelatedMatch(key, i.key) && key !== i.key)
-
-        // if next is for single access
-        if (queue[0].singleAccess && !runnings?.length && !posibleBlockingItems.length) {
-          SharedMutexSynchronizer.continue(queue[0])
-
-          // or run all multiple access together
-        } else if (runnings.every(i => !i.singleAccess) && posibleBlockingItems.every(i => !i?.singleAccess)) {
-          for (const item of queue) {
-            if (item.singleAccess) {
-              break
-            }
-            SharedMutexSynchronizer.continue(item)
-          }
+    const queue = MutexGlobalStorage.getLocalLocksQueue()
+    for (const lock of queue) {
+      const posibleBlockingItems = MutexGlobalStorage.getLocalLocksQueue().filter(
+        i => !lock.parents?.includes?.(i.hash) && i.hash !== lock.hash && i.isRunning && keysRelatedMatch(lock.key, i.key),
+      )
+      if (lock.singleAccess) {
+        if (posibleBlockingItems.length === 0) {
+          SharedMutexSynchronizer.continue(lock)
+        }
+      } else {
+        if (posibleBlockingItems.every(item => !item.singleAccess)) {
+          SharedMutexSynchronizer.continue(lock)
         }
       }
     }

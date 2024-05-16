@@ -4,7 +4,6 @@ import { Awaiter } from '../utils/Awaiter'
 import { SharedMutexConfiguration } from '../utils/interfaces'
 
 export const defaultConfiguration: SharedMutexConfiguration = {
-  strictMode: false,
   defaultMaxLockingTime: undefined,
   communicationLayer: 'IPC',
 }

@@ -32,10 +32,6 @@ configuration interface:
 ```ts
 interface SharedMutexConfiguration {
   /**
-   * Strict mode, how to deal with nested locks
-   */
-  strictMode: boolean
-  /**
    * Default locking time, which will be used for all locks, if it's undefined, it will keep it unset
    */
   defaultMaxLockingTime: number
@@ -74,7 +70,6 @@ Lock, that can continue must have "clear way", it means, there can't by any othe
 
 There is several flags and definitions, that can change behaviour of locks.
 Every lock can has specified maxLockingTime, it's longest time, when scope can be locked. After this time, mutex will throw exception to prevent keeping app in frozen state. This behaviour can be overrided by setting `SharedMutexSynchronizer.timeoutHandler` handler to your custom.
-Globaly you can turn off or on strict mode by setting `strictMode` in configuration to true, which will change behaviour in nested locks. In case, strict mode is off, when we detecting nested lock with related key (key, that can affect parent key), it will logs warning and opens this scope immediately, otherwise, when strict mode is on, it will crash your application. In strict mode this will cause application to crash (or fork only).
 
 ## Usage of locks
 

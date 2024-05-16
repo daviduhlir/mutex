@@ -1,7 +1,6 @@
 import { EventEmitter } from 'events'
 import cluster from '../utils/cluster'
 import { LocalLockItem, LockDescriptor } from '../utils/interfaces'
-import { SecondarySynchronizer } from './SecondarySynchronizer'
 import { keysRelatedMatch, sanitizeLock } from '../utils/utils'
 import { ACTION, DEBUG_INFO_REPORTS, ERROR, MASTER_ID, SYNC_EVENTS } from '../utils/constants'
 import { MutexError } from '../utils/MutexError'
@@ -26,24 +25,9 @@ export class SharedMutexSynchronizer {
   static debugWithStack: boolean = false
 
   /**
-   * secondary arbitter
-   */
-  protected static secondarySynchronizer: SecondarySynchronizer = null
-
-  /**
    * configuration checked
    */
   protected static usingCustomConfiguration: boolean
-
-  /**
-   * Setup secondary synchronizer - prepared for mesh
-   */
-  static setSecondarySynchronizer(secondarySynchronizer: SecondarySynchronizer) {
-    SharedMutexSynchronizer.secondarySynchronizer = secondarySynchronizer
-    SharedMutexSynchronizer.secondarySynchronizer.on(SYNC_EVENTS.LOCK, SharedMutexSynchronizer.lock)
-    SharedMutexSynchronizer.secondarySynchronizer.on(SYNC_EVENTS.UNLOCK, SharedMutexSynchronizer.unlock)
-    SharedMutexSynchronizer.secondarySynchronizer.on(SYNC_EVENTS.CONTINUE, SharedMutexSynchronizer.continue)
-  }
 
   /**
    * Handlers for master process to work
@@ -165,11 +149,6 @@ export class SharedMutexSynchronizer {
       nItem.timeout = setTimeout(() => SharedMutexSynchronizer.timeoutHandler(nItem.hash), nItem.maxLockingTime)
     }
 
-    // send to secondary
-    if (SharedMutexSynchronizer.secondarySynchronizer) {
-      SharedMutexSynchronizer.secondarySynchronizer.lock(nItem)
-    }
-
     // debug info
     SharedMutexSynchronizer.reportDebugInfo(DEBUG_INFO_REPORTS.SCOPE_WAITING, nItem, codeStack)
 
@@ -199,11 +178,6 @@ export class SharedMutexSynchronizer {
     // remove from queue
     MutexGlobalStorage.setLocalLocksQueue(MutexGlobalStorage.getLocalLocksQueue().filter(item => item.hash !== hash))
 
-    // send to secondary
-    if (SharedMutexSynchronizer.secondarySynchronizer) {
-      SharedMutexSynchronizer.secondarySynchronizer.unlock(hash)
-    }
-
     // next tick... unlock something, if waiting
     SharedMutexSynchronizer.mutexTickNext()
   }
@@ -212,13 +186,12 @@ export class SharedMutexSynchronizer {
    * Tick of mutex run, it will continue next mutex(es) in queue
    */
   protected static mutexTickNext() {
-    // if we have secondary sync. and we are not arbitter
-    if (SharedMutexSynchronizer.secondarySynchronizer && !SharedMutexSynchronizer.secondarySynchronizer?.isArbitter) {
-      return
-    }
-
     const queue = MutexGlobalStorage.getLocalLocksQueue()
     for (const lock of queue) {
+      if (lock.isRunning) {
+        continue
+      }
+
       const posibleBlockingItems = MutexGlobalStorage.getLocalLocksQueue().filter(
         i => !lock.parents?.includes?.(i.hash) && i.hash !== lock.hash && i.isRunning && keysRelatedMatch(lock.key, i.key),
       )
@@ -251,11 +224,6 @@ export class SharedMutexSynchronizer {
     // emit it
     SharedMutexSynchronizer.masterHandler.emitter.emit('message', message)
     Object.keys(cluster.workers).forEach(workerId => SharedMutexSynchronizer.send(cluster.workers?.[workerId], message))
-
-    // just continue - send to secondary
-    if (SharedMutexSynchronizer.secondarySynchronizer) {
-      SharedMutexSynchronizer.secondarySynchronizer.continue(item)
-    }
   }
 
   /**

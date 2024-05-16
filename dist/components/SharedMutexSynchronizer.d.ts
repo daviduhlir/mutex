@@ -1,13 +1,10 @@
 /// <reference types="node" />
 import { EventEmitter } from 'events';
 import { LocalLockItem, LockDescriptor } from '../utils/interfaces';
-import { SecondarySynchronizer } from './SecondarySynchronizer';
 export declare class SharedMutexSynchronizer {
     static reportDebugInfo: (state: string, item: LocalLockItem, codeStack?: string) => void;
     static debugWithStack: boolean;
-    protected static secondarySynchronizer: SecondarySynchronizer;
     protected static usingCustomConfiguration: boolean;
-    static setSecondarySynchronizer(secondarySynchronizer: SecondarySynchronizer): void;
     static readonly masterHandler: {
         masterIncomingMessage: (message: any) => void;
         emitter: EventEmitter;

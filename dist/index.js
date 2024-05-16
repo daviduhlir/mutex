@@ -13,7 +13,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const SharedMutex_1 = require("./SharedMutex");
 __exportStar(require("./SharedMutex"), exports);
 __exportStar(require("./components/SharedMutexDecorators"), exports);
-__exportStar(require("./components/SecondarySynchronizer"), exports);
 __exportStar(require("./components/SharedMutexSynchronizer"), exports);
 __exportStar(require("./components/DebugGuard"), exports);
 __exportStar(require("./components/comm/MutexCommLayer"), exports);

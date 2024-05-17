@@ -275,7 +275,6 @@ export class SharedMutex {
    */
   protected static handleMessage(message: any) {
     if (message.action === ACTION.VERIFY_COMPLETE) {
-      console.log('verify complete!')
       if (SharedMutex.masterVerifiedTimeout) {
         clearTimeout(SharedMutex.masterVerifiedTimeout)
         SharedMutex.masterVerifiedTimeout = null
@@ -308,7 +307,6 @@ export class SharedMutex {
    * Send verification to master, and wait until we receive success response
    */
   protected static async verifyMaster() {
-    console.log('Verify master')
     if (SharedMutex.masterVerificationWaiter.resolved) {
       return
     }

@@ -17,7 +17,7 @@ describe('Stress test', function() {
       counter++
       await delay(2)
       counter--
-    }), 1)
+    }), 2)
 
     await Promise.all(new Array(100).fill(null).map(() =>
       SharedMutex.lockSingleAccess('root', async () => {
@@ -25,7 +25,7 @@ describe('Stress test', function() {
           failed = true
         }
         counter++
-        await delay(1)
+        await delay(2)
         counter--
       })))
 

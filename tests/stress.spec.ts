@@ -41,16 +41,16 @@ describe('Stress test', function() {
     let counter = 0
     const int1 = setInterval(() => SharedMutex.lockSingleAccess('root', async () => {
       counter++
-      await delay(5)
+      await delay(2)
       counter--
     }), 5)
     const int2 = setInterval(() => SharedMutex.lockSingleAccess('root', async () => {
       counter++
-      await delay(5)
+      await delay(2)
       counter--
     }), 5)
 
-    await delay(2000)
+    await delay(1000)
 
     clearInterval(int1)
     clearInterval(int2)

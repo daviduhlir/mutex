@@ -257,7 +257,7 @@ export class SharedMutexSynchronizer {
         // and if somebody changed it and somebody not, it should crash with it
         throw new MutexError(
           ERROR.MUTEX_CUSTOM_CONFIGURATION,
-          'This is usually caused by setting custom configuration by calling initialize({...}) only in some of forks, on only in master. You need to call it everywhere with same (*or compatible) config.',
+          'This is usually caused by setting custom configuration by calling initialize({...}) only in some of forks, or only in master. You need to call it everywhere with same (*or compatible) config.',
         )
       }
 

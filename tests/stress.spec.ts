@@ -29,6 +29,8 @@ describe('Stress test', function() {
         counter--
       })))
 
+    clearInterval(int)
+
     assert(!failed, 'Single access scope should not be penetrated with any other')
   })
 

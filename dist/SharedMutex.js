@@ -165,7 +165,6 @@ class SharedMutex {
     }
     static handleMessage(message) {
         if (message.action === constants_1.ACTION.VERIFY_COMPLETE) {
-            console.log('verify complete!');
             if (SharedMutex.masterVerifiedTimeout) {
                 clearTimeout(SharedMutex.masterVerifiedTimeout);
                 SharedMutex.masterVerifiedTimeout = null;
@@ -187,7 +186,6 @@ class SharedMutex {
     }
     static verifyMaster() {
         return __awaiter(this, void 0, void 0, function* () {
-            console.log('Verify master');
             if (SharedMutex.masterVerificationWaiter.resolved) {
                 return;
             }

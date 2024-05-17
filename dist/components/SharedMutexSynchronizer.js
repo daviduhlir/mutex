@@ -131,7 +131,7 @@ class SharedMutexSynchronizer {
                 SharedMutexSynchronizer.usingCustomConfiguration = message.usingCustomConfig;
             }
             else if (SharedMutexSynchronizer.usingCustomConfiguration !== message.usingCustomConfig) {
-                throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_CUSTOM_CONFIGURATION, 'This is usually caused by setting custom configuration by calling initialize({...}) only in some of forks, on only in master. You need to call it everywhere with same (*or compatible) config.');
+                throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_CUSTOM_CONFIGURATION, 'This is usually caused by setting custom configuration by calling initialize({...}) only in some of forks, or only in master. You need to call it everywhere with same (*or compatible) config.');
             }
             SharedMutexSynchronizer.send(worker, {
                 action: constants_1.ACTION.VERIFY_COMPLETE,

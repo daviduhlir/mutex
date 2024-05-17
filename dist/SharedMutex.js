@@ -138,6 +138,9 @@ class SharedMutex {
                 }
             }
             yield SharedMutexSynchronizer_1.SharedMutexSynchronizer.initializeMaster();
+            if (!cluster_1.default.isWorker) {
+                SharedMutex.masterVerificationWaiter.resolve();
+            }
         });
     }
     static sendAction(key, action, hash, data = null, codeStack) {
@@ -152,6 +155,7 @@ class SharedMutex {
                 (yield SharedMutexConfigManager_1.SharedMutexConfigManager.getComm()).processSend(message);
             }
             else {
+                yield SharedMutex.masterVerificationWaiter.wait();
                 if (!((_a = SharedMutexSynchronizer_1.SharedMutexSynchronizer.masterHandler) === null || _a === void 0 ? void 0 : _a.masterIncomingMessage)) {
                     throw new MutexError_1.MutexError(constants_1.ERROR.MUTEX_MASTER_NOT_INITIALIZED, 'Master process has not initialized mutex synchronizer. usually by missing call of SharedMutex.initialize() in master process.');
                 }
@@ -161,6 +165,7 @@ class SharedMutex {
     }
     static handleMessage(message) {
         if (message.action === constants_1.ACTION.VERIFY_COMPLETE) {
+            console.log('verify complete!');
             if (SharedMutex.masterVerifiedTimeout) {
                 clearTimeout(SharedMutex.masterVerifiedTimeout);
                 SharedMutex.masterVerifiedTimeout = null;
@@ -182,6 +187,7 @@ class SharedMutex {
     }
     static verifyMaster() {
         return __awaiter(this, void 0, void 0, function* () {
+            console.log('Verify master');
             if (SharedMutex.masterVerificationWaiter.resolved) {
                 return;
             }

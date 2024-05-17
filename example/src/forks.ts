@@ -1,4 +1,4 @@
-import { SharedMutexDecorators, SharedMutex } from '@david.uhlir/mutex'
+import { SharedMutexDecorators } from '@david.uhlir/mutex'
 import cluster from 'cluster'
 
 /**
@@ -19,7 +19,7 @@ class Test {
   }
 }
 
-if (cluster.isMaster) {
+if (!cluster.isWorker) {
   console.log(`----Running forks test----\n`)
   for(let index = 0; index < 4; index++) {
     cluster.fork({ index })

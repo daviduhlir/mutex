@@ -22,12 +22,6 @@ const MutexGlobalStorage_1 = require("./MutexGlobalStorage");
 const version_1 = __importDefault(require("../utils/version"));
 const SharedMutexConfigManager_1 = require("./SharedMutexConfigManager");
 class SharedMutexSynchronizer {
-    static setSecondarySynchronizer(secondarySynchronizer) {
-        SharedMutexSynchronizer.secondarySynchronizer = secondarySynchronizer;
-        SharedMutexSynchronizer.secondarySynchronizer.on(constants_1.SYNC_EVENTS.LOCK, SharedMutexSynchronizer.lock);
-        SharedMutexSynchronizer.secondarySynchronizer.on(constants_1.SYNC_EVENTS.UNLOCK, SharedMutexSynchronizer.unlock);
-        SharedMutexSynchronizer.secondarySynchronizer.on(constants_1.SYNC_EVENTS.CONTINUE, SharedMutexSynchronizer.continue);
-    }
     static getLockInfo(hash) {
         const item = MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === hash);
         if (item) {
@@ -76,9 +70,6 @@ class SharedMutexSynchronizer {
         if (nItem.maxLockingTime) {
             nItem.timeout = setTimeout(() => SharedMutexSynchronizer.timeoutHandler(nItem.hash), nItem.maxLockingTime);
         }
-        if (SharedMutexSynchronizer.secondarySynchronizer) {
-            SharedMutexSynchronizer.secondarySynchronizer.lock(nItem);
-        }
         SharedMutexSynchronizer.reportDebugInfo(constants_1.DEBUG_INFO_REPORTS.SCOPE_WAITING, nItem, codeStack);
         SharedMutexSynchronizer.mutexTickNext();
     }
@@ -92,38 +83,23 @@ class SharedMutexSynchronizer {
         }
         SharedMutexSynchronizer.reportDebugInfo(constants_1.DEBUG_INFO_REPORTS.SCOPE_EXIT, f, codeStack);
         MutexGlobalStorage_1.MutexGlobalStorage.setLocalLocksQueue(MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue().filter(item => item.hash !== hash));
-        if (SharedMutexSynchronizer.secondarySynchronizer) {
-            SharedMutexSynchronizer.secondarySynchronizer.unlock(hash);
-        }
         SharedMutexSynchronizer.mutexTickNext();
     }
     static mutexTickNext() {
-        var _a;
-        if (SharedMutexSynchronizer.secondarySynchronizer && !((_a = SharedMutexSynchronizer.secondarySynchronizer) === null || _a === void 0 ? void 0 : _a.isArbitter)) {
-            return;
-        }
-        const topItem = MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue()[MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue().length - 1];
-        if (topItem === null || topItem === void 0 ? void 0 : topItem.forceInstantContinue) {
-            SharedMutexSynchronizer.continue(topItem);
-        }
-        const allKeys = MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue().reduce((acc, i) => {
-            return [...acc, i.key].filter((value, ind, self) => self.indexOf(value) === ind);
-        }, []);
-        for (const key of allKeys) {
-            const queue = MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue().filter(i => i.key === key);
-            if (queue === null || queue === void 0 ? void 0 : queue.length) {
-                const runnings = queue.filter(i => i.isRunning);
-                const posibleBlockingItems = MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue().filter(i => i.isRunning && utils_1.keysRelatedMatch(key, i.key) && key !== i.key);
-                if (queue[0].singleAccess && !(runnings === null || runnings === void 0 ? void 0 : runnings.length) && !posibleBlockingItems.length) {
-                    SharedMutexSynchronizer.continue(queue[0]);
+        const queue = MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue();
+        for (const lock of queue) {
+            if (lock.isRunning) {
+                continue;
+            }
+            const posibleBlockingItems = MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue().filter(i => { var _a, _b; return !((_b = (_a = lock.parents) === null || _a === void 0 ? void 0 : _a.includes) === null || _b === void 0 ? void 0 : _b.call(_a, i.hash)) && i.hash !== lock.hash && i.isRunning && utils_1.keysRelatedMatch(lock.key, i.key); });
+            if (lock.singleAccess) {
+                if (posibleBlockingItems.length === 0) {
+                    SharedMutexSynchronizer.continue(lock);
                 }
-                else if (runnings.every(i => !i.singleAccess) && posibleBlockingItems.every(i => !(i === null || i === void 0 ? void 0 : i.singleAccess))) {
-                    for (const item of queue) {
-                        if (item.singleAccess) {
-                            break;
-                        }
-                        SharedMutexSynchronizer.continue(item);
-                    }
+            }
+            else {
+                if (posibleBlockingItems.every(item => !item.singleAccess)) {
+                    SharedMutexSynchronizer.continue(lock);
                 }
             }
         }
@@ -136,9 +112,6 @@ class SharedMutexSynchronizer {
         SharedMutexSynchronizer.reportDebugInfo(constants_1.DEBUG_INFO_REPORTS.SCOPE_CONTINUE, item, originalStack);
         SharedMutexSynchronizer.masterHandler.emitter.emit('message', message);
         Object.keys(cluster_1.default.workers).forEach(workerId => { var _a; return SharedMutexSynchronizer.send((_a = cluster_1.default.workers) === null || _a === void 0 ? void 0 : _a[workerId], message); });
-        if (SharedMutexSynchronizer.secondarySynchronizer) {
-            SharedMutexSynchronizer.secondarySynchronizer.continue(item);
-        }
     }
     static handleClusterMessage(worker, message) {
         SharedMutexSynchronizer.masterIncomingMessage(message, worker);
@@ -181,7 +154,6 @@ class SharedMutexSynchronizer {
 exports.SharedMutexSynchronizer = SharedMutexSynchronizer;
 SharedMutexSynchronizer.reportDebugInfo = (state, item, codeStack) => { };
 SharedMutexSynchronizer.debugWithStack = false;
-SharedMutexSynchronizer.secondarySynchronizer = null;
 SharedMutexSynchronizer.masterHandler = {
     masterIncomingMessage: null,
     emitter: new events_1.EventEmitter(),

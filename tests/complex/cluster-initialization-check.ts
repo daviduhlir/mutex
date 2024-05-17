@@ -3,7 +3,7 @@ import cluster from 'cluster'
 import { delay } from '../utils'
 
 ;(async function () {
-  if (cluster.isMaster) {
+  if (!cluster.isWorker) {
     cluster.fork()
       .on('exit', (e) => {
         if (e !== 0) {

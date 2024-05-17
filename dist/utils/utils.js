@@ -34,7 +34,7 @@ function keysRelatedMatch(key1, key2) {
 }
 exports.keysRelatedMatch = keysRelatedMatch;
 function sanitizeLock(input) {
-    return Object.assign(Object.assign({ workerId: input.workerId, singleAccess: input.singleAccess, hash: input.hash, key: input.key, isRunning: !!input.isRunning, forceInstantContinue: !!input.forceInstantContinue }, (input.maxLockingTime ? { maxLockingTime: input.maxLockingTime } : {})), (input.timeout ? { timeout: input.timeout } : {}));
+    return Object.assign(Object.assign({ workerId: input.workerId, singleAccess: input.singleAccess, hash: input.hash, key: input.key, isRunning: !!input.isRunning, parents: input.parents }, (input.maxLockingTime ? { maxLockingTime: input.maxLockingTime } : {})), (input.timeout ? { timeout: input.timeout } : {}));
 }
 exports.sanitizeLock = sanitizeLock;
 function parseLockKey(key) {

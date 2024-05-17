@@ -13,7 +13,7 @@ setTimeout(() => {
 }, 500)
 
 ;(async function () {
-  if (cluster.isMaster) {
+  if (!cluster.isWorker) {
     for(let index = 0; index < 4; index++) {
       await delay(5)
       cluster.fork({ index })

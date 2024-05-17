@@ -12,7 +12,6 @@ export declare const ERROR: {
     MUTEX_DIFFERENT_VERSIONS: string;
     MUTEX_CUSTOM_CONFIGURATION: string;
     MUTEX_LOCK_TIMEOUT: string;
-    MUTEX_NESTED_SCOPES: string;
     MUTEX_SAFE_CALLBACK_ALREADY_USED: string;
 };
 export declare const SYNC_EVENTS: {

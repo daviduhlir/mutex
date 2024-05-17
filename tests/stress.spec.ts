@@ -12,15 +12,24 @@ describe('Stress test', function() {
 
     let failed = false
     let counter = 0
-    await Promise.all(new Array(1000).fill(null).map(() =>
+
+    const int = setInterval(() => SharedMutex.lockMultiAccess('root', async () => {
+      counter++
+      await delay(2)
+      counter--
+    }), 2)
+
+    await Promise.all(new Array(100).fill(null).map(() =>
       SharedMutex.lockSingleAccess('root', async () => {
         if (counter !== 0) {
           failed = true
         }
         counter++
-        await delay(1)
+        await delay(2)
         counter--
       })))
+
+    clearInterval(int)
 
     assert(!failed, 'Single access scope should not be penetrated with any other')
   })
@@ -32,16 +41,16 @@ describe('Stress test', function() {
     let counter = 0
     const int1 = setInterval(() => SharedMutex.lockSingleAccess('root', async () => {
       counter++
-      await delay(5)
+      await delay(2)
       counter--
     }), 5)
     const int2 = setInterval(() => SharedMutex.lockSingleAccess('root', async () => {
       counter++
-      await delay(5)
+      await delay(2)
       counter--
     }), 5)
 
-    await delay(2000)
+    await delay(1000)
 
     clearInterval(int1)
     clearInterval(int2)

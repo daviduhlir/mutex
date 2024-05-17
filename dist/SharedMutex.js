@@ -185,8 +185,8 @@ class SharedMutex {
             if (SharedMutex.masterVerificationWaiter.resolved) {
                 return;
             }
-            if (SharedMutex.masterVerifiedTimeout === null) {
-                ;
+            if (SharedMutex.masterVerifiedTimeout === null && !SharedMutex.masterVerificationSent) {
+                SharedMutex.masterVerificationSent = true;
                 (yield SharedMutexConfigManager_1.SharedMutexConfigManager.getComm()).processSend({
                     action: constants_1.ACTION.VERIFY,
                     usingCustomConfig: yield SharedMutexConfigManager_1.SharedMutexConfigManager.getUsingDefaultConfig(),
@@ -204,5 +204,6 @@ SharedMutex.waitingMessagesHandlers = [];
 SharedMutex.attached = false;
 SharedMutex.masterVerificationWaiter = new Awaiter_1.Awaiter();
 SharedMutex.masterVerifiedTimeout = null;
+SharedMutex.masterVerificationSent = false;
 SharedMutex.stackStorage = new AsyncLocalStorage_1.default();
 //# sourceMappingURL=SharedMutex.js.map

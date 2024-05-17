@@ -42,6 +42,7 @@ export class SharedMutex {
    */
   protected static masterVerificationWaiter: Awaiter = new Awaiter()
   protected static masterVerifiedTimeout = null
+  protected static masterVerificationSent: boolean = false
 
   /**
    * storage of data for nested keys
@@ -302,7 +303,8 @@ export class SharedMutex {
       return
     }
 
-    if (SharedMutex.masterVerifiedTimeout === null) {
+    if (SharedMutex.masterVerifiedTimeout === null && !SharedMutex.masterVerificationSent) {
+      SharedMutex.masterVerificationSent = true
       // send verify ask
       ;(await SharedMutexConfigManager.getComm()).processSend({
         action: ACTION.VERIFY,

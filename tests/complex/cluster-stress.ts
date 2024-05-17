@@ -3,7 +3,7 @@ import cluster from 'cluster'
 import { delay } from '../utils'
 
 ;(async function () {
-  if (cluster.isPrimary) {
+  if (!cluster.isWorker) {
     await SharedMutex.initialize()
 
     await Promise.all([

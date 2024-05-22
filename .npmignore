@@ -1,3 +1,8 @@
 ./lib
-./github
+.github
+./scripts
+./example
+./tests
+.gitignore
+.prettierrc.json
 tsconfig.json

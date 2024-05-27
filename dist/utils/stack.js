@@ -14,4 +14,3 @@ function getStackFrom(getFrom) {
     return found !== -1 ? stackLines.slice(found + 1).join('\n') : null;
 }
 exports.getStackFrom = getStackFrom;
-//# sourceMappingURL=stack.js.map

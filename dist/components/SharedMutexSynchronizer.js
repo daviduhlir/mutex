@@ -173,4 +173,3 @@ SharedMutexSynchronizer.timeoutHandler = (hash) => {
         process.kill((_b = (_a = cluster_1.default.workers) === null || _a === void 0 ? void 0 : _a[info.workerId]) === null || _b === void 0 ? void 0 : _b.process.pid, 9);
     }
 };
-//# sourceMappingURL=SharedMutexSynchronizer.js.map

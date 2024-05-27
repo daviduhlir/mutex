@@ -6,6 +6,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "rimraf ./dist && tsc",
+    "build:prod": "rimraf ./dist && tsc --p tsconfig.prod.json",
     "prettier-check": "prettier-check --config .prettierrc.json 'lib/**/*.ts'",
     "prettier-format": "prettier --config .prettierrc.json 'lib/**/*.ts' --write",
     "test": "npm run build && npm run prettier-check && ts-mocha --timeout 10000 --type-check -p ./tsconfig.json tests/**/*.spec.ts",

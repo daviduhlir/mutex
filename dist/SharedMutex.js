@@ -210,4 +210,3 @@ SharedMutex.masterVerificationWaiter = new Awaiter_1.Awaiter();
 SharedMutex.masterVerifiedTimeout = null;
 SharedMutex.masterVerificationSent = false;
 SharedMutex.stackStorage = new AsyncLocalStorage_1.default();
-//# sourceMappingURL=SharedMutex.js.map

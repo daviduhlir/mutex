@@ -10,7 +10,7 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "outDir": "./dist",
-    "sourceMap": true,
+    "sourceMap": false,
     "esModuleInterop": true
   },
   "files": [

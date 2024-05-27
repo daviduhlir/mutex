@@ -11,7 +11,7 @@ if [[ `git status --porcelain` ]]; then
   exit 1;
 fi
 
-npm run build
+npm run build:prod
 npm test
 npm version patch
 tag=$(git tag --points-at HEAD)

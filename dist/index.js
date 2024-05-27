@@ -20,4 +20,3 @@ __exportStar(require("./utils/interfaces"), exports);
 var MutexSafeCallbackHandler_1 = require("./components/MutexSafeCallbackHandler");
 Object.defineProperty(exports, "MutexSafeCallbackHandler", { enumerable: true, get: function () { return MutexSafeCallbackHandler_1.MutexSafeCallbackHandler; } });
 SharedMutex_1.SharedMutex.initialize();
-//# sourceMappingURL=index.js.map

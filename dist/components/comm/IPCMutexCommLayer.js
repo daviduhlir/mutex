@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.IPCMutexCommLayer = void 0;
-const cluster_1 = __importDefault(require("cluster"));
+const cluster_1 = __importDefault(require("../../utils/cluster"));
 const MutexCommLayer_1 = require("./MutexCommLayer");
 class IPCMutexCommLayer extends MutexCommLayer_1.MutexCommLayer {
     onClusterMessage(callback) {

@@ -1,4 +1,4 @@
-import cluster from 'cluster'
+import cluster from '../../utils/cluster'
 import { MutexCommLayer } from './MutexCommLayer'
 
 /**

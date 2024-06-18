@@ -87,6 +87,7 @@ class SharedMutexSynchronizer {
     }
     static mutexTickNext() {
         const queue = MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue();
+        const changes = [];
         for (const lock of queue) {
             if (lock.isRunning) {
                 continue;
@@ -94,14 +95,22 @@ class SharedMutexSynchronizer {
             const posibleBlockingItems = MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue().filter(i => { var _a, _b; return !((_b = (_a = lock.parents) === null || _a === void 0 ? void 0 : _a.includes) === null || _b === void 0 ? void 0 : _b.call(_a, i.hash)) && i.hash !== lock.hash && i.isRunning && utils_1.keysRelatedMatch(lock.key, i.key); });
             if (lock.singleAccess) {
                 if (posibleBlockingItems.length === 0) {
-                    SharedMutexSynchronizer.continue(lock);
+                    lock.isRunning = true;
+                    changes.push(lock);
                 }
             }
             else {
                 if (posibleBlockingItems.every(item => !item.singleAccess)) {
-                    SharedMutexSynchronizer.continue(lock);
+                    lock.isRunning = true;
+                    changes.push(lock);
                 }
             }
+        }
+        for (const lock of changes) {
+            SharedMutexSynchronizer.continue(lock);
+        }
+        if (changes.length) {
+            SharedMutexSynchronizer.mutexTickNext();
         }
     }
     static continue(item, originalStack) {

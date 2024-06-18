@@ -28,11 +28,11 @@ describe('Debugger test', function() {
     ])
 
     const compare = [
-      'MUTEX_DEBUG mutex (S) Entering scope',
-      'MUTEX_DEBUG mutex/deep (S) Waiting outside of scope. Posible blockers:  mutex',
-      'MUTEX_DEBUG mutex (S) Leaving scope',
-      'MUTEX_DEBUG mutex/deep (S) Continue into scope',
-      'MUTEX_DEBUG mutex/deep (S) Leaving scope',
+      'MUTEX_DEBUG /mutex (S) Entering scope',
+      'MUTEX_DEBUG /mutex/deep (S) Waiting outside of scope. Posible blockers:  /mutex',
+      'MUTEX_DEBUG /mutex (S) Leaving scope',
+      'MUTEX_DEBUG /mutex/deep (S) Continue into scope',
+      'MUTEX_DEBUG /mutex/deep (S) Leaving scope',
     ]
 
     SharedMutexSynchronizer.reportDebugInfo = () => void 0

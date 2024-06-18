@@ -23,8 +23,8 @@ function isChildOf(key, parentKey) {
 }
 exports.isChildOf = isChildOf;
 function keysRelatedMatch(key1, key2) {
-    const key1Parts = key1.split('/');
-    const key2Parts = key2.split('/');
+    const key1Parts = (Array.isArray(key1) ? key1 : key1.split('/')).filter(Boolean);
+    const key2Parts = (Array.isArray(key2) ? key2 : key2.split('/')).filter(Boolean);
     for (let i = 0; i < Math.min(key1Parts.length, key2Parts.length); i++) {
         if (key1Parts[i] !== key2Parts[i]) {
             return false;
@@ -38,9 +38,10 @@ function sanitizeLock(input) {
 }
 exports.sanitizeLock = sanitizeLock;
 function parseLockKey(key) {
-    return (Array.isArray(key) ? key.join('/') : key)
-        .split('/')
-        .filter(i => !!i)
-        .join('/');
+    return ('/' +
+        (Array.isArray(key) ? key.join('/') : key)
+            .split('/')
+            .filter(i => !!i)
+            .join('/'));
 }
 exports.parseLockKey = parseLockKey;

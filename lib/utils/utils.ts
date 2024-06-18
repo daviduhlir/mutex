@@ -33,10 +33,10 @@ export function isChildOf(key: string, parentKey: string): boolean {
 /**
  * Match two keys, if it's same, parental or child of second key
  */
-export function keysRelatedMatch(key1: string, key2: string): boolean {
+export function keysRelatedMatch(key1: string | string[], key2: string | string[]): boolean {
   // try if it's child or parent
-  const key1Parts = key1.split('/')
-  const key2Parts = key2.split('/')
+  const key1Parts = (Array.isArray(key1) ? key1 : key1.split('/')).filter(Boolean)
+  const key2Parts = (Array.isArray(key2) ? key2 : key2.split('/')).filter(Boolean)
   for (let i = 0; i < Math.min(key1Parts.length, key2Parts.length); i++) {
     if (key1Parts[i] !== key2Parts[i]) {
       return false
@@ -65,8 +65,11 @@ export function sanitizeLock(input: any): LocalLockItem {
  * Parse key of lock
  */
 export function parseLockKey(key: LockKey): string {
-  return (Array.isArray(key) ? key.join('/') : key)
-    .split('/')
-    .filter(i => !!i)
-    .join('/')
+  return (
+    '/' +
+    (Array.isArray(key) ? key.join('/') : key)
+      .split('/')
+      .filter(i => !!i)
+      .join('/')
+  )
 }

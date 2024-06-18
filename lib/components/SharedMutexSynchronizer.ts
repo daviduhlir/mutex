@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events'
 import cluster from '../utils/cluster'
 import { LocalLockItem, LockDescriptor } from '../utils/interfaces'
-import { keysRelatedMatch, sanitizeLock } from '../utils/utils'
+import { sanitizeLock, keysRelatedMatch } from '../utils/utils'
 import { ACTION, DEBUG_INFO_REPORTS, ERROR, MASTER_ID, SYNC_EVENTS } from '../utils/constants'
 import { MutexError } from '../utils/MutexError'
 import { MutexGlobalStorage } from './MutexGlobalStorage'
@@ -17,7 +17,7 @@ export class SharedMutexSynchronizer {
   /**
    * Report debug info, you can use console log inside to track, whats going on
    */
-  static reportDebugInfo = (state: string, item: LocalLockItem, codeStack?: string) => {}
+  static reportDebugInfo: (state: string, item: LocalLockItem, codeStack?: string) => void
 
   /**
    * Report debug info with stack
@@ -55,10 +55,12 @@ export class SharedMutexSynchronizer {
     }
 
     // debug info
-    SharedMutexSynchronizer.reportDebugInfo(
-      DEBUG_INFO_REPORTS.LOCK_TIMEOUT,
-      MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === hash),
-    )
+    if (SharedMutexSynchronizer.reportDebugInfo) {
+      SharedMutexSynchronizer.reportDebugInfo(
+        DEBUG_INFO_REPORTS.LOCK_TIMEOUT,
+        MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === hash),
+      )
+    }
 
     console.error(ERROR.MUTEX_LOCK_TIMEOUT, info)
     if (info.workerId === MASTER_ID) {
@@ -150,7 +152,9 @@ export class SharedMutexSynchronizer {
     }
 
     // debug info
-    SharedMutexSynchronizer.reportDebugInfo(DEBUG_INFO_REPORTS.SCOPE_WAITING, nItem, codeStack)
+    if (SharedMutexSynchronizer.reportDebugInfo) {
+      SharedMutexSynchronizer.reportDebugInfo(DEBUG_INFO_REPORTS.SCOPE_WAITING, nItem, codeStack)
+    }
 
     // next tick... unlock something, if waiting
     SharedMutexSynchronizer.mutexTickNext()
@@ -173,7 +177,9 @@ export class SharedMutexSynchronizer {
     }
 
     // report debug info
-    SharedMutexSynchronizer.reportDebugInfo(DEBUG_INFO_REPORTS.SCOPE_EXIT, f, codeStack)
+    if (SharedMutexSynchronizer.reportDebugInfo) {
+      SharedMutexSynchronizer.reportDebugInfo(DEBUG_INFO_REPORTS.SCOPE_EXIT, f, codeStack)
+    }
 
     // remove from queue
     MutexGlobalStorage.setLocalLocksQueue(MutexGlobalStorage.getLocalLocksQueue().filter(item => item.hash !== hash))
@@ -187,32 +193,46 @@ export class SharedMutexSynchronizer {
    */
   protected static mutexTickNext() {
     const queue = MutexGlobalStorage.getLocalLocksQueue()
-    const changes = []
-    for (const lock of queue) {
+    const changes: string[] = []
+
+    SharedMutexSynchronizer.solveGroup(queue, changes)
+
+    for (const hash of changes) {
+      SharedMutexSynchronizer.continue(hash)
+    }
+    if (changes.length) {
+      SharedMutexSynchronizer.mutexTickNext()
+    }
+  }
+
+  protected static solveGroup(queue: LocalLockItem[], changes: string[]) {
+    for (let i = 0; i < queue.length; i++) {
+      const lock = queue[i]
       if (lock.isRunning) {
         continue
       }
 
-      const posibleBlockingItems = MutexGlobalStorage.getLocalLocksQueue().filter(
-        i => !lock.parents?.includes?.(i.hash) && i.hash !== lock.hash && i.isRunning && keysRelatedMatch(lock.key, i.key),
-      )
+      const foundRunningLocks = queue.filter(l => l.isRunning && keysRelatedMatch(l.key, lock.key))
+
+      // if single access group is on top, break it anyway
       if (lock.singleAccess) {
-        if (posibleBlockingItems.length === 0) {
+        // if nothing is running or running is my parent
+        const isParentTreeRunning =
+          lock.parents && foundRunningLocks.length === lock.parents.length && lock.parents.every(hash => foundRunningLocks.find(l => l.hash === hash))
+
+        if (foundRunningLocks.length === 0 || isParentTreeRunning) {
+          changes.push(lock.hash)
           lock.isRunning = true
-          changes.push(lock)
         }
       } else {
-        if (posibleBlockingItems.every(item => !item.singleAccess)) {
+        const isParentTreeRunning =
+          lock.parents && foundRunningLocks.length === lock.parents.length && lock.parents.every(hash => foundRunningLocks.find(l => l.hash === hash))
+
+        if (foundRunningLocks.every(lock => !lock.singleAccess) || isParentTreeRunning) {
+          changes.push(lock.hash)
           lock.isRunning = true
-          changes.push(lock)
         }
       }
-    }
-    for (const lock of changes) {
-      SharedMutexSynchronizer.continue(lock)
-    }
-    if (changes.length) {
-      SharedMutexSynchronizer.mutexTickNext()
     }
   }
 
@@ -220,7 +240,8 @@ export class SharedMutexSynchronizer {
    * Continue worker in queue
    * @param key
    */
-  protected static continue(item: LocalLockItem, originalStack?: string) {
+  protected static continue(hash: string, originalStack?: string) {
+    const item = MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === hash)
     item.isRunning = true
 
     const message = {
@@ -228,7 +249,9 @@ export class SharedMutexSynchronizer {
     }
 
     // report debug info
-    SharedMutexSynchronizer.reportDebugInfo(DEBUG_INFO_REPORTS.SCOPE_CONTINUE, item, originalStack)
+    if (SharedMutexSynchronizer.reportDebugInfo) {
+      SharedMutexSynchronizer.reportDebugInfo(DEBUG_INFO_REPORTS.SCOPE_CONTINUE, item, originalStack)
+    }
 
     // emit it
     SharedMutexSynchronizer.masterHandler.emitter.emit('message', message)

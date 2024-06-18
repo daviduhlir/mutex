@@ -1,13 +1,4 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -47,19 +38,17 @@ class SharedMutexSynchronizer {
             }
         }
     }
-    static initializeMaster() {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (MutexGlobalStorage_1.MutexGlobalStorage.getInitialized() || !cluster_1.default.isMaster) {
-                return;
-            }
-            MutexGlobalStorage_1.MutexGlobalStorage.setInitialized();
-            if (cluster_1.default && typeof cluster_1.default.on === 'function') {
-                ;
-                (yield SharedMutexConfigManager_1.SharedMutexConfigManager.getComm()).onClusterMessage(SharedMutexSynchronizer.handleClusterMessage);
-                cluster_1.default.on('exit', worker => SharedMutexSynchronizer.workerUnlockForced(worker.id));
-            }
-            SharedMutexSynchronizer.masterHandler.masterIncomingMessage = SharedMutexSynchronizer.masterIncomingMessage;
-        });
+    static async initializeMaster() {
+        if (MutexGlobalStorage_1.MutexGlobalStorage.getInitialized() || !cluster_1.default.isMaster) {
+            return;
+        }
+        MutexGlobalStorage_1.MutexGlobalStorage.setInitialized();
+        if (cluster_1.default && typeof cluster_1.default.on === 'function') {
+            ;
+            (await SharedMutexConfigManager_1.SharedMutexConfigManager.getComm()).onClusterMessage(SharedMutexSynchronizer.handleClusterMessage);
+            cluster_1.default.on('exit', worker => SharedMutexSynchronizer.workerUnlockForced(worker.id));
+        }
+        SharedMutexSynchronizer.masterHandler.masterIncomingMessage = SharedMutexSynchronizer.masterIncomingMessage;
     }
     static getLocksCount() {
         return MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue().length;
@@ -166,11 +155,9 @@ class SharedMutexSynchronizer {
             .filter(i => i.workerId === workerId)
             .forEach(i => SharedMutexSynchronizer.unlock(i.hash));
     }
-    static send(worker, message) {
-        return __awaiter(this, void 0, void 0, function* () {
-            ;
-            (yield SharedMutexConfigManager_1.SharedMutexConfigManager.getComm()).workerSend(worker, message);
-        });
+    static async send(worker, message) {
+        ;
+        (await SharedMutexConfigManager_1.SharedMutexConfigManager.getComm()).workerSend(worker, message);
     }
 }
 exports.SharedMutexSynchronizer = SharedMutexSynchronizer;
@@ -196,3 +183,4 @@ SharedMutexSynchronizer.timeoutHandler = (hash) => {
         process.kill((_b = (_a = cluster_1.default.workers) === null || _a === void 0 ? void 0 : _a[info.workerId]) === null || _b === void 0 ? void 0 : _b.process.pid, 9);
     }
 };
+//# sourceMappingURL=SharedMutexSynchronizer.js.map

@@ -16,7 +16,7 @@ describe('Real cases', function() {
     })
   })
 
-  it('TTTTT', async function() {
+  it('Combination of key #1', async function() {
     await Promise.all([
       SharedMutex.lockSingleAccess('hello', async () => {
         await SharedMutex.lockSingleAccess('/main', async () => {

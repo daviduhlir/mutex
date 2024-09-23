@@ -19,7 +19,10 @@ export class Awaiter<T = any> {
    */
   public static wrap<T>(promise: Promise<T>): Awaiter<T> {
     const awaiter = new Awaiter<T>()
-    promise.then(result => awaiter.resolve(result), error => awaiter.reject(error))
+    promise.then(
+      result => awaiter.resolve(result),
+      error => awaiter.reject(error),
+    )
     return awaiter
   }
 

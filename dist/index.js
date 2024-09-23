@@ -17,6 +17,8 @@ __exportStar(require("./components/SharedMutexSynchronizer"), exports);
 __exportStar(require("./components/DebugGuard"), exports);
 __exportStar(require("./components/comm/MutexCommLayer"), exports);
 __exportStar(require("./utils/interfaces"), exports);
+__exportStar(require("./utils/Awaiter"), exports);
 var MutexSafeCallbackHandler_1 = require("./components/MutexSafeCallbackHandler");
 Object.defineProperty(exports, "MutexSafeCallbackHandler", { enumerable: true, get: function () { return MutexSafeCallbackHandler_1.MutexSafeCallbackHandler; } });
 SharedMutex_1.SharedMutex.initialize();
+//# sourceMappingURL=index.js.map

@@ -26,7 +26,9 @@
     "mutex",
     "lock",
     "ipc",
-    "util"
+    "util",
+    "synchronization",
+    "processes"
   ],
   "author": "David Uhlíř",
   "license": "ISC",

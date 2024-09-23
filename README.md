@@ -186,4 +186,6 @@ interface DebugGuardOptions {
 
 All the times is in miliseconds.
 
+There is option, for simple debugging, which will collects all info about locks with stack, where the lock was called. It can be simply turned on by calling `SharedMutexSynchronizer.debugWithStack = true` in all proccesses. This will mainly shows stack trace in case, where lock failed due to MUTEX_TIMEOUT error. With this flag, it's easy to read, who blocked the lock, and if it was blocked by running locks, or waiting locks.
+
 ISC

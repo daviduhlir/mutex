@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events'
 import cluster from '../utils/cluster'
-import { LocalLockItem, LockDescriptor } from '../utils/interfaces'
+import { LocalLockItem, LockDescriptor, LockItemInfo } from '../utils/interfaces'
 import { sanitizeLock, keysRelatedMatch } from '../utils/utils'
 import { ACTION, DEBUG_INFO_REPORTS, ERROR, MASTER_ID, SYNC_EVENTS } from '../utils/constants'
 import { MutexError } from '../utils/MutexError'
@@ -75,14 +75,19 @@ export class SharedMutexSynchronizer {
    * @param hash
    * @returns
    */
-  static getLockInfo(hash: string): LockDescriptor {
-    const item = MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === hash)
+  static getLockInfo(hash: string): LockItemInfo {
+    const queue = MutexGlobalStorage.getLocalLocksQueue()
+    const item = queue.find(i => i.hash === hash)
+    const blockedBy = queue.filter(l => l.isRunning && keysRelatedMatch(l.key, item.key))
     if (item) {
       return {
         workerId: item.workerId,
         singleAccess: item.singleAccess,
         hash: item.hash,
         key: item.key,
+        isRunning: item.isRunning,
+        codeStack: item.codeStack,
+        blockedBy,
       }
     }
   }
@@ -143,7 +148,7 @@ export class SharedMutexSynchronizer {
    */
   protected static lock(item: LocalLockItem, codeStack?: string) {
     // add it to locks
-    const nItem = { ...item }
+    const nItem = { ...item, codeStack }
     MutexGlobalStorage.getLocalLocksQueue().push(nItem)
 
     // set timeout if provided

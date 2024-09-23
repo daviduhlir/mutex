@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { EventEmitter } from 'events';
-import { LocalLockItem, LockDescriptor } from '../utils/interfaces';
+import { LocalLockItem, LockItemInfo } from '../utils/interfaces';
 export declare class SharedMutexSynchronizer {
     static reportDebugInfo: (state: string, item: LocalLockItem, codeStack?: string) => void;
     static debugWithStack: boolean;
@@ -10,7 +10,7 @@ export declare class SharedMutexSynchronizer {
         emitter: EventEmitter;
     };
     static timeoutHandler: (hash: string) => void;
-    static getLockInfo(hash: string): LockDescriptor;
+    static getLockInfo(hash: string): LockItemInfo;
     static resetLockTimeout(hash: string, newMaxLockingTime?: number): void;
     static initializeMaster(): Promise<void>;
     static getLocksCount(): number;

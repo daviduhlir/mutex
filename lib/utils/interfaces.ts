@@ -34,6 +34,12 @@ export interface LockDescriptor {
   maxLockingTime?: number
 }
 
+export interface LockItemInfo extends LockDescriptor {
+  isRunning: boolean
+  blockedBy: LockDescriptor[]
+  codeStack?: any
+}
+
 /**
  * Local lock item in queue
  */
@@ -41,7 +47,7 @@ export interface LocalLockItem extends LockDescriptor {
   timeout?: any
   isRunning?: boolean
   parents?: string[]
-  stack?: any
+  codeStack?: any
 }
 
 /**

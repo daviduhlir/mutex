@@ -15,10 +15,15 @@ export interface LockDescriptor {
     key: string;
     maxLockingTime?: number;
 }
+export interface LockItemInfo extends LockDescriptor {
+    isRunning: boolean;
+    blockedBy: LockDescriptor[];
+    codeStack?: any;
+}
 export interface LocalLockItem extends LockDescriptor {
     timeout?: any;
     isRunning?: boolean;
     parents?: string[];
-    stack?: any;
+    codeStack?: any;
 }
 export declare type LockKey = string | string[];

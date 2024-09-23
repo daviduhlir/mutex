@@ -23,4 +23,3 @@ class MutexError extends Error {
     }
 }
 exports.MutexError = MutexError;
-//# sourceMappingURL=MutexError.js.map

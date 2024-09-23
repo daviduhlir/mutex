@@ -14,13 +14,18 @@ const version_1 = __importDefault(require("../utils/version"));
 const SharedMutexConfigManager_1 = require("./SharedMutexConfigManager");
 class SharedMutexSynchronizer {
     static getLockInfo(hash) {
-        const item = MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === hash);
+        const queue = MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue();
+        const item = queue.find(i => i.hash === hash);
+        const blockedBy = queue.filter(l => l.isRunning && utils_1.keysRelatedMatch(l.key, item.key));
         if (item) {
             return {
                 workerId: item.workerId,
                 singleAccess: item.singleAccess,
                 hash: item.hash,
                 key: item.key,
+                isRunning: item.isRunning,
+                codeStack: item.codeStack,
+                blockedBy,
             };
         }
     }
@@ -54,7 +59,7 @@ class SharedMutexSynchronizer {
         return MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue().length;
     }
     static lock(item, codeStack) {
-        const nItem = Object.assign({}, item);
+        const nItem = Object.assign(Object.assign({}, item), { codeStack });
         MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue().push(nItem);
         if (nItem.maxLockingTime) {
             nItem.timeout = setTimeout(() => SharedMutexSynchronizer.timeoutHandler(nItem.hash), nItem.maxLockingTime);

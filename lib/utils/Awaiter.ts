@@ -1,13 +1,29 @@
 /**
  * Awaiter, that can await for some action done outside of scope
  */
-export class Awaiter {
-  protected promise: Promise<any>
+export class Awaiter<T = any> {
+  protected promise: Promise<T>
   protected finished
-  protected resolver
+  protected resolver: (result: T) => any
+  protected rejector: (error: Error) => any
 
   constructor() {
-    this.promise = new Promise(resolve => (this.resolver = resolve))
+    this.promise = new Promise((resolve, reject) => {
+      this.resolver = resolve
+      this.rejector = reject
+    })
+  }
+
+  /**
+   * Wrap promise by awaiter
+   */
+  public static wrap<T>(promise: Promise<T>): Awaiter<T> {
+    const awaiter = new Awaiter<T>()
+    promise.then(
+      result => awaiter.resolve(result),
+      error => awaiter.reject(error),
+    )
+    return awaiter
   }
 
   /**
@@ -32,10 +48,20 @@ export class Awaiter {
   /**
    * Resolved it, and go forward
    */
-  public resolve() {
+  public resolve(result?: T) {
     this.finished = true
     if (this.resolver) {
-      this.resolver()
+      this.resolver(result)
+    }
+  }
+
+  /**
+   * Reject it, and go forward
+   */
+  public reject(error: Error) {
+    this.finished = true
+    if (this.rejector) {
+      this.rejector(error)
     }
   }
 }

@@ -78,7 +78,14 @@ export class SharedMutexSynchronizer {
   static getLockInfo(hash: string): LockItemInfo {
     const queue = MutexGlobalStorage.getLocalLocksQueue()
     const item = queue.find(i => i.hash === hash)
-    const blockedBy = queue.filter(l => l.isRunning && keysRelatedMatch(l.key, item.key))
+    const blockedBy = queue.filter(l => l.isRunning && keysRelatedMatch(l.key, item.key)).map(l => ({
+      workerId: l.workerId,
+      singleAccess: l.singleAccess,
+      hash: l.hash,
+      key: l.key,
+      isRunning: l.isRunning,
+      codeStack: l.codeStack,
+    }))
     if (item) {
       return {
         workerId: item.workerId,

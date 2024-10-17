@@ -100,4 +100,3 @@ DebugGuard.options = {
 };
 DebugGuard.writeFunction = console.log;
 DebugGuard.currentStates = {};
-//# sourceMappingURL=DebugGuard.js.map

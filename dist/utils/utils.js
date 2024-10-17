@@ -9,8 +9,8 @@ function randomHash() {
 }
 exports.randomHash = randomHash;
 function isChildOf(key, parentKey) {
-    const keyParts = key.split('/');
-    const parentKeyParts = parentKey.split('/');
+    const keyParts = key.split('/').filter(Boolean);
+    const parentKeyParts = parentKey.split('/').filter(Boolean);
     if (keyParts.length >= parentKeyParts.length) {
         return false;
     }

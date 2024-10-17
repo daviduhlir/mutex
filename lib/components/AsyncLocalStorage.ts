@@ -4,6 +4,9 @@ export class AsyncLocalStorageMock<T = any> {
   getStore(): T {
     return undefined
   }
+  enterWith(data: any) {
+    return null
+  }
   async run(data: T, fnc) {
     return fnc()
   }

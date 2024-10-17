@@ -83,7 +83,9 @@ class SharedMutex {
             }
             let result;
             try {
-                result = yield SharedMutex.stackStorage.run([...stack, myStackItem], fnc);
+                SharedMutex.stackStorage.enterWith([...stack, myStackItem]);
+                result = yield fnc();
+                SharedMutex.stackStorage.enterWith(stack);
             }
             catch (e) {
                 unlocker();

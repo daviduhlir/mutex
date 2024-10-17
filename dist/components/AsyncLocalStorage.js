@@ -15,6 +15,9 @@ class AsyncLocalStorageMock {
     getStore() {
         return undefined;
     }
+    enterWith(data) {
+        return null;
+    }
     run(data, fnc) {
         return __awaiter(this, void 0, void 0, function* () {
             return fnc();

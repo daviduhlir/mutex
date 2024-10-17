@@ -93,16 +93,16 @@ export class SharedMutex {
 
     const hash = randomHash()
 
-    // detect of nested locks as death ends!
-    const stack = [...(SharedMutex.stackStorage.getStore() || [])]
+    const defaultMaxLockingTime = (await SharedMutexConfigManager.getConfiguration()).defaultMaxLockingTime
     const myStackItem = {
       hash,
       key: parseLockKey(key),
       singleAccess,
     }
 
+    // detect of nested locks as death ends!
+    const stack = [...(SharedMutex.stackStorage.getStore() || [])]
     const nestedInRelatedItems = stack.filter(i => keysRelatedMatch(myStackItem.key, i.key))
-    const defaultMaxLockingTime = (await SharedMutexConfigManager.getConfiguration()).defaultMaxLockingTime
 
     // lock all sub keys
     let m = await SharedMutex.lock(

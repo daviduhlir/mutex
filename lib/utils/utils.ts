@@ -14,8 +14,8 @@ export function randomHash(): string {
  * If key is children of parental key
  */
 export function isChildOf(key: string, parentKey: string): boolean {
-  const keyParts = key.split('/')
-  const parentKeyParts = parentKey.split('/')
+  const keyParts = key.split('/').filter(Boolean)
+  const parentKeyParts = parentKey.split('/').filter(Boolean)
 
   if (keyParts.length >= parentKeyParts.length) {
     return false

@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events'
 import cluster from '../utils/cluster'
-import { LocalLockItem, LockDescriptor, LockItemInfo } from '../utils/interfaces'
+import { LocalLockItem, LockItemInfo } from '../utils/interfaces'
 import { sanitizeLock, keysRelatedMatch } from '../utils/utils'
 import { ACTION, DEBUG_INFO_REPORTS, ERROR, MASTER_ID, SYNC_EVENTS } from '../utils/constants'
 import { MutexError } from '../utils/MutexError'

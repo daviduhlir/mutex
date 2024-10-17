@@ -137,7 +137,9 @@ export class SharedMutex {
     // run function
     let result
     try {
-      result = await SharedMutex.stackStorage.run([...stack, myStackItem], fnc)
+      SharedMutex.stackStorage.enterWith([...stack, myStackItem])
+      result = await fnc()
+      SharedMutex.stackStorage.enterWith(stack)
     } catch (e) {
       // unlock all keys
       unlocker()

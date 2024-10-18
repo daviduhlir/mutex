@@ -277,6 +277,5 @@ describe('Nested locks', function() {
         resolve(null)
       })
     })
-    console.log('Ends!')
   })
 })

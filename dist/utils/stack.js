@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getStackFrom = void 0;
+exports.getStackFrom = getStackFrom;
 const SharedMutexSynchronizer_1 = require("../components/SharedMutexSynchronizer");
 function getStackFrom(getFrom) {
     if (!SharedMutexSynchronizer_1.SharedMutexSynchronizer.debugWithStack) {
@@ -13,4 +13,4 @@ function getStackFrom(getFrom) {
     const found = stackLines.findIndex(line => line.trim().includes(`${getFrom}`));
     return found !== -1 ? stackLines.slice(found + 1).join('\n') : null;
 }
-exports.getStackFrom = getStackFrom;
+//# sourceMappingURL=stack.js.map

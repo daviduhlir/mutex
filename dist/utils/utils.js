@@ -1,13 +1,16 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.parseLockKey = exports.sanitizeLock = exports.keysRelatedMatch = exports.isChildOf = exports.randomHash = void 0;
+exports.randomHash = randomHash;
+exports.isChildOf = isChildOf;
+exports.keysRelatedMatch = keysRelatedMatch;
+exports.sanitizeLock = sanitizeLock;
+exports.parseLockKey = parseLockKey;
 function randomHash() {
     return [...Array(10)]
         .map(x => 0)
         .map(() => Math.random().toString(36).slice(2))
         .join('');
 }
-exports.randomHash = randomHash;
 function isChildOf(key, parentKey) {
     const keyParts = key.split('/').filter(Boolean);
     const parentKeyParts = parentKey.split('/').filter(Boolean);
@@ -21,7 +24,6 @@ function isChildOf(key, parentKey) {
     }
     return true;
 }
-exports.isChildOf = isChildOf;
 function keysRelatedMatch(key1, key2) {
     const key1Parts = (Array.isArray(key1) ? key1 : key1.split('/')).filter(Boolean);
     const key2Parts = (Array.isArray(key2) ? key2 : key2.split('/')).filter(Boolean);
@@ -32,11 +34,9 @@ function keysRelatedMatch(key1, key2) {
     }
     return true;
 }
-exports.keysRelatedMatch = keysRelatedMatch;
 function sanitizeLock(input) {
     return Object.assign(Object.assign({ workerId: input.workerId, singleAccess: input.singleAccess, hash: input.hash, key: input.key, isRunning: !!input.isRunning, parents: input.parents }, (input.maxLockingTime ? { maxLockingTime: input.maxLockingTime } : {})), (input.timeout ? { timeout: input.timeout } : {}));
 }
-exports.sanitizeLock = sanitizeLock;
 function parseLockKey(key) {
     return ('/' +
         (Array.isArray(key) ? key.join('/') : key)
@@ -44,4 +44,4 @@ function parseLockKey(key) {
             .filter(i => !!i)
             .join('/'));
 }
-exports.parseLockKey = parseLockKey;
+//# sourceMappingURL=utils.js.map

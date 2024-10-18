@@ -56,3 +56,4 @@ class SharedMutexConfigManager {
 exports.SharedMutexConfigManager = SharedMutexConfigManager;
 SharedMutexConfigManager.configuration = exports.defaultConfiguration;
 SharedMutexConfigManager.initAwaiter = new Awaiter_1.Awaiter();
+//# sourceMappingURL=SharedMutexConfigManager.js.map

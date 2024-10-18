@@ -26,4 +26,4 @@ export interface LocalLockItem extends LockDescriptor {
     parents?: string[];
     codeStack?: any;
 }
-export declare type LockKey = string | string[];
+export type LockKey = string | string[];

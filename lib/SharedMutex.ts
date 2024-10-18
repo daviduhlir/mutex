@@ -10,6 +10,7 @@ import version from './utils/version'
 import { MutexSafeCallbackHandler, __mutexSafeCallbackDispose, __mutexSafeCallbackInjector } from './components/MutexSafeCallbackHandler'
 import { SharedMutexConfigManager } from './components/SharedMutexConfigManager'
 import { getStackFrom } from './utils/stack'
+import { promisify } from 'util'
 
 /**
  * Unlock handler
@@ -137,9 +138,7 @@ export class SharedMutex {
     // run function
     let result
     try {
-      SharedMutex.stackStorage.enterWith([...stack, myStackItem])
-      result = await fnc()
-      SharedMutex.stackStorage.enterWith(stack)
+      result = await SharedMutex.stackStorage.run([...stack, myStackItem], fnc)
     } catch (e) {
       // unlock all keys
       unlocker()

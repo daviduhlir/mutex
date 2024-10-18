@@ -37,30 +37,30 @@ exports.SharedMutexUnlockHandler = SharedMutexUnlockHandler;
 class SharedMutex {
     static lockSingleAccess(key, handler, maxLockingTime) {
         return __awaiter(this, void 0, void 0, function* () {
-            const codeStack = stack_1.getStackFrom('lockSingleAccess');
+            const codeStack = (0, stack_1.getStackFrom)('lockSingleAccess');
             return this.lockAccess(key, handler, true, maxLockingTime, codeStack);
         });
     }
     static lockMultiAccess(key, handler, maxLockingTime) {
         return __awaiter(this, void 0, void 0, function* () {
-            const codeStack = stack_1.getStackFrom('lockMultiAccess');
+            const codeStack = (0, stack_1.getStackFrom)('lockMultiAccess');
             return this.lockAccess(key, handler, false, maxLockingTime, codeStack);
         });
     }
     static lockAccess(key, handler, singleAccess, maxLockingTime, codeStack) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!codeStack) {
-                codeStack = stack_1.getStackFrom('lockAccess');
+                codeStack = (0, stack_1.getStackFrom)('lockAccess');
             }
-            const hash = utils_1.randomHash();
+            const hash = (0, utils_1.randomHash)();
             const defaultMaxLockingTime = (yield SharedMutexConfigManager_1.SharedMutexConfigManager.getConfiguration()).defaultMaxLockingTime;
             const myStackItem = {
                 hash,
-                key: utils_1.parseLockKey(key),
+                key: (0, utils_1.parseLockKey)(key),
                 singleAccess,
             };
             const stack = [...(SharedMutex.stackStorage.getStore() || [])];
-            const nestedInRelatedItems = stack.filter(i => utils_1.keysRelatedMatch(myStackItem.key, i.key));
+            const nestedInRelatedItems = stack.filter(i => (0, utils_1.keysRelatedMatch)(myStackItem.key, i.key));
             let m = yield SharedMutex.lock(hash, key, {
                 singleAccess,
                 maxLockingTime: typeof maxLockingTime === 'number' ? maxLockingTime : defaultMaxLockingTime,
@@ -83,9 +83,8 @@ class SharedMutex {
             }
             let result;
             try {
-                SharedMutex.stackStorage.enterWith([...stack, myStackItem]);
-                result = yield fnc();
-                SharedMutex.stackStorage.enterWith(stack);
+                const runInAsyncScope = SharedMutex.stackStorage.run([...stack, myStackItem], () => AsyncLocalStorage_1.default.snapshot());
+                result = yield runInAsyncScope(fnc);
             }
             catch (e) {
                 unlocker();
@@ -98,7 +97,7 @@ class SharedMutex {
     static lock(hash, key, config, codeStack) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!codeStack) {
-                codeStack = stack_1.getStackFrom('lock');
+                codeStack = (0, stack_1.getStackFrom)('lock');
             }
             const waiter = new Promise((resolve) => {
                 SharedMutex.waitingMessagesHandlers.push({
@@ -111,7 +110,7 @@ class SharedMutex {
                     },
                 });
             });
-            const lockKey = utils_1.parseLockKey(key);
+            const lockKey = (0, utils_1.parseLockKey)(key);
             yield SharedMutex.sendAction(lockKey, constants_1.ACTION.LOCK, hash, {
                 maxLockingTime: config.maxLockingTime,
                 singleAccess: config.singleAccess,
@@ -122,7 +121,7 @@ class SharedMutex {
         });
     }
     static unlock(key, hash) {
-        SharedMutex.sendAction(utils_1.parseLockKey(key), constants_1.ACTION.UNLOCK, hash);
+        SharedMutex.sendAction((0, utils_1.parseLockKey)(key), constants_1.ACTION.UNLOCK, hash);
     }
     static initialize(configuration) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -145,9 +144,9 @@ class SharedMutex {
             }
         });
     }
-    static sendAction(key, action, hash, data = null, codeStack) {
-        var _a;
-        return __awaiter(this, void 0, void 0, function* () {
+    static sendAction(key_1, action_1, hash_1) {
+        return __awaiter(this, arguments, void 0, function* (key, action, hash, data = null, codeStack) {
+            var _a;
             const message = Object.assign({ action,
                 key,
                 hash,
@@ -212,3 +211,4 @@ SharedMutex.masterVerificationWaiter = new Awaiter_1.Awaiter();
 SharedMutex.masterVerifiedTimeout = null;
 SharedMutex.masterVerificationSent = false;
 SharedMutex.stackStorage = new AsyncLocalStorage_1.default();
+//# sourceMappingURL=SharedMutex.js.map

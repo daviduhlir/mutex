@@ -81,7 +81,7 @@ class DebugGuard {
     static getAllRelated(lookupKey, originHash) {
         return Object.keys(DebugGuard.currentStates).reduce((acc, hash) => {
             const item = DebugGuard.currentStates[hash];
-            if (utils_1.keysRelatedMatch(lookupKey, item.key) && hash !== originHash) {
+            if ((0, utils_1.keysRelatedMatch)(lookupKey, item.key) && hash !== originHash) {
                 return [...acc, DebugGuard.currentStates[hash]];
             }
             return acc;
@@ -100,3 +100,4 @@ DebugGuard.options = {
 };
 DebugGuard.writeFunction = console.log;
 DebugGuard.currentStates = {};
+//# sourceMappingURL=DebugGuard.js.map

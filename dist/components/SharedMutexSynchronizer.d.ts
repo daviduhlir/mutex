@@ -1,4 +1,3 @@
-/// <reference types="node" />
 import { EventEmitter } from 'events';
 import { LocalLockItem, LockItemInfo } from '../utils/interfaces';
 export declare class SharedMutexSynchronizer {

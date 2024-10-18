@@ -25,7 +25,7 @@ class SharedMutexSynchronizer {
     static getLockInfo(hash) {
         const queue = MutexGlobalStorage_1.MutexGlobalStorage.getLocalLocksQueue();
         const item = queue.find(i => i.hash === hash);
-        const blockedBy = queue.filter(l => l.isRunning && utils_1.keysRelatedMatch(l.key, item.key));
+        const blockedBy = queue.filter(l => l.isRunning && (0, utils_1.keysRelatedMatch)(l.key, item.key));
         if (item) {
             return {
                 workerId: item.workerId,
@@ -111,7 +111,7 @@ class SharedMutexSynchronizer {
             if (lock.isRunning) {
                 continue;
             }
-            const foundRunningLocks = queue.filter(l => l.isRunning && utils_1.keysRelatedMatch(l.key, lock.key));
+            const foundRunningLocks = queue.filter(l => l.isRunning && (0, utils_1.keysRelatedMatch)(l.key, lock.key));
             if (lock.singleAccess) {
                 const isParentTreeRunning = lock.parents && foundRunningLocks.length === lock.parents.length && lock.parents.every(hash => foundRunningLocks.find(l => l.hash === hash));
                 if (foundRunningLocks.length === 0 || isParentTreeRunning) {
@@ -148,7 +148,7 @@ class SharedMutexSynchronizer {
             return;
         }
         if (message.action === constants_1.ACTION.LOCK) {
-            SharedMutexSynchronizer.lock(utils_1.sanitizeLock(message), message.codeStack);
+            SharedMutexSynchronizer.lock((0, utils_1.sanitizeLock)(message), message.codeStack);
         }
         else if (message.action === constants_1.ACTION.UNLOCK) {
             SharedMutexSynchronizer.unlock(message.hash, message.codeStack);
@@ -201,3 +201,4 @@ SharedMutexSynchronizer.timeoutHandler = (hash) => {
         process.kill((_b = (_a = cluster_1.default.workers) === null || _a === void 0 ? void 0 : _a[info.workerId]) === null || _b === void 0 ? void 0 : _b.process.pid, 9);
     }
 };
+//# sourceMappingURL=SharedMutexSynchronizer.js.map

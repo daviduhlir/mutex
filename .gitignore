@@ -63,7 +63,7 @@ typings/
 # system files
 .DS_Store
 
-# IDEs 
+# IDEs
 .idea/
 .project/
 .vscode/
@@ -111,3 +111,5 @@ bin
 
 #cahce
 cache/*
+
+dist/*

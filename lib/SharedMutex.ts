@@ -127,7 +127,7 @@ export class SharedMutex {
     }
 
     // safe callback handling
-    let fnc
+    let fnc: (() => Promise<T>) | MutexSafeCallbackHandler<T>
     if (handler instanceof MutexSafeCallbackHandler) {
       fnc = handler.fnc
       handler[__mutexSafeCallbackInjector](unlocker)
@@ -224,6 +224,17 @@ export class SharedMutex {
     if (!cluster.isWorker) {
       SharedMutex.masterVerificationWaiter.resolve()
     }
+  }
+
+  /**
+   * Save and restore context helpers
+   */
+  static saveContext() {
+    return SharedMutex.stackStorage.getStore()
+  }
+
+  static restoreContext(context, fnc: () => any) {
+    return SharedMutex.stackStorage.run(context, fnc)
   }
 
   /***********************

@@ -254,4 +254,29 @@ describe('Nested locks', function() {
 
     expect(marker).to.equal('A:IN;D:IN;D:OUT;C:IN;C:OUT;B:IN;B:OUT;A:OUT;')
   })
+
+  it('Break stack to lose context', async function() {
+
+    function wrap(caller) {
+      return SharedMutex.lockSingleAccess('root', caller)
+    }
+
+    async function m(resolve) {
+      await SharedMutex.lockMultiAccess('root', async () => 'Hello')
+      resolve()
+    }
+
+    await new Promise(async (resolve) => {
+      await wrap(async () => {
+
+        await new Promise(async (resolve) => {
+          setTimeout(() => m(resolve), 1)
+          await delay(100)
+        })
+
+        resolve(null)
+      })
+    })
+    console.log('Ends!')
+  })
 })

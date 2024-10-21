@@ -61,8 +61,10 @@ export class SharedMutex {
    * @param keysPath
    * @param fnc
    */
-  static async lockSingleAccess<T>(key: LockKey, handler: (() => Promise<T>) | MutexSafeCallbackHandler<T>, maxLockingTime?: number): Promise<T> {
-    const codeStack = getStackFrom('lockSingleAccess')
+  static async lockSingleAccess<T>(key: LockKey, handler: (() => Promise<T>) | MutexSafeCallbackHandler<T>, maxLockingTime?: number, codeStack?: string): Promise<T> {
+    if (!codeStack) {
+      codeStack = getStackFrom('lockSingleAccess')
+    }
     return this.lockAccess(key, handler, true, maxLockingTime, codeStack)
   }
 
@@ -71,8 +73,10 @@ export class SharedMutex {
    * @param keysPath
    * @param fnc
    */
-  static async lockMultiAccess<T>(key: LockKey, handler: (() => Promise<T>) | MutexSafeCallbackHandler<T>, maxLockingTime?: number): Promise<T> {
-    const codeStack = getStackFrom('lockMultiAccess')
+  static async lockMultiAccess<T>(key: LockKey, handler: (() => Promise<T>) | MutexSafeCallbackHandler<T>, maxLockingTime?: number, codeStack?: string): Promise<T> {
+    if (!codeStack) {
+      codeStack = getStackFrom('lockMultiAccess')
+    }
     return this.lockAccess(key, handler, false, maxLockingTime, codeStack)
   }
 

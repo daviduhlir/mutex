@@ -9,8 +9,7 @@ import { Awaiter } from './utils/Awaiter'
 import version from './utils/version'
 import { MutexSafeCallbackHandler, __mutexSafeCallbackDispose, __mutexSafeCallbackInjector } from './components/MutexSafeCallbackHandler'
 import { SharedMutexConfigManager } from './components/SharedMutexConfigManager'
-import { getStackFrom } from './utils/stack'
-import { promisify } from 'util'
+import { getStack } from './utils/stack'
 
 /**
  * Unlock handler
@@ -68,7 +67,7 @@ export class SharedMutex {
     codeStack?: string,
   ): Promise<T> {
     if (!codeStack) {
-      codeStack = getStackFrom()
+      codeStack = getStack()
     }
     return this.lockAccess(key, handler, true, maxLockingTime, codeStack)
   }
@@ -85,7 +84,7 @@ export class SharedMutex {
     codeStack?: string,
   ): Promise<T> {
     if (!codeStack) {
-      codeStack = getStackFrom()
+      codeStack = getStack()
     }
     return this.lockAccess(key, handler, false, maxLockingTime, codeStack)
   }
@@ -103,7 +102,7 @@ export class SharedMutex {
     codeStack?: string,
   ): Promise<T> {
     if (!codeStack) {
-      codeStack = getStackFrom()
+      codeStack = getStack()
     }
 
     const hash = randomHash()
@@ -170,7 +169,7 @@ export class SharedMutex {
    */
   protected static async lock(hash: string, key: LockKey, config: LockConfiguration, codeStack?: string): Promise<SharedMutexUnlockHandler> {
     if (!codeStack) {
-      codeStack = getStackFrom()
+      codeStack = getStack()
     }
 
     // waiter function

@@ -1,7 +1,8 @@
 import { assert } from 'chai'
-import { SharedMutex } from '../dist'
+import { SharedMutex, SharedMutexSynchronizer } from '../dist'
 import { RWSimulator, delay, flatten } from './utils'
 
+SharedMutexSynchronizer.debugWithStack = true
 /**
  * Simple locks test
  */

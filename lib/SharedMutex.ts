@@ -68,7 +68,7 @@ export class SharedMutex {
     codeStack?: string,
   ): Promise<T> {
     if (!codeStack) {
-      codeStack = getStackFrom('lockSingleAccess')
+      codeStack = getStackFrom()
     }
     return this.lockAccess(key, handler, true, maxLockingTime, codeStack)
   }
@@ -85,7 +85,7 @@ export class SharedMutex {
     codeStack?: string,
   ): Promise<T> {
     if (!codeStack) {
-      codeStack = getStackFrom('lockMultiAccess')
+      codeStack = getStackFrom()
     }
     return this.lockAccess(key, handler, false, maxLockingTime, codeStack)
   }
@@ -103,7 +103,7 @@ export class SharedMutex {
     codeStack?: string,
   ): Promise<T> {
     if (!codeStack) {
-      codeStack = getStackFrom('lockAccess')
+      codeStack = getStackFrom()
     }
 
     const hash = randomHash()
@@ -170,7 +170,7 @@ export class SharedMutex {
    */
   protected static async lock(hash: string, key: LockKey, config: LockConfiguration, codeStack?: string): Promise<SharedMutexUnlockHandler> {
     if (!codeStack) {
-      codeStack = getStackFrom('lock')
+      codeStack = getStackFrom()
     }
 
     // waiter function

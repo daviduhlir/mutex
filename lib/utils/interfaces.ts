@@ -47,6 +47,8 @@ export interface LockOperationPhase {
   args?: any
 }
 
+export type LockStatus = undefined | 'timeouted' | 'rejected' | 'finished'
+
 /**
  * Local lock item in queue
  */
@@ -56,6 +58,7 @@ export interface LocalLockItem extends LockDescriptor {
   parents?: string[]
   codeStack?: any
   reportedPhases?: LockOperationPhase[]
+  status?: LockStatus
 }
 
 /**

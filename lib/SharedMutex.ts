@@ -30,7 +30,7 @@ export class SharedMutex {
   /**
    * Waiting handlers
    */
-  protected static waitingMessagesHandlers: { resolve: (message: any) => void; hash: string }[] = []
+  protected static waitingMessagesHandlers: { resolve: (message: any) => void; hash: string; action: string }[] = []
 
   /**
    *  is attached
@@ -166,11 +166,26 @@ export class SharedMutex {
   /**
    * Report operation phase, to be attach to mutex info
    */
-  static reportPhase(phase?: string, args?: any) {
+  static async watchdog(phase?: string, args?: any) {
     const stack = [...(SharedMutex.stackStorage.getStore() || [])]
     const currentScope = stack[stack.length - 1]
     if (currentScope?.hash) {
-      SharedMutex.sendAction(currentScope.key, ACTION.REPORT_PHASE, currentScope.hash, { phase, args }, getStack())
+      const hash = currentScope?.hash
+      const waiter = new Promise((resolve: (value: any) => void, reject: (error: Error) => void) => {
+        SharedMutex.waitingMessagesHandlers.push({
+          hash,
+          action: ACTION.WATCHDOG_STATUS,
+          resolve: message => {
+            if (message.status === 'timeouted') {
+              reject(new MutexError(ERROR.MUTEX_WATCHDOG_REJECTION))
+            } else {
+              resolve(null)
+            }
+          },
+        })
+      })
+      SharedMutex.sendAction(currentScope.key, ACTION.WATCHDOG_REPORT, hash, { phase, args }, getStack())
+      await waiter
     }
   }
 
@@ -187,11 +202,9 @@ export class SharedMutex {
     const waiter = new Promise((resolve: (value: any) => void) => {
       SharedMutex.waitingMessagesHandlers.push({
         hash,
+        action: ACTION.CONTINUE,
         resolve: message => {
-          if (message.hash === hash) {
-            SharedMutex.waitingMessagesHandlers = SharedMutex.waitingMessagesHandlers.filter(i => i.hash !== hash)
-            resolve(null)
-          }
+          resolve(null)
         },
       })
     })
@@ -332,9 +345,12 @@ export class SharedMutex {
         )
       }
     } else if (message.hash) {
-      const foundItem = SharedMutex.waitingMessagesHandlers.find(item => item.hash === message.hash)
+      const foundItem = SharedMutex.waitingMessagesHandlers.find(item => item.hash === message.hash && item.action === message.action)
       if (foundItem) {
         foundItem.resolve(message)
+        SharedMutex.waitingMessagesHandlers = SharedMutex.waitingMessagesHandlers.filter(
+          i => !(i.hash === message.hash && i.action === message.action),
+        )
       }
     }
   }

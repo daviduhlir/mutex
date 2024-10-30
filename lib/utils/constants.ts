@@ -2,7 +2,10 @@ export const ACTION = {
   LOCK: 'lock',
   UNLOCK: 'unlock',
   VERIFY: 'verify',
+  CONTINUE: 'continue',
   VERIFY_COMPLETE: 'verify-complete',
+  WATCHDOG_REPORT: 'watchdog-report',
+  WATCHDOG_STATUS: 'watchdog-status',
 }
 
 export const MASTER_ID = 'master'
@@ -16,6 +19,7 @@ export const ERROR = {
   MUTEX_CUSTOM_CONFIGURATION: 'MUTEX_CUSTOM_CONFIGURATION',
   MUTEX_LOCK_TIMEOUT: 'MUTEX_LOCK_TIMEOUT',
   MUTEX_SAFE_CALLBACK_ALREADY_USED: 'MUTEX_SAFE_CALLBACK_ALREADY_USED',
+  MUTEX_WATCHDOG_REJECTION: 'MUTEX_WATCHDOG_REJECTION',
 }
 
 export const SYNC_EVENTS = {

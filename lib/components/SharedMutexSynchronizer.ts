@@ -88,6 +88,7 @@ export class SharedMutexSynchronizer {
         isRunning: item.isRunning,
         codeStack: item.codeStack,
         blockedBy,
+        reportedPhases: item.reportedPhases,
       }
     }
   }
@@ -107,7 +108,7 @@ export class SharedMutexSynchronizer {
         clearTimeout(item.timeout)
       }
       if (item.maxLockingTime) {
-        item.timeout = setTimeout(() => SharedMutexSynchronizer.timeoutHandler(hash), item.maxLockingTime)
+        item.timeout = setTimeout(() => SharedMutexSynchronizer.lockTimeout(hash), item.maxLockingTime)
       }
     }
   }
@@ -153,7 +154,7 @@ export class SharedMutexSynchronizer {
 
     // set timeout if provided
     if (nItem.maxLockingTime) {
-      nItem.timeout = setTimeout(() => SharedMutexSynchronizer.timeoutHandler(nItem.hash), nItem.maxLockingTime)
+      nItem.timeout = setTimeout(() => SharedMutexSynchronizer.lockTimeout(nItem.hash), nItem.maxLockingTime)
     }
 
     // debug info
@@ -249,13 +250,14 @@ export class SharedMutexSynchronizer {
     const item = MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === hash)
     item.isRunning = true
 
-    const message = {
-      hash: item.hash,
-    }
-
     // report debug info
     if (SharedMutexSynchronizer.reportDebugInfo) {
       SharedMutexSynchronizer.reportDebugInfo(DEBUG_INFO_REPORTS.SCOPE_CONTINUE, item, originalStack)
+    }
+
+    const message = {
+      action: ACTION.CONTINUE,
+      hash: item.hash,
     }
 
     // emit it
@@ -286,6 +288,9 @@ export class SharedMutexSynchronizer {
     } else if (message.action === ACTION.UNLOCK) {
       SharedMutexSynchronizer.unlock(message.hash, message.codeStack)
       // verify master handler
+    } else if (message.action === ACTION.WATCHDOG_REPORT) {
+      SharedMutexSynchronizer.watchdogResponse(message.hash, message.phase, message.codeStack, message.args)
+      // unlock
     } else if (message.action === ACTION.VERIFY) {
       // check if somebody overrided default config
       if (typeof SharedMutexSynchronizer.usingCustomConfiguration === 'undefined') {
@@ -306,6 +311,30 @@ export class SharedMutexSynchronizer {
   }
 
   /**
+   * Push phase to lock
+   */
+  protected static watchdogResponse(hash: string, phase?: string, codeStack?: string, args?: any) {
+    const item = MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === hash)
+    const message = {
+      action: ACTION.WATCHDOG_STATUS,
+      hash: hash,
+      status: item ? item.status : 'timeouted',
+    }
+
+    if (item) {
+      if (phase) {
+        if (!item.reportedPhases) {
+          item.reportedPhases = []
+        }
+        item.reportedPhases.push({ phase, codeStack, args })
+      }
+      SharedMutexSynchronizer.send(cluster.workers[item.workerId], message)
+    }
+
+    SharedMutexSynchronizer.masterHandler.emitter.emit('message', message)
+  }
+
+  /**
    * Forced unlock of worker
    * @param id
    */
@@ -320,5 +349,28 @@ export class SharedMutexSynchronizer {
    */
   protected static async send(worker: any, message: any) {
     ;(await SharedMutexConfigManager.getComm()).workerSend(worker, message)
+  }
+
+  /**
+   * Lock timeout handler
+   */
+  protected static lockTimeout = (hash: string) => {
+    const item = MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === hash)
+    if (item) {
+      item.status = 'timeouted'
+      SharedMutexSynchronizer.watchdogResponse(hash)
+    }
+    SharedMutexSynchronizer.timeoutHandler(hash)
+
+    // send continue with rejection
+    const message = {
+      action: ACTION.CONTINUE,
+      hash: item.hash,
+      rejected: true,
+    }
+    SharedMutexSynchronizer.masterHandler.emitter.emit('message', message)
+    SharedMutexSynchronizer.send(cluster.workers?.[item.workerId], message)
+
+    SharedMutexSynchronizer.unlock(hash)
   }
 }

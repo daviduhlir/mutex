@@ -30,7 +30,7 @@ export class SharedMutex {
   /**
    * Waiting handlers
    */
-  protected static waitingMessagesHandlers: { resolve: (message: any) => void; hash: string }[] = []
+  protected static waitingMessagesHandlers: { resolve: (message: any) => void; hash: string; action: string }[] = []
 
   /**
    *  is attached
@@ -164,6 +164,32 @@ export class SharedMutex {
   }
 
   /**
+   * Report operation phase, to be attach to mutex info
+   */
+  static async watchdog(phase?: string, args?: any) {
+    const stack = [...(SharedMutex.stackStorage.getStore() || [])]
+    const currentScope = stack[stack.length - 1]
+    if (currentScope?.hash) {
+      const hash = currentScope?.hash
+      const waiter = new Promise((resolve: (value: any) => void, reject: (error: Error) => void) => {
+        SharedMutex.waitingMessagesHandlers.push({
+          hash,
+          action: ACTION.WATCHDOG_STATUS,
+          resolve: message => {
+            if (message.status === 'timeouted') {
+              reject(new MutexError(ERROR.MUTEX_WATCHDOG_REJECTION))
+            } else {
+              resolve(null)
+            }
+          },
+        })
+      })
+      SharedMutex.sendAction(currentScope.key, ACTION.WATCHDOG_REPORT, hash, { phase, args }, getStack())
+      await waiter
+    }
+  }
+
+  /**
    * Lock key
    * @param key
    */
@@ -173,14 +199,15 @@ export class SharedMutex {
     }
 
     // waiter function
-    const waiter = new Promise((resolve: (value: any) => void) => {
+    const waiter = new Promise((resolve: (value: any) => void, reject: (e: Error) => void) => {
       SharedMutex.waitingMessagesHandlers.push({
         hash,
+        action: ACTION.CONTINUE,
         resolve: message => {
-          if (message.hash === hash) {
-            SharedMutex.waitingMessagesHandlers = SharedMutex.waitingMessagesHandlers.filter(i => i.hash !== hash)
-            resolve(null)
+          if (message.rejected) {
+            reject(new MutexError(ERROR.MUTEX_LOCK_TIMEOUT, `Continue rejected by timeout for ${key}.`))
           }
+          resolve(null)
         },
       })
     })
@@ -198,8 +225,13 @@ export class SharedMutex {
       codeStack,
     )
 
-    await waiter
-    return new SharedMutexUnlockHandler(lockKey, hash)
+    try {
+      await waiter
+      return new SharedMutexUnlockHandler(lockKey, hash)
+    } catch (e) {
+      SharedMutex.unlock(lockKey, hash)
+      throw e
+    }
   }
 
   /**
@@ -321,9 +353,12 @@ export class SharedMutex {
         )
       }
     } else if (message.hash) {
-      const foundItem = SharedMutex.waitingMessagesHandlers.find(item => item.hash === message.hash)
+      const foundItem = SharedMutex.waitingMessagesHandlers.find(item => item.hash === message.hash && item.action === message.action)
       if (foundItem) {
         foundItem.resolve(message)
+        SharedMutex.waitingMessagesHandlers = SharedMutex.waitingMessagesHandlers.filter(
+          i => !(i.hash === message.hash && i.action === message.action),
+        )
       }
     }
   }

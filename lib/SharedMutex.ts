@@ -199,11 +199,14 @@ export class SharedMutex {
     }
 
     // waiter function
-    const waiter = new Promise((resolve: (value: any) => void) => {
+    const waiter = new Promise((resolve: (value: any) => void, reject: (e: Error) => void) => {
       SharedMutex.waitingMessagesHandlers.push({
         hash,
         action: ACTION.CONTINUE,
         resolve: message => {
+          if (message.rejected) {
+            reject(new MutexError(ERROR.MUTEX_LOCK_TIMEOUT, `Continue rejected by timeout for ${key}.`))
+          }
           resolve(null)
         },
       })
@@ -222,8 +225,13 @@ export class SharedMutex {
       codeStack,
     )
 
-    await waiter
-    return new SharedMutexUnlockHandler(lockKey, hash)
+    try {
+      await waiter
+      return new SharedMutexUnlockHandler(lockKey, hash)
+    } catch (e) {
+      SharedMutex.unlock(lockKey, hash)
+      throw e
+    }
   }
 
   /**

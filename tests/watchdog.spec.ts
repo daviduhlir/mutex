@@ -46,6 +46,28 @@ describe('Watchdog tests', function() {
 
     expect(receivedError.message).to.equal('MUTEX_WATCHDOG_REJECTION')
     const lastPhase = receivedLockInfo.reportedPhases[receivedLockInfo.reportedPhases.length - 1].phase
-    expect(lastPhase).to.equal('Phase6')
+    expect(lastPhase).to.equal('Phase5')
+  })
+
+
+  it('Timeout unlocks mutex', async function() {
+    const originalHandler = SharedMutexSynchronizer.timeoutHandler
+    SharedMutexSynchronizer.timeoutHandler = (hash: string) => {}
+
+    let scopeBVisited = false
+
+    await Promise.all([
+      SharedMutex.lockSingleAccess('mutex', async () => {
+        await delay(2000)
+      }, 10),
+      SharedMutex.lockSingleAccess('mutex/b', async () => {
+        scopeBVisited = true
+        await delay(10)
+      }, 50)
+    ])
+
+    expect(scopeBVisited).to.equal(true)
+
+    SharedMutexSynchronizer.timeoutHandler = originalHandler
   })
 })

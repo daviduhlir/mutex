@@ -328,7 +328,9 @@ export class SharedMutexSynchronizer {
         }
         item.reportedPhases.push({ phase, codeStack, args })
       }
-      SharedMutexSynchronizer.send(cluster.workers[item.workerId], message)
+      if (item.workerId && cluster.workers[item.workerId]) {
+        SharedMutexSynchronizer.send(cluster.workers[item.workerId], message)
+      }
     }
 
     SharedMutexSynchronizer.masterHandler.emitter.emit('message', message)

@@ -164,6 +164,17 @@ export class SharedMutex {
   }
 
   /**
+   * Report operation phase, to be attach to mutex info
+   */
+  static reportPhase(phase?: string, args?: any) {
+    const stack = [...(SharedMutex.stackStorage.getStore() || [])]
+    const currentScope = stack[stack.length - 1]
+    if (currentScope?.hash) {
+      SharedMutex.sendAction(currentScope.key, ACTION.REPORT_PHASE, currentScope.hash, { phase, args }, getStack())
+    }
+  }
+
+  /**
    * Lock key
    * @param key
    */

@@ -38,6 +38,13 @@ export interface LockItemInfo extends LockDescriptor {
   isRunning: boolean
   blockedBy: LockDescriptor[]
   codeStack?: any
+  reportedPhases?: LockOperationPhase[]
+}
+
+export interface LockOperationPhase {
+  phase?: string
+  codeStack?: string
+  args?: any
 }
 
 /**
@@ -48,6 +55,7 @@ export interface LocalLockItem extends LockDescriptor {
   isRunning?: boolean
   parents?: string[]
   codeStack?: any
+  reportedPhases?: LockOperationPhase[]
 }
 
 /**

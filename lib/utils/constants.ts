@@ -3,6 +3,7 @@ export const ACTION = {
   UNLOCK: 'unlock',
   VERIFY: 'verify',
   VERIFY_COMPLETE: 'verify-complete',
+  REPORT_PHASE: 'report-phase',
 }
 
 export const MASTER_ID = 'master'

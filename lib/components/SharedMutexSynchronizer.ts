@@ -88,6 +88,7 @@ export class SharedMutexSynchronizer {
         isRunning: item.isRunning,
         codeStack: item.codeStack,
         blockedBy,
+        reportedPhases: item.reportedPhases,
       }
     }
   }
@@ -286,6 +287,9 @@ export class SharedMutexSynchronizer {
     } else if (message.action === ACTION.UNLOCK) {
       SharedMutexSynchronizer.unlock(message.hash, message.codeStack)
       // verify master handler
+    } else if (message.action === ACTION.REPORT_PHASE) {
+      SharedMutexSynchronizer.reportPhase(message.hash, message.phase, message.codeStack, message.args)
+      // unlock
     } else if (message.action === ACTION.VERIFY) {
       // check if somebody overrided default config
       if (typeof SharedMutexSynchronizer.usingCustomConfiguration === 'undefined') {
@@ -302,6 +306,19 @@ export class SharedMutexSynchronizer {
         action: ACTION.VERIFY_COMPLETE,
         version,
       })
+    }
+  }
+
+  /**
+   * Push phase to lock
+   */
+  protected static reportPhase(hash: string, phase?: string, codeStack?: string, args?: any) {
+    const item = MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === hash)
+    if (item) {
+      if (!item.reportedPhases) {
+        item.reportedPhases = []
+      }
+      item.reportedPhases.push({ phase, codeStack, args })
     }
   }
 

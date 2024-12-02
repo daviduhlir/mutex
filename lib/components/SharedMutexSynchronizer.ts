@@ -369,7 +369,9 @@ export class SharedMutexSynchronizer {
    * Send message to worker
    */
   protected static async send(worker: any, message: any) {
-    ;(await SharedMutexConfigManager.getComm()).workerSend(worker, message)
+    if (worker) {
+      ;(await SharedMutexConfigManager.getComm()).workerSend(worker, message)
+    }
   }
 
   /**
@@ -390,7 +392,9 @@ export class SharedMutexSynchronizer {
       rejected: REJECTION_REASON.TIMEOUT,
     }
     SharedMutexSynchronizer.masterHandler.emitter.emit('message', message)
-    SharedMutexSynchronizer.send(cluster.workers?.[item.workerId], message)
+    if (item.workerId !== 'master' && cluster.workers?.[item.workerId]) {
+      SharedMutexSynchronizer.send(cluster.workers?.[item.workerId], message)
+    }
 
     SharedMutexSynchronizer.unlock(hash)
   }
@@ -407,6 +411,8 @@ export class SharedMutexSynchronizer {
       message: notification,
     }
     SharedMutexSynchronizer.masterHandler.emitter.emit('message', message)
-    SharedMutexSynchronizer.send(cluster.workers?.[item.workerId], message)
+    if (item.workerId !== 'master' && cluster.workers?.[item.workerId]) {
+      SharedMutexSynchronizer.send(cluster.workers?.[item.workerId], message)
+    }
   }
 }

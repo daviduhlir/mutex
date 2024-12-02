@@ -8,6 +8,11 @@ export const ACTION = {
   WATCHDOG_STATUS: 'watchdog-status',
 }
 
+export const REJECTION_REASON = {
+  TIMEOUT: 'timeout',
+  EXCEPTION: 'exception',
+}
+
 export const MASTER_ID = 'master'
 // max time from fork bootup and verify master response
 export const VERIFY_MASTER_MAX_TIMEOUT = 1000
@@ -20,6 +25,7 @@ export const ERROR = {
   MUTEX_LOCK_TIMEOUT: 'MUTEX_LOCK_TIMEOUT',
   MUTEX_SAFE_CALLBACK_ALREADY_USED: 'MUTEX_SAFE_CALLBACK_ALREADY_USED',
   MUTEX_WATCHDOG_REJECTION: 'MUTEX_WATCHDOG_REJECTION',
+  MUTEX_NOTIFIED_EXCEPTION: 'MUTEX_NOTIFIED_EXCEPTION',
 }
 
 export const SYNC_EVENTS = {

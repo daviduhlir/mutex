@@ -32,7 +32,6 @@ export class IPCMutexCommLayer extends MutexCommLayer {
    * Send message to worker
    */
   public workerSend(worker: any, message: any) {
-    // TODO send it to layer!
     worker.send(
       {
         __mutexMessage__: true,

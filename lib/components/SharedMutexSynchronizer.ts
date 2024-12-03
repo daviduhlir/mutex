@@ -239,7 +239,6 @@ export class SharedMutexSynchronizer {
           changes.push(lock.hash)
           lock.isRunning = true
         } else {
-          // TODO
           // if nothing is running or running is my parent
           if (lock.parents.length) {
             const outterLocks = foundRunningLocks.filter(l => !lock.parents.includes(l.hash))

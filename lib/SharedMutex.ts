@@ -256,7 +256,6 @@ export class SharedMutex {
     // attach handlers
     if (!SharedMutex.attached) {
       SharedMutex.attached = true
-      // TODO listen it on some handler
       if (cluster.isWorker) {
         ;(await SharedMutexConfigManager.getComm()).onProcessMessage(SharedMutex.handleMessage)
       } else {

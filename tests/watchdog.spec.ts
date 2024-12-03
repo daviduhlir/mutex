@@ -37,7 +37,7 @@ describe('Watchdog tests', function() {
           await delay(200)
           await SharedMutex.watchdog('Phase10')
         }, 1000)
-      }, 1000)
+      }, 2000)
     } catch (e) {
       receivedError = e
     }

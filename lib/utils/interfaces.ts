@@ -8,6 +8,12 @@ export interface SharedMutexConfiguration {
    * Default locking time, which will be used for all locks, if it's undefined, it will keep it unset
    */
   defaultMaxLockingTime: number
+
+  /**
+   * Timeout behaviour
+   */
+  continueOnTimeout?: boolean
+
   /**
    * Communication layer
    */

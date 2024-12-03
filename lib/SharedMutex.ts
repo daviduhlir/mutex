@@ -107,7 +107,7 @@ export class SharedMutex {
 
     const hash = randomHash()
 
-    const defaultMaxLockingTime = (await SharedMutexConfigManager.getConfiguration()).defaultMaxLockingTime
+    const { defaultMaxLockingTime, continueOnTimeout } = await SharedMutexConfigManager.getConfiguration()
     const myStackItem = {
       hash,
       key: parseLockKey(key),
@@ -117,6 +117,8 @@ export class SharedMutex {
     // detect of nested locks as death ends!
     const stack = [...(SharedMutex.stackStorage.getStore() || [])]
     const nestedInRelatedItems = stack.filter(i => keysRelatedMatch(myStackItem.key, i.key))
+
+    const funcAwaiter = new Awaiter()
 
     // lock all sub keys
     let m = await SharedMutex.lock(
@@ -129,6 +131,20 @@ export class SharedMutex {
       },
       codeStack,
     )
+
+    if (continueOnTimeout) {
+      SharedMutex.waitingMessagesHandlers.push({
+        hash,
+        action: ACTION.CONTINUE,
+        resolve: message => {
+          if (message.rejected === REJECTION_REASON.TIMEOUT) {
+            funcAwaiter.reject(new MutexError(ERROR.MUTEX_LOCK_TIMEOUT, `Continue rejected by timeout for ${key}.`))
+          } else if (message.rejected === REJECTION_REASON.EXCEPTION) {
+            funcAwaiter.reject(new MutexError(ERROR.MUTEX_NOTIFIED_EXCEPTION, message.message, SharedMutexSynchronizer.getLockInfo(hash)))
+          }
+        },
+      })
+    }
 
     // unlock function with clearing mutex ref
     const unlocker = () => {
@@ -151,7 +167,11 @@ export class SharedMutex {
     // run function
     let result
     try {
-      result = await SharedMutex.stackStorage.run([...stack, myStackItem], fnc)
+      SharedMutex.stackStorage.run([...stack, myStackItem], fnc).then(
+        returnedValue => funcAwaiter.resolve(returnedValue),
+        err => funcAwaiter.reject(err),
+      )
+      result = await funcAwaiter.wait()
     } catch (e) {
       // unlock all keys
       unlocker()
@@ -354,9 +374,9 @@ export class SharedMutex {
         )
       }
     } else if (message.hash) {
-      const foundItem = SharedMutex.waitingMessagesHandlers.find(item => item.hash === message.hash && item.action === message.action)
-      if (foundItem) {
-        foundItem.resolve(message)
+      const foundItems = SharedMutex.waitingMessagesHandlers.filter(item => item.hash === message.hash && item.action === message.action)
+      if (foundItems?.length) {
+        foundItems.forEach(item => item.resolve(message))
         SharedMutex.waitingMessagesHandlers = SharedMutex.waitingMessagesHandlers.filter(
           i => !(i.hash === message.hash && i.action === message.action),
         )

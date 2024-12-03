@@ -123,7 +123,7 @@ describe('Nested locks', function() {
           marker += 'C'
         })
 
-        await delay(10)
+        await delay(15)
 
         marker += 'D'
       }),
@@ -303,5 +303,41 @@ describe('Nested locks', function() {
     } catch(e) {
       expect(e.message).to.equal('MUTEX_NOTIFIED_EXCEPTION: Dead end detected, this combination will never be unlocked. See the documentation.')
     }
+  })
+
+  it('Skip wait after timeout', async function() {
+
+    await SharedMutex.initialize({
+      continueOnTimeout: true
+    })
+
+    let timeoutedItem
+    const originalHandler = SharedMutexSynchronizer.timeoutHandler
+    SharedMutexSynchronizer.timeoutHandler = (hash: string) => {
+      timeoutedItem = SharedMutexSynchronizer.getLockInfo(hash)
+    }
+
+    try {
+      await Promise.all([
+        setTimeout(() => SharedMutex.lockSingleAccess('root', async () => {
+          await delay(10)
+        }, 1000), 100),
+        SharedMutex.lockSingleAccess('root', async () => {
+          await new Promise((resolve) => 0)
+        }, 2000),
+      ])
+    } catch(e) {
+      // Error expected
+    }
+
+    SharedMutexSynchronizer.timeoutHandler = originalHandler
+
+    expect(timeoutedItem.key).to.equal('/root')
+    expect(timeoutedItem.isRunning).to.equal(true)
+
+    await SharedMutex.initialize({
+      continueOnTimeout: false
+    })
+
   })
 })

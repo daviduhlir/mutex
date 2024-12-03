@@ -58,33 +58,6 @@ describe('Nested locks', function() {
     assert(!e1 && !e2, 'Should ends without any error')
   })
 
-  it('Simple test #3', async function() {
-
-    async function tt() {
-      let marker = ''
-      await SharedMutex.lockMultiAccess('root', async () => {
-        marker += 'A'
-        //await delay(10)
-        await SharedMutex.lockSingleAccess('root', async () => {
-          marker += 'B'
-          await delay(10)
-          marker += 'C'
-        })
-        marker += 'D'
-      })
-    }
-
-    try {
-      await Promise.all([
-        tt(),
-        tt(),
-      ])
-    } catch(e) {
-      expect(e.message).to.equal('MUTEX_NOTIFIED_EXCEPTION: Dead end detected, this combination will neved be unlocked. See the documentation.')
-    }
-  })
-
-
   it('Keep locked after exit nested #1', async function() {
     let marker = ''
     await SharedMutex.lockSingleAccess('root', async () => {
@@ -304,5 +277,31 @@ describe('Nested locks', function() {
         resolve(null)
       })
     })
+  })
+
+  it('Dead end detection', async function() {
+
+    async function tt() {
+      let marker = ''
+      await SharedMutex.lockMultiAccess('root', async () => {
+        marker += 'A'
+        //await delay(10)
+        await SharedMutex.lockSingleAccess('root', async () => {
+          marker += 'B'
+          await delay(10)
+          marker += 'C'
+        })
+        marker += 'D'
+      })
+    }
+
+    try {
+      await Promise.all([
+        tt(),
+        tt(),
+      ])
+    } catch(e) {
+      expect(e.message).to.equal('MUTEX_NOTIFIED_EXCEPTION: Dead end detected, this combination will neved be unlocked. See the documentation.')
+    }
   })
 })

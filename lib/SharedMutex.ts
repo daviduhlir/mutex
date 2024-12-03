@@ -3,7 +3,7 @@ import { keysRelatedMatch, parseLockKey, randomHash } from './utils/utils'
 import { SharedMutexSynchronizer } from './components/SharedMutexSynchronizer'
 import { LockConfiguration, LockKey, SharedMutexConfiguration } from './utils/interfaces'
 import AsyncLocalStorage from './components/AsyncLocalStorage'
-import { ACTION, ERROR, MASTER_ID, REJECTION_REASON, VERIFY_MASTER_MAX_TIMEOUT } from './utils/constants'
+import { ACTION, ERROR, MASTER_ID, REJECTION_REASON, VERIFY_MASTER_MAX_TIMEOUT, WATCHDOG_STATUS } from './utils/constants'
 import { MutexError } from './utils/MutexError'
 import { Awaiter } from './utils/Awaiter'
 import version from './utils/version'
@@ -176,7 +176,7 @@ export class SharedMutex {
           hash,
           action: ACTION.WATCHDOG_STATUS,
           resolve: message => {
-            if (message.status === 'timeouted') {
+            if (message.status === WATCHDOG_STATUS.TIMEOUTED) {
               reject(new MutexError(ERROR.MUTEX_WATCHDOG_REJECTION))
             } else {
               resolve(null)

@@ -1,8 +1,8 @@
 import { EventEmitter } from 'events'
 import cluster from '../utils/cluster'
-import { LocalLockItem, LockItemInfo, LockKey } from '../utils/interfaces'
+import { LocalLockItem, LockItemInfo, LockKey, LockStatus } from '../utils/interfaces'
 import { sanitizeLock, keysRelatedMatch } from '../utils/utils'
-import { ACTION, DEBUG_INFO_REPORTS, ERROR, MASTER_ID, REJECTION_REASON } from '../utils/constants'
+import { ACTION, DEBUG_INFO_REPORTS, ERROR, MASTER_ID, REJECTION_REASON, WATCHDOG_STATUS } from '../utils/constants'
 import { MutexError } from '../utils/MutexError'
 import { MutexGlobalStorage } from './MutexGlobalStorage'
 import version from '../utils/version'
@@ -337,7 +337,7 @@ export class SharedMutexSynchronizer {
     const message = {
       action: ACTION.WATCHDOG_STATUS,
       hash: hash,
-      status: item ? item.status : 'timeouted',
+      status: item ? item.status : WATCHDOG_STATUS.TIMEOUTED,
     }
 
     if (item) {
@@ -380,7 +380,7 @@ export class SharedMutexSynchronizer {
   protected static lockTimeout = (hash: string) => {
     const item = MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === hash)
     if (item) {
-      item.status = 'timeouted'
+      item.status = WATCHDOG_STATUS.TIMEOUTED as LockStatus
       SharedMutexSynchronizer.watchdogResponse(hash)
     }
     SharedMutexSynchronizer.timeoutHandler(hash)

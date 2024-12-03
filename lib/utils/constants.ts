@@ -13,6 +13,10 @@ export const REJECTION_REASON = {
   EXCEPTION: 'exception',
 }
 
+export const WATCHDOG_STATUS = {
+  TIMEOUTED: 'timeouted'
+}
+
 export const MASTER_ID = 'master'
 // max time from fork bootup and verify master response
 export const VERIFY_MASTER_MAX_TIMEOUT = 1000

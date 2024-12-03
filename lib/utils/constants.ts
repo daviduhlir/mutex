@@ -14,7 +14,7 @@ export const REJECTION_REASON = {
 }
 
 export const WATCHDOG_STATUS = {
-  TIMEOUTED: 'timeouted'
+  TIMEOUTED: 'timeouted',
 }
 
 export const MASTER_ID = 'master'

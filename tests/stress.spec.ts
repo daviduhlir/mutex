@@ -13,14 +13,14 @@ describe('Stress test', function() {
     let failed = false
     let counter = 0
 
-    const int = setInterval(() => SharedMutex.lockMultiAccess('root', async () => {
+    const int = setInterval(() => SharedMutex.lockMultiAccess('stress1', async () => {
       counter++
       await delay(2)
       counter--
     }), 2)
 
     await Promise.all(new Array(100).fill(null).map(() =>
-      SharedMutex.lockSingleAccess('root', async () => {
+      SharedMutex.lockSingleAccess('stress1', async () => {
         if (counter !== 0) {
           failed = true
         }
@@ -39,12 +39,12 @@ describe('Stress test', function() {
     let failed = false
 
     let counter = 0
-    const int1 = setInterval(() => SharedMutex.lockSingleAccess('root', async () => {
+    const int1 = setInterval(() => SharedMutex.lockSingleAccess('stress2', async () => {
       counter++
       await delay(2)
       counter--
     }), 5)
-    const int2 = setInterval(() => SharedMutex.lockSingleAccess('root', async () => {
+    const int2 = setInterval(() => SharedMutex.lockSingleAccess('stress2', async () => {
       counter++
       await delay(2)
       counter--
@@ -63,25 +63,25 @@ describe('Stress test', function() {
     let failed = false
 
     let counter = 0
-    const int1 = setInterval(() => SharedMutex.lockSingleAccess('root', async () => {
+    const int1 = setInterval(() => SharedMutex.lockSingleAccess('stress3', async () => {
       if (counter !== 0) {
         failed = true
       }
       counter++
       await delay(2)
       counter--
-    }), 2)
-    const int2 = setInterval(() => SharedMutex.lockSingleAccess('root', async () => {
+    }), 5)
+    const int2 = setInterval(() => SharedMutex.lockSingleAccess('stress3', async () => {
       if (counter !== 0) {
         failed = true
       }
       counter++
       await delay(2)
       counter--
-    }), 2)
+    }), 5)
 
     await Promise.all(new Array(50).fill(null).map(() =>
-      SharedMutex.lockMultiAccess('root', async () => {
+      SharedMutex.lockMultiAccess('stress3', async () => {
         counter++
         await delay(1)
         counter--

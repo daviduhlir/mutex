@@ -24,6 +24,7 @@ import * as cluster from 'cluster'
 
 SharedMutex.initialize({
   defaultMaxLockingTime: 1000,
+  continueOnTimeout: false,
 })
 
 ```
@@ -36,11 +37,19 @@ interface SharedMutexConfiguration {
    */
   defaultMaxLockingTime: number
   /**
+   * Timeout behaviour
+   */
+  continueOnTimeout?: boolean
+  /**
    * Communication layer
    */
   communicationLayer?: MutexCommLayer
 }
 ```
+
+- defaultMaxLockingTime is time that will be set as timeout of mutex if it's not specified in the lock call
+- continueOnTimeout is setup of behaviour, what should happen with lock in case of timeout, true means, lock will throw exception and result will not be awaited anymore
+- communicationLayer setup of communication layer, by default it's IPC
 
 ## Overriding IPC communication
 
@@ -69,7 +78,7 @@ Lock, that can continue must have "clear way", it means, there can't by any othe
 ## Locks setup
 
 There is several flags and definitions, that can change behaviour of locks.
-Every lock can has specified maxLockingTime, it's longest time, when scope can be locked. After this time, mutex will throw exception to prevent keeping app in frozen state. This behaviour can be overrided by setting `SharedMutexSynchronizer.timeoutHandler` handler to your custom.
+Every lock can has specified maxLockingTime, it's longest time, when scope can be locked. After this time, mutex will throw exception to prevent keeping app in frozen state. This behaviour can be overrided by setting `SharedMutexSynchronizer.timeoutHandler` handler to your custom. Keep in mind, lock timeout is measured from the time when the first attempt to open scope occurs.
 
 ## Usage of locks
 
@@ -138,6 +147,27 @@ const safeCallback = new MutexSafeCallbackHandler(async () => delay(1000), 100)
 const result = SharedMutex.lockSingleAccess('mutex', safeCallback, 200)
 ```
 
+## Dead ends
+
+In some cases, you can create construction, which can not be opened. We are calling it dead end, as the application is not able to recover from this state. To prevent it, we are detecting this pattern in time of processing continue stage of lock, and throwing exception in scope waiting time. Exception is based on internal notifications with key MUTEX_NOTIFIED_EXCEPTION.
+
+Example of dead end case:
+```ts
+await SharedMutex.lockMultiAccess('root', async () => {
+  await SharedMutex.lockSingleAccess('root', async () => {
+    ...something
+  })
+})
+await SharedMutex.lockMultiAccess('root', async () => {
+  await SharedMutex.lockSingleAccess('root', async () => {
+    ...something
+  })
+})
+```
+
+And basic explanation: Both multi-access scopes will be accessed together, and inside of it, it will waits for single access scopes. Unfortunately, both inner single access scopes will wait for unlocking all multiaccess scopes with related keys. Parent scope will be solved easily, as we know, its parent of it, but there is another one, which is not parent, and we should wait for it as well. It resulting in never ending wait for unlock of all keys, to access single access scope.
+
+
 ## Debugging
 
 This is experimental feature, but in case you want extra level of info, what's going on inside of scopes, you can use reportDebugInfo function on SharedMutexSynchronizer class. This method is callen when any of mutexes changing it's state. To better see, how mutexes entering scopes, you can use DebugGuard class, which will provides you all neccessary data pairing and will write it to console.
@@ -188,24 +218,5 @@ All the times is in miliseconds.
 
 There is option, for simple debugging, which will collects all info about locks with stack, where the lock was called. It can be simply turned on by calling `SharedMutexSynchronizer.debugWithStack = true` in all proccesses. This will mainly shows stack trace in case, where lock failed due to MUTEX_TIMEOUT error. With this flag, it's easy to read, who blocked the lock, and if it was blocked by running locks, or waiting locks.
 
-## Dead ends
-
-In some cases, you can create construction, which can not be opened. We are calling it dead end, as the application is not able to recover from this state. To prevent it, we are detecting this pattern in time of processing continue stage of lock, and throwing exception in scope waiting time. Exception is based on internal notifications with key MUTEX_NOTIFIED_EXCEPTION.
-
-Example of dead end case:
-```ts
-await SharedMutex.lockMultiAccess('root', async () => {
-  await SharedMutex.lockSingleAccess('root', async () => {
-    ...something
-  })
-})
-await SharedMutex.lockMultiAccess('root', async () => {
-  await SharedMutex.lockSingleAccess('root', async () => {
-    ...something
-  })
-})
-```
-
-And basic explanation: Both multiaccess scopes will be accessed together, and inside of it, it will waits for single access scopes. Unfortunately, both inner single access scopes will wait for unlocking all multiaccess scopes with related keys. Parent scope will be solved easily, as we know, its parent of it, but there is another one, which is not parent, and we should wait for it as well. It resulting in never ending wait for unlock of all keys, to access single access scope.
 
 ISC

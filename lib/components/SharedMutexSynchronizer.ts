@@ -122,6 +122,9 @@ export class SharedMutexSynchronizer {
       return
     }
 
+    // reset queue
+    MutexGlobalStorage.setLocalLocksQueue([])
+
     // already initialized
     MutexGlobalStorage.setInitialized()
 
@@ -154,6 +157,19 @@ export class SharedMutexSynchronizer {
     MutexGlobalStorage.getLocalLocksQueue()
       .filter(l => l.isRunning && keysRelatedMatch(l.key, key))
       .forEach(i => SharedMutexSynchronizer.unlock(i.hash))
+  }
+
+  /**
+   * Is key free to open by single lock
+   */
+  static isKeyFree(key: LockKey, singleAccess: boolean) {
+    const queue = MutexGlobalStorage.getLocalLocksQueue()
+    const foundRunningLocks = queue.filter(l => l.isRunning && keysRelatedMatch(l.key, key))
+    if (singleAccess) {
+      return foundRunningLocks.length === 0
+    } else {
+      return foundRunningLocks.every(l => !l.singleAccess)
+    }
   }
 
   /**

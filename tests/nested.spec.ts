@@ -301,7 +301,7 @@ describe('Nested locks', function() {
         tt(),
       ])
     } catch(e) {
-      expect(e.message).to.equal('MUTEX_NOTIFIED_EXCEPTION: Dead end detected, this combination will neved be unlocked. See the documentation.')
+      expect(e.message).to.equal('MUTEX_NOTIFIED_EXCEPTION: Dead end detected, this combination will never be unlocked. See the documentation.')
     }
   })
 })

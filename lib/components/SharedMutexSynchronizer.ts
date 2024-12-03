@@ -246,7 +246,7 @@ export class SharedMutexSynchronizer {
               queue.filter(l => keysRelatedMatch(l.key, lock.key)).find(l => l.parents.includes(outterLock.hash)),
             )
             if (deadEnd) {
-              SharedMutexSynchronizer.sendException(lock, 'Dead end detected, this combination will neved be unlocked. See the documentation.')
+              SharedMutexSynchronizer.sendException(lock, 'Dead end detected, this combination will never be unlocked. See the documentation.')
               return
             }
           }

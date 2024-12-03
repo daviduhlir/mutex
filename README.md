@@ -188,4 +188,24 @@ All the times is in miliseconds.
 
 There is option, for simple debugging, which will collects all info about locks with stack, where the lock was called. It can be simply turned on by calling `SharedMutexSynchronizer.debugWithStack = true` in all proccesses. This will mainly shows stack trace in case, where lock failed due to MUTEX_TIMEOUT error. With this flag, it's easy to read, who blocked the lock, and if it was blocked by running locks, or waiting locks.
 
+## Dead ends
+
+In some cases, you can create construction, which can not be opened. We are calling it dead end, as the application is not able to recover from this state. To prevent it, we are detecting this pattern in time of processing continue stage of lock, and throwing exception in scope waiting time. Exception is based on internal notifications with key MUTEX_NOTIFIED_EXCEPTION.
+
+Example of dead end case:
+```ts
+await SharedMutex.lockMultiAccess('root', async () => {
+  await SharedMutex.lockSingleAccess('root', async () => {
+    ...something
+  })
+})
+await SharedMutex.lockMultiAccess('root', async () => {
+  await SharedMutex.lockSingleAccess('root', async () => {
+    ...something
+  })
+})
+```
+
+And basic explanation: Both multiaccess scopes will be accessed together, and inside of it, it will waits for single access scopes. Unfortunately, both inner single access scopes will wait for unlocking all multiaccess scopes with related keys. Parent scope will be solved easily, as we know, its parent of it, but there is another one, which is not parent, and we should wait for it as well. It resulting in never ending wait for unlock of all keys, to access single access scope.
+
 ISC

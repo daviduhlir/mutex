@@ -45,6 +45,10 @@ export interface LockItemInfo extends LockDescriptor {
   blockedBy: LockDescriptor[]
   codeStack?: any
   reportedPhases?: LockOperationPhase[]
+  timing?: {
+    locked?: number
+    opened?: number
+  }
 }
 
 export interface LockOperationPhase {
@@ -65,6 +69,10 @@ export interface LocalLockItem extends LockDescriptor {
   codeStack?: any
   reportedPhases?: LockOperationPhase[]
   status?: LockStatus
+  timing?: {
+    locked?: number
+    opened?: number
+  }
 }
 
 /**

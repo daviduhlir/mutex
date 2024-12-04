@@ -89,6 +89,10 @@ export class SharedMutexSynchronizer {
         codeStack: item.codeStack,
         blockedBy,
         reportedPhases: item.reportedPhases,
+        timing: {
+          locked: item.timing.locked,
+          opened: item.timing.opened,
+        },
       }
     }
   }
@@ -177,7 +181,7 @@ export class SharedMutexSynchronizer {
    */
   protected static lock(item: LocalLockItem, codeStack?: string) {
     // add it to locks
-    const nItem = { ...item, codeStack }
+    const nItem = { ...item, codeStack, timing: { locked: Date.now() } }
     MutexGlobalStorage.getLocalLocksQueue().push(nItem)
 
     // set timeout if provided
@@ -283,6 +287,7 @@ export class SharedMutexSynchronizer {
   protected static continue(hash: string, originalStack?: string) {
     const item = MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === hash)
     item.isRunning = true
+    item.timing.opened = Date.now()
 
     // report debug info
     if (SharedMutexSynchronizer.reportDebugInfo) {

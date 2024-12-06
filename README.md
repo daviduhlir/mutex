@@ -150,6 +150,7 @@ const result = SharedMutex.lockSingleAccess('mutex', safeCallback, 200)
 ## Dead ends
 
 In some cases, you can create construction, which can not be opened. We are calling it dead end, as the application is not able to recover from this state. To prevent it, we are detecting this pattern in time of processing continue stage of lock, and throwing exception in scope waiting time. Exception is based on internal notifications with key MUTEX_NOTIFIED_EXCEPTION.
+This feature must be turned on for purpose, as it's causing decrease of performance. Simple calling of `SharedMutexSynchronizer.debugDeadEnds = true` in all forks will do the trick.
 
 Example of dead end case:
 ```ts

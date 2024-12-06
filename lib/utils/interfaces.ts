@@ -27,6 +27,7 @@ export interface LockConfiguration {
   singleAccess?: boolean
   maxLockingTime?: number
   parents: string[]
+  tree: string[]
 }
 
 /**
@@ -66,6 +67,7 @@ export interface LocalLockItem extends LockDescriptor {
   timeout?: any
   isRunning?: boolean
   parents?: string[]
+  tree?: string[]
   codeStack?: any
   reportedPhases?: LockOperationPhase[]
   status?: LockStatus

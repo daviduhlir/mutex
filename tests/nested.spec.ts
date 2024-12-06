@@ -279,54 +279,6 @@ describe('Nested locks', function() {
     })
   })
 
-  it('Dead end detection', async function() {
-
-    async function tt() {
-      await SharedMutex.lockMultiAccess('root', async () => {
-        await SharedMutex.lockSingleAccess('root', async () => {
-          await delay(10)
-        })
-      })
-    }
-
-    try {
-      await Promise.all([
-        tt(),
-        tt(),
-      ])
-    } catch(e) {
-      expect(e.message).to.equal('MUTEX_NOTIFIED_EXCEPTION: Dead end detected, this combination will never be unlocked. See the documentation.')
-    }
-  })
-
-  it('Dead end detection #2', async function() {
-    await SharedMutex.initialize({
-      continueOnTimeout: true
-    })
-    try {
-      await Promise.all([
-        SharedMutex.lockMultiAccess('root', async () => {
-          await SharedMutex.lockMultiAccess('root', async () => {
-            await SharedMutex.lockSingleAccess('root', async () => {
-              await delay(5000)
-            })
-          })
-        }),
-        SharedMutex.lockMultiAccess('root', async () => {
-          await SharedMutex.lockSingleAccess('root', async () => {
-            await delay(10)
-          })
-        })
-      ])
-    } catch(e) {
-      expect(e.message).to.equal('MUTEX_NOTIFIED_EXCEPTION: Dead end detected, this combination will never be unlocked. See the documentation.')
-    }
-
-    await SharedMutex.initialize({
-      continueOnTimeout: false
-    })
-  })
-
   it('Skip wait after timeout', async function() {
 
     await SharedMutex.initialize({

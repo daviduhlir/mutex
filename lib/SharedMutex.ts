@@ -128,6 +128,7 @@ export class SharedMutex {
         singleAccess,
         maxLockingTime: typeof maxLockingTime === 'number' ? maxLockingTime : defaultMaxLockingTime,
         parents: nestedInRelatedItems.map(i => i.hash),
+        tree: stack.map(i => i.hash),
       },
       codeStack,
     )
@@ -243,6 +244,7 @@ export class SharedMutex {
         maxLockingTime: config.maxLockingTime,
         singleAccess: config.singleAccess,
         parents: config.parents,
+        tree: config.tree,
       },
       codeStack,
     )

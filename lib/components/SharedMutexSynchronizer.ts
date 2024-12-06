@@ -265,17 +265,14 @@ export class SharedMutexSynchronizer {
           changes.push(lock.hash)
           lock.isRunning = true
         } else {
-          // if nothing is running or running is my parent
-          if (lock.parents.length) {
-            const outterLocks = foundRunningLocks.filter(l => !lock.parents.includes(l.hash))
+          const outterLocks = foundRunningLocks.filter(l => !lock.parents.includes(l.hash))
 
-            if (SharedMutexSynchronizer.debugDeadEnds) {
-              deadEndnalyzis.push({
-                hash: lock.hash,
-                tree: lock.tree,
-                blockedBy: outterLocks.map(l => l.hash),
-              })
-            }
+          if (SharedMutexSynchronizer.debugDeadEnds) {
+            deadEndnalyzis.push({
+              hash: lock.hash,
+              tree: lock.tree,
+              blockedBy: outterLocks.map(l => l.hash),
+            })
           }
         }
       } else {

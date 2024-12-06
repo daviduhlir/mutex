@@ -25,6 +25,11 @@ export class SharedMutexSynchronizer {
   static debugWithStack: boolean = false
 
   /**
+   * Detect dead ends
+   */
+  static debugDeadEnds: boolean = false
+
+  /**
    * configuration checked
    */
   protected static usingCustomConfiguration: boolean
@@ -233,7 +238,7 @@ export class SharedMutexSynchronizer {
     const queue = MutexGlobalStorage.getLocalLocksQueue()
     const changes: string[] = []
 
-    SharedMutexSynchronizer.solveGroup(queue, changes)
+    SharedMutexSynchronizer.solveGroup([...queue], changes)
 
     for (const hash of changes) {
       SharedMutexSynchronizer.continue(hash)
@@ -244,6 +249,7 @@ export class SharedMutexSynchronizer {
   }
 
   protected static solveGroup(queue: LocalLockItem[], changes: string[]) {
+    let deadEndnalyzis = []
     for (let i = 0; i < queue.length; i++) {
       const lock = queue[i]
       if (lock.isRunning) {
@@ -262,12 +268,13 @@ export class SharedMutexSynchronizer {
           // if nothing is running or running is my parent
           if (lock.parents.length) {
             const outterLocks = foundRunningLocks.filter(l => !lock.parents.includes(l.hash))
-            const deadEnd = outterLocks.find(outterLock =>
-              queue.filter(l => keysRelatedMatch(l.key, lock.key)).find(l => l.parents.includes(outterLock.hash)),
-            )
-            if (deadEnd) {
-              SharedMutexSynchronizer.sendException(lock, 'Dead end detected, this combination will never be unlocked. See the documentation.')
-              return
+
+            if (SharedMutexSynchronizer.debugDeadEnds) {
+              deadEndnalyzis.push({
+                hash: lock.hash,
+                tree: lock.tree,
+                blockedBy: outterLocks.map(l => l.hash),
+              })
             }
           }
         }
@@ -275,6 +282,27 @@ export class SharedMutexSynchronizer {
         if (foundRunningLocks.every(lock => !lock.singleAccess) || isParentTreeRunning) {
           changes.push(lock.hash)
           lock.isRunning = true
+        } else {
+          const outterLocks = foundRunningLocks.filter(l => !lock.parents.includes(l.hash))
+
+          if (SharedMutexSynchronizer.debugDeadEnds) {
+            deadEndnalyzis.push({
+              hash: lock.hash,
+              tree: lock.tree,
+              blockedBy: outterLocks.map(l => l.hash),
+            })
+          }
+        }
+      }
+    }
+
+    if (SharedMutexSynchronizer.debugDeadEnds) {
+      for (const item of deadEndnalyzis) {
+        const blockingItems = deadEndnalyzis.filter(l => l.blockedBy.some(b => item.tree.includes(b)))
+        const blockingMe = blockingItems.filter(l => l.tree.some(b => item.blockedBy.includes(b)))
+        if (blockingMe.length) {
+          const lock = MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === item.hash)
+          SharedMutexSynchronizer.sendException(lock, 'Dead end detected, this combination will never be unlocked. See the documentation.')
         }
       }
     }

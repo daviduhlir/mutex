@@ -83,7 +83,10 @@ export class SharedMutexSynchronizer {
   static getLockInfo(hash: string): LockItemInfo {
     const queue = MutexGlobalStorage.getLocalLocksQueue()
     const item = queue.find(i => i.hash === hash)
-    const blockedBy = queue.filter(l => l.isRunning && keysRelatedMatch(l.key, item.key)).filter(l => l.hash !== hash)
+    const blockedBy = queue
+      .filter(l => l.isRunning && keysRelatedMatch(l.key, item.key))
+      .filter(l => l.hash !== hash)
+      .map(item => sanitizeLock(item))
     if (item) {
       return {
         workerId: item.workerId,
@@ -94,6 +97,8 @@ export class SharedMutexSynchronizer {
         codeStack: item.codeStack,
         blockedBy,
         reportedPhases: item.reportedPhases,
+        tree: item.tree ? item.tree.map(l => SharedMutexSynchronizer.getLockInfo(l)) : undefined,
+        parents: item.parents ? item.parents.map(l => SharedMutexSynchronizer.getLockInfo(l)) : undefined,
         timing: {
           locked: item.timing.locked,
           opened: item.timing.opened,
@@ -299,7 +304,9 @@ export class SharedMutexSynchronizer {
         const blockingMe = blockingItems.filter(l => l.tree.some(b => item.blockedBy.includes(b)))
         if (blockingMe.length) {
           const lock = MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === item.hash)
-          SharedMutexSynchronizer.sendException(lock, 'Dead end detected, this combination will never be unlocked. See the documentation.')
+          SharedMutexSynchronizer.sendException(lock, 'Dead end detected, this combination will never be unlocked. See the documentation.', {
+            inCollision: blockingMe.map(l => sanitizeLock(SharedMutexSynchronizer.getLockInfo(l.hash))),
+          })
         }
       }
     }
@@ -447,17 +454,18 @@ export class SharedMutexSynchronizer {
   /**
    * Broadcast exception
    */
-  protected static sendException = (item: LocalLockItem, notification: string) => {
+  protected static sendException = (item: LocalLockItem, message: string, details?: any) => {
     // send continue with rejection
-    const message = {
+    const messageContent = {
       action: ACTION.CONTINUE,
       hash: item.hash,
       rejected: REJECTION_REASON.EXCEPTION,
-      message: notification,
+      message,
+      details,
     }
-    SharedMutexSynchronizer.masterHandler.emitter.emit('message', message)
+    SharedMutexSynchronizer.masterHandler.emitter.emit('message', messageContent)
     if (item.workerId !== 'master' && cluster.workers?.[item.workerId]) {
-      SharedMutexSynchronizer.send(cluster.workers?.[item.workerId], message)
+      SharedMutexSynchronizer.send(cluster.workers?.[item.workerId], messageContent)
     }
   }
 }

@@ -1,7 +1,7 @@
 import { LockItemInfo } from './interfaces'
 
 export class MutexError extends Error {
-  constructor(public readonly key: string, public message: string = '', readonly lock?: LockItemInfo) {
+  constructor(public readonly key: string, public message: string = '', readonly lock?: LockItemInfo, readonly details?: any) {
     super(key)
     if (!this.message) {
       this.message = this.key

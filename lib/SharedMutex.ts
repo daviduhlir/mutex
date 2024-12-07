@@ -141,7 +141,9 @@ export class SharedMutex {
           if (message.rejected === REJECTION_REASON.TIMEOUT) {
             funcAwaiter.reject(new MutexError(ERROR.MUTEX_LOCK_TIMEOUT, `Continue rejected by timeout for ${key}.`))
           } else if (message.rejected === REJECTION_REASON.EXCEPTION) {
-            funcAwaiter.reject(new MutexError(ERROR.MUTEX_NOTIFIED_EXCEPTION, message.message, SharedMutexSynchronizer.getLockInfo(hash)))
+            funcAwaiter.reject(
+              new MutexError(ERROR.MUTEX_NOTIFIED_EXCEPTION, message.message, SharedMutexSynchronizer.getLockInfo(hash), message.details),
+            )
           }
         },
       })
@@ -228,7 +230,7 @@ export class SharedMutex {
           if (message.rejected === REJECTION_REASON.TIMEOUT) {
             reject(new MutexError(ERROR.MUTEX_LOCK_TIMEOUT, `Continue rejected by timeout for ${key}.`))
           } else if (message.rejected === REJECTION_REASON.EXCEPTION) {
-            reject(new MutexError(ERROR.MUTEX_NOTIFIED_EXCEPTION, message.message, SharedMutexSynchronizer.getLockInfo(hash)))
+            reject(new MutexError(ERROR.MUTEX_NOTIFIED_EXCEPTION, message.message, SharedMutexSynchronizer.getLockInfo(hash), message.details))
           }
           resolve(null)
         },

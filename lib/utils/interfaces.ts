@@ -46,6 +46,8 @@ export interface LockItemInfo extends LockDescriptor {
   blockedBy: LockDescriptor[]
   codeStack?: any
   reportedPhases?: LockOperationPhase[]
+  parents?: LockItemInfo[]
+  tree?: LockItemInfo[]
   timing?: {
     locked?: number
     opened?: number

@@ -52,7 +52,6 @@ export function keysRelatedMatch(key1: string | string[], key2: string | string[
  */
 export function sanitizeLock(input: any): LocalLockItem {
   return {
-    workerId: input.workerId,
     singleAccess: input.singleAccess,
     hash: input.hash,
     key: input.key,
@@ -107,6 +106,31 @@ export function prettyPrintError(e: MutexError) {
     if (e.details?.inCollision) {
       console.log('\x1b[31m  This scope is in collision with:\x1b[0m')
       e.details?.inCollision.forEach(item => prettyPrintLock(item, 2, true))
+    }
+  }
+}
+
+export function getLockInfo(queue: LocalLockItem[], hash: string) {
+  const item = queue.find(i => i.hash === hash)
+  const blockedBy = queue
+    .filter(l => l.isRunning && keysRelatedMatch(l.key, item.key))
+    .filter(l => l.hash !== hash)
+    .map(item => sanitizeLock(item))
+  if (item) {
+    return {
+      singleAccess: item.singleAccess,
+      hash: item.hash,
+      key: item.key,
+      isRunning: item.isRunning,
+      codeStack: item.codeStack,
+      blockedBy,
+      reportedPhases: item.reportedPhases,
+      tree: item.tree ? item.tree.map(l => getLockInfo(queue, l)) : undefined,
+      parents: item.parents ? item.parents.map(l => getLockInfo(queue, l)) : undefined,
+      timing: {
+        locked: item.timing.locked,
+        opened: item.timing.opened,
+      },
     }
   }
 }

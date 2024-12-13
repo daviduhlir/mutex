@@ -1,10 +1,4 @@
-import { SharedMutexSynchronizer } from '../components/SharedMutexSynchronizer'
-
 export function getStack() {
-  if (!SharedMutexSynchronizer.debugWithStack) {
-    return null
-  }
-
   const o: { stack: string } = { stack: null }
   Error.captureStackTrace(o)
   return o.stack

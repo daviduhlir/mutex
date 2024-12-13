@@ -1,5 +1,5 @@
 import { assert } from 'chai'
-import { DebugGuard, SharedMutex, SharedMutexSynchronizer } from '../dist'
+import { SharedMutex, SharedMutexSynchronizer } from '../dist'
 import { delay } from './utils'
 
 /**
@@ -8,10 +8,6 @@ import { delay } from './utils'
 describe('Leaks test', function() {
 
   it('Test scopes and count whats left', async function() {
-    const debuggerOutputCollector: string[] = []
-    DebugGuard.writeFunction = (...msgs: any[]) => debuggerOutputCollector.push(msgs.map(i => i?.toString?.() || '').join(' '))
-    SharedMutexSynchronizer.reportDebugInfo = DebugGuard.reportDebugInfo
-
     const before = SharedMutexSynchronizer.getLocksCount()
 
     await Promise.all(
@@ -29,8 +25,6 @@ describe('Leaks test', function() {
     ))
 
     const after = SharedMutexSynchronizer.getLocksCount()
-
-    SharedMutexSynchronizer.reportDebugInfo = () => void 0
 
     assert(before === after && before === 0, 'Locks count before and after test should be 0')
   })

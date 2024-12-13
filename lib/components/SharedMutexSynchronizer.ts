@@ -2,7 +2,7 @@ import { EventEmitter } from 'events'
 import cluster from '../utils/cluster'
 import { LocalLockItem, LockItemInfo, LockStatus } from '../utils/interfaces'
 import { sanitizeLock, keysRelatedMatch } from '../utils/utils'
-import { ACTION, DEBUG_INFO_REPORTS, ERROR, MASTER_ID, REJECTION_REASON, WATCHDOG_STATUS } from '../utils/constants'
+import { ACTION, ERROR, MASTER_ID, REJECTION_REASON, WATCHDOG_STATUS } from '../utils/constants'
 import { MutexError } from '../utils/MutexError'
 import { MutexGlobalStorage } from './MutexGlobalStorage'
 import version from '../utils/version'
@@ -15,11 +15,6 @@ import { Algorythms } from '../algorythms'
  *
  ***********************************/
 export class SharedMutexSynchronizer {
-  /**
-   * Report debug info, you can use console log inside to track, whats going on
-   */
-  static reportDebugInfo: (state: string, item: LocalLockItem, codeStack?: string) => void
-
   /**
    * Report debug info with stack
    */
@@ -58,14 +53,6 @@ export class SharedMutexSynchronizer {
     const info = SharedMutexSynchronizer.getLockInfo(hash)
     if (!info) {
       return // this lock does not exsists
-    }
-
-    // debug info
-    if (SharedMutexSynchronizer.reportDebugInfo) {
-      SharedMutexSynchronizer.reportDebugInfo(
-        DEBUG_INFO_REPORTS.LOCK_TIMEOUT,
-        MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === hash),
-      )
     }
 
     console.error(ERROR.MUTEX_LOCK_TIMEOUT, info)
@@ -175,11 +162,6 @@ export class SharedMutexSynchronizer {
       nItem.timeout = setTimeout(() => SharedMutexSynchronizer.lockTimeout(nItem.hash), nItem.maxLockingTime)
     }
 
-    // debug info
-    if (SharedMutexSynchronizer.reportDebugInfo) {
-      SharedMutexSynchronizer.reportDebugInfo(DEBUG_INFO_REPORTS.SCOPE_WAITING, nItem, codeStack)
-    }
-
     // next tick... unlock something, if waiting
     SharedMutexSynchronizer.mutexTickNext()
   }
@@ -198,11 +180,6 @@ export class SharedMutexSynchronizer {
     // clear timeout, if exists
     if (f.timeout) {
       clearTimeout(f.timeout)
-    }
-
-    // report debug info
-    if (SharedMutexSynchronizer.reportDebugInfo) {
-      SharedMutexSynchronizer.reportDebugInfo(DEBUG_INFO_REPORTS.SCOPE_EXIT, f, codeStack)
     }
 
     // remove from queue
@@ -247,11 +224,6 @@ export class SharedMutexSynchronizer {
     const item = MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === hash)
     item.isRunning = true
     item.timing.opened = Date.now()
-
-    // report debug info
-    if (SharedMutexSynchronizer.reportDebugInfo) {
-      SharedMutexSynchronizer.reportDebugInfo(DEBUG_INFO_REPORTS.SCOPE_CONTINUE, item, originalStack)
-    }
 
     const message = {
       action: ACTION.CONTINUE,

@@ -1,12 +1,13 @@
 import { EventEmitter } from 'events'
 import cluster from '../utils/cluster'
-import { LocalLockItem, LockItemInfo, LockKey, LockStatus } from '../utils/interfaces'
+import { LocalLockItem, LockItemInfo, LockStatus } from '../utils/interfaces'
 import { sanitizeLock, keysRelatedMatch } from '../utils/utils'
 import { ACTION, DEBUG_INFO_REPORTS, ERROR, MASTER_ID, REJECTION_REASON, WATCHDOG_STATUS } from '../utils/constants'
 import { MutexError } from '../utils/MutexError'
 import { MutexGlobalStorage } from './MutexGlobalStorage'
 import version from '../utils/version'
 import { SharedMutexConfigManager } from './SharedMutexConfigManager'
+import { Algorythms } from '../algorythms'
 
 /**********************************
  *
@@ -162,31 +163,6 @@ export class SharedMutexSynchronizer {
   }
 
   /**
-   * Unlock force all keys with related key
-   */
-  static dangerouslyForceUnlockKeys(key: LockKey) {
-    if (!cluster.isMaster) {
-      throw new Error(`Force unlock can be called only on master process.`)
-    }
-    MutexGlobalStorage.getLocalLocksQueue()
-      .filter(l => l.isRunning && keysRelatedMatch(l.key, key))
-      .forEach(i => SharedMutexSynchronizer.unlock(i.hash))
-  }
-
-  /**
-   * Is key free to open by single lock
-   */
-  static isKeyFree(key: LockKey, singleAccess: boolean) {
-    const queue = MutexGlobalStorage.getLocalLocksQueue()
-    const foundRunningLocks = queue.filter(l => l.isRunning && keysRelatedMatch(l.key, key))
-    if (singleAccess) {
-      return foundRunningLocks.length === 0
-    } else {
-      return foundRunningLocks.every(l => !l.singleAccess)
-    }
-  }
-
-  /**
    * Lock mutex
    */
   protected static lock(item: LocalLockItem, codeStack?: string) {
@@ -243,72 +219,23 @@ export class SharedMutexSynchronizer {
     const queue = MutexGlobalStorage.getLocalLocksQueue()
     const changes: string[] = []
 
-    SharedMutexSynchronizer.solveGroup([...queue], changes)
+    Algorythms.solveGroup(
+      [...queue],
+      changes,
+      SharedMutexSynchronizer.debugDeadEnds
+        ? (lock, inCollisionHashes) => {
+            SharedMutexSynchronizer.sendException(lock, 'Dead end detected, this combination will never be unlocked. See the documentation.', {
+              inCollision: inCollisionHashes.map(hash => sanitizeLock(SharedMutexSynchronizer.getLockInfo(hash))),
+            })
+          }
+        : null,
+    )
 
     for (const hash of changes) {
       SharedMutexSynchronizer.continue(hash)
     }
     if (changes.length) {
       SharedMutexSynchronizer.mutexTickNext()
-    }
-  }
-
-  protected static solveGroup(queue: LocalLockItem[], changes: string[]) {
-    let deadEndnalyzis = []
-    for (let i = 0; i < queue.length; i++) {
-      const lock = queue[i]
-      if (lock.isRunning) {
-        continue
-      }
-
-      const foundRunningLocks = queue.filter(l => l.isRunning && keysRelatedMatch(l.key, lock.key))
-      const isParentTreeRunning = lock.parents?.length && lock.parents.every(hash => foundRunningLocks.find(l => l.hash === hash))
-
-      // if single access group is on top, break it anyway
-      if (lock.singleAccess) {
-        if (foundRunningLocks.length === 0 || (isParentTreeRunning && foundRunningLocks.filter(l => !lock.parents.includes(l.hash)).length === 0)) {
-          changes.push(lock.hash)
-          lock.isRunning = true
-        } else {
-          const outterLocks = foundRunningLocks.filter(l => !lock.parents.includes(l.hash))
-
-          if (SharedMutexSynchronizer.debugDeadEnds) {
-            deadEndnalyzis.push({
-              hash: lock.hash,
-              tree: lock.tree,
-              blockedBy: outterLocks.map(l => l.hash),
-            })
-          }
-        }
-      } else {
-        if (foundRunningLocks.every(lock => !lock.singleAccess) || isParentTreeRunning) {
-          changes.push(lock.hash)
-          lock.isRunning = true
-        } else {
-          const outterLocks = foundRunningLocks.filter(l => !lock.parents.includes(l.hash))
-
-          if (SharedMutexSynchronizer.debugDeadEnds) {
-            deadEndnalyzis.push({
-              hash: lock.hash,
-              tree: lock.tree,
-              blockedBy: outterLocks.map(l => l.hash),
-            })
-          }
-        }
-      }
-    }
-
-    if (SharedMutexSynchronizer.debugDeadEnds) {
-      for (const item of deadEndnalyzis) {
-        const blockingItems = deadEndnalyzis.filter(l => l.blockedBy.some(b => item.tree.includes(b)))
-        const blockingMe = blockingItems.filter(l => l.tree.some(b => item.blockedBy.includes(b)))
-        if (blockingMe.length) {
-          const lock = MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === item.hash)
-          SharedMutexSynchronizer.sendException(lock, 'Dead end detected, this combination will never be unlocked. See the documentation.', {
-            inCollision: blockingMe.map(l => sanitizeLock(SharedMutexSynchronizer.getLockInfo(l.hash))),
-          })
-        }
-      }
     }
   }
 

@@ -33,6 +33,9 @@ export class SharedMutexConfigManager {
 
     // comm is not prepared and is not set yet... wait for next init call
     if (!SharedMutexConfigManager.comm) {
+      if (SharedMutexConfigManager.initAwaiter) {
+        SharedMutexConfigManager.initAwaiter.resolve()
+      }
       SharedMutexConfigManager.initAwaiter = new Awaiter()
       return false
     }

@@ -3,15 +3,27 @@
  */
 export class Awaiter<T = any> {
   protected promise: Promise<T>
-  protected finished
+  protected result: { value?: any; error?: any } = null
+  protected timeoutHandler
   protected resolver: (result: T) => any
   protected rejector: (error: Error) => any
 
-  constructor() {
+  constructor(timeout?: number) {
     this.promise = new Promise((resolve, reject) => {
       this.resolver = resolve
       this.rejector = reject
     })
+    this.watchdog(timeout)
+  }
+
+  /**
+   * Starts watchdog
+   */
+  public watchdog(timeout?: number) {
+    clearTimeout(this.timeoutHandler)
+    if (timeout) {
+      this.timeoutHandler = setTimeout(() => this.reject(new Error(`Awaiter rejected after timeout`)))
+    }
   }
 
   /**
@@ -32,8 +44,11 @@ export class Awaiter<T = any> {
    * eg. await waiter.wait()
    */
   public async wait() {
-    if (this.finished) {
-      return
+    if (this.result) {
+      if (this.result.error) {
+        throw this.result.error
+      }
+      return this.result.value
     }
     return this.promise
   }
@@ -42,16 +57,18 @@ export class Awaiter<T = any> {
    * Get if it's already resolved
    */
   public get resolved(): Boolean {
-    return this.finished
+    return !!this.result
   }
 
   /**
    * Resolved it, and go forward
    */
-  public resolve(result?: T) {
-    this.finished = true
+  public resolve(value?: T) {
+    this.result = {
+      value,
+    }
     if (this.resolver) {
-      this.resolver(result)
+      this.resolver(value)
     }
   }
 
@@ -59,7 +76,9 @@ export class Awaiter<T = any> {
    * Reject it, and go forward
    */
   public reject(error: Error) {
-    this.finished = true
+    this.result = {
+      error,
+    }
     if (this.rejector) {
       this.rejector(error)
     }

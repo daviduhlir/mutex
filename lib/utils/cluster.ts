@@ -4,7 +4,7 @@ let cluster = {
   isWorker: false,
   worker: null,
   workers: null,
-  on: null,
+  on: (event: string, ...args: any[]) => 0,
 }
 
 try {

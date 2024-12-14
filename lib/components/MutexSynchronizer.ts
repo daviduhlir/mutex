@@ -32,12 +32,14 @@ export interface MutexSynchronizerOptions {
 }
 
 export class MutexSynchronizer {
+  protected queue: LocalLockItem[] = []
+
   constructor(readonly options: MutexSynchronizerOptions = {}) {}
 
   /**
    * Lock mutex
    */
-  public async lock(item: LocalLockItem, codeStack?: string) {
+  public async lock(lock: LocalLockItem, codeStack?: string) {
     // TODO if it's in same process, just call it, otherwise, send it by IPC and wait result
   }
 
@@ -47,5 +49,13 @@ export class MutexSynchronizer {
    */
   public unlock(hash?: string, codeStack?: string) {
     // TODO if it's in same process, just call it, otherwise, send it by IPC and wait result
+  }
+
+  /**
+   * Forced unlock of worker
+   * @param id
+   */
+  public unlockForced(filter: (lock: LocalLockItem) => boolean) {
+    this.queue.filter(filter).forEach(i => this.unlock(i.hash))
   }
 }

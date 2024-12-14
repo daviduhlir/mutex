@@ -3,6 +3,7 @@ import { LocalLockItem, LockKey } from '../utils/interfaces'
 import AsyncLocalStorage from './AsyncLocalStorage'
 import { getStack } from '../utils/stack'
 import { MutexSynchronizer } from './MutexSynchronizer'
+import cluster from '../utils/cluster'
 
 /**
  * Unlock handler
@@ -92,6 +93,7 @@ export class MutexExecutor {
         maxLockingTime: typeof maxLockingTime === 'number' ? maxLockingTime : this.synchronizer.options.defaultMaxLockingTime,
         parents: nestedInRelatedItems.map(i => i.hash),
         tree: stack.map(i => i.hash),
+        workerId: cluster.worker?.id,
       },
       codeStack,
     )

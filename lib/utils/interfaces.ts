@@ -6,6 +6,7 @@ export interface LockDescriptor {
   hash: string
   key: string
   maxLockingTime?: number
+  workerId: number | undefined
 }
 
 export interface LockItemInfo extends LockDescriptor {

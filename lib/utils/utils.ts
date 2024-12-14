@@ -59,6 +59,7 @@ export function sanitizeLock(input: any): LocalLockItem {
     parents: input.parents,
     tree: input.tree,
     codeStack: input.codeStack,
+    workerId: input.workerId,
     ...(input.maxLockingTime ? { maxLockingTime: input.maxLockingTime } : {}),
     ...(input.timeout ? { timeout: input.timeout } : {}),
   }

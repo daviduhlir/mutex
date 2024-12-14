@@ -11,8 +11,6 @@ import { MutexSynchronizer, MutexSynchronizerOptions } from './MutexSynchronizer
  *
  ***********************************/
 export class LocalMutexSynchronizer extends MutexSynchronizer {
-  protected queue: LocalLockItem[] = []
-
   /**
    * Default handler
    */
@@ -42,9 +40,9 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
   /**
    * Lock mutex
    */
-  public async lock(item: LocalLockItem, codeStack?: string) {
+  public async lock(lock: LocalLockItem, codeStack?: string) {
     // add it to locks
-    const nItem = { ...item, codeStack, timing: { locked: Date.now() } }
+    const nItem = { ...lock, codeStack, timing: { locked: Date.now() } }
     this.queue.push(nItem)
 
     // set timeout if provided

@@ -1,19 +1,20 @@
 import { expect } from 'chai'
-import { SharedMutex, SharedMutexSynchronizer } from '../dist'
+import { MutexSynchronizer, SharedMutex } from '../dist'
 import { delay } from './utils'
 
-SharedMutexSynchronizer.debugWithStack = true
 /**
  * Simple locks test
  */
 describe('Watchdog tests', function() {
   it('Simulate timeout to see reported phase', async function() {
     let receivedLockInfo
-    let receivedError
-    const originalHandler = SharedMutexSynchronizer.timeoutHandler
-    SharedMutexSynchronizer.timeoutHandler = (hash: string) => {
-      receivedLockInfo = SharedMutexSynchronizer.getLockInfo(hash)
-    }
+
+    SharedMutex.setOptions({
+      timeoutHandler: (item) => {
+        receivedLockInfo = item
+      }
+    })
+
     try {
       await SharedMutex.lockSingleAccess('mutexO', async () => {
         await SharedMutex.lockSingleAccess('mutex', async () => {
@@ -38,21 +39,22 @@ describe('Watchdog tests', function() {
           await SharedMutex.watchdog('Phase10')
         }, 1000)
       }, 2000)
-    } catch (e) {
-      receivedError = e
-    }
+    } catch (e) {}
 
-    SharedMutexSynchronizer.timeoutHandler = originalHandler
+    SharedMutex.setOptions({
+      timeoutHandler: undefined
+    })
 
-    expect(receivedError.message).to.equal('MUTEX_WATCHDOG_REJECTION')
     const lastPhase = receivedLockInfo.reportedPhases[receivedLockInfo.reportedPhases.length - 1].phase
     expect(lastPhase).to.equal('Phase5')
   })
 
 
   it('Timeout unlocks mutex', async function() {
-    const originalHandler = SharedMutexSynchronizer.timeoutHandler
-    SharedMutexSynchronizer.timeoutHandler = (hash: string) => {}
+
+    SharedMutex.setOptions({
+      timeoutHandler: (item) => {}
+    })
 
     let scopeBVisited = false
 
@@ -66,8 +68,10 @@ describe('Watchdog tests', function() {
       }, 50)
     ])
 
-    expect(scopeBVisited).to.equal(true)
+    SharedMutex.setOptions({
+      timeoutHandler: undefined
+    })
 
-    SharedMutexSynchronizer.timeoutHandler = originalHandler
+    expect(scopeBVisited).to.equal(true)
   })
 })

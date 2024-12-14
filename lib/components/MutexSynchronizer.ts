@@ -1,4 +1,7 @@
-import { LocalLockItem } from '../utils/interfaces'
+import cluster from '../utils/cluster'
+import { ERROR } from '../utils/constants'
+import { LocalLockItem, LockItemInfo } from '../utils/interfaces'
+import { MutexError } from '../utils/MutexError'
 
 /**********************************
  *
@@ -32,15 +35,13 @@ export interface MutexSynchronizerOptions {
 }
 
 export class MutexSynchronizer {
-  protected queue: LocalLockItem[] = []
-
   constructor(public options: MutexSynchronizerOptions = {}) {}
 
   /**
    * Lock mutex
    */
   public async lock(lock: LocalLockItem, codeStack?: string) {
-    // TODO if it's in same process, just call it, otherwise, send it by IPC and wait result
+    throw new Error('override it')
   }
 
   /**
@@ -48,7 +49,7 @@ export class MutexSynchronizer {
    * @param key
    */
   public unlock(hash?: string, codeStack?: string) {
-    // TODO if it's in same process, just call it, otherwise, send it by IPC and wait result
+    throw new Error('override it')
   }
 
   /**
@@ -56,7 +57,23 @@ export class MutexSynchronizer {
    * @param id
    */
   public unlockForced(filter: (lock: LocalLockItem) => boolean) {
-    this.queue.filter(filter).forEach(i => this.unlock(i.hash))
+    throw new Error('override it')
+  }
+
+  /**
+   * Get info about lock by hash
+   * @param hash
+   * @returns
+   */
+  public getLockInfo(hash: string): LockItemInfo {
+    throw new Error('override it')
+  }
+
+  /**
+   * Watchdog with phase report
+   */
+  public async watchdog(hash: string, phase?: string, args?: any, codeStack?: string) {
+    throw new Error('override it')
   }
 
   /**
@@ -64,5 +81,18 @@ export class MutexSynchronizer {
    */
   public setOptions(options: MutexSynchronizerOptions) {
     this.options = options
+  }
+
+  /**
+   * Default handler
+   */
+  static timeoutHandler(item: LocalLockItem) {
+    console.log('HANDLER CALLED!!!!!!!!!!!!!!!!')
+    if (item.workerId && cluster?.workers?.[item.workerId]) {
+      console.error(ERROR.MUTEX_LOCK_TIMEOUT, item)
+      cluster.workers[item.workerId].kill(9)
+    } else {
+      throw new MutexError(ERROR.MUTEX_LOCK_TIMEOUT)
+    }
   }
 }

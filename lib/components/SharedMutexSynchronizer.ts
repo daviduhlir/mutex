@@ -1,6 +1,6 @@
 import cluster from '../utils/cluster'
 import { ACTION, ERROR } from '../utils/constants'
-import { LocalLockItem } from '../utils/interfaces'
+import { LocalLockItem, LockItemInfo } from '../utils/interfaces'
 import { MutexError } from '../utils/MutexError'
 import { randomHash } from '../utils/utils'
 import { LocalMutexSynchronizer } from './LocalMutexSynchronizer'
@@ -84,6 +84,39 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
   }
 
   /**
+   * Get info about lock by hash
+   * @param hash
+   * @returns
+   */
+  public getLockInfo(hash: string): LockItemInfo {
+    return this.masterSynchronizer.getLockInfo(hash)
+  }
+
+  /**
+   * Watchdog with phase report
+   */
+  public async watchdog(hash: string, phase?: string, args?: any, codeStack?: string) {
+    if (this.masterSynchronizer) {
+      return this.masterSynchronizer.watchdog(hash, phase, args, codeStack)
+    }
+    await this.verifyAwaiter.wait()
+    await this.sendProcessMessage({
+      action: ACTION.WATCHDOG_REPORT,
+      hash,
+      phase,
+      args,
+      codeStack,
+    })
+  }
+
+  /**
+   * Set options
+   */
+  public setOptions(options: MutexSynchronizerOptions) {
+    this.masterSynchronizer.setOptions(options)
+  }
+
+  /**
    * Handle master incomming message
    * @param message
    */
@@ -98,6 +131,13 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
         })
       } else if (message.action === ACTION.UNLOCK) {
         const result = await SharedMutexSynchronizer.executeMethod(() => this.unlock(message.hash, message.codeStack))
+        this.sendMasterMessage(worker, {
+          id: message.id,
+          result: result.result,
+          error: result.error,
+        })
+      } else if (message.action === ACTION.WATCHDOG_REPORT) {
+        const result = await SharedMutexSynchronizer.executeMethod(() => this.watchdog(message.hash, message.phase, message.args, message.codeStack))
         this.sendMasterMessage(worker, {
           id: message.id,
           result: result.result,

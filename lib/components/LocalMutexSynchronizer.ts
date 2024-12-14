@@ -1,9 +1,9 @@
-import { LocalLockItem, LockItemInfo } from '../utils/interfaces'
-import { sanitizeLock, getLockInfo } from '../utils/utils'
+import { LocalLockItem, LockItemInfo, LockStatus } from '../utils/interfaces'
+import { getLockInfo, sanitizeLock } from '../utils/utils'
 import { Algorythms } from '../algorythms'
 import { MutexError } from '../utils/MutexError'
-import { ERROR } from '../utils/constants'
-import { MutexSynchronizer, MutexSynchronizerOptions } from './MutexSynchronizer'
+import { ERROR, WATCHDOG_STATUS } from '../utils/constants'
+import { MutexSynchronizer } from './MutexSynchronizer'
 
 /**********************************
  *
@@ -11,23 +11,7 @@ import { MutexSynchronizer, MutexSynchronizerOptions } from './MutexSynchronizer
  *
  ***********************************/
 export class LocalMutexSynchronizer extends MutexSynchronizer {
-  /**
-   * Default handler
-   */
-  static timeoutHandler: (item: LocalLockItem) => void = (item: LocalLockItem) => {
-    console.error(ERROR.MUTEX_LOCK_TIMEOUT, item)
-    throw new MutexError(ERROR.MUTEX_LOCK_TIMEOUT)
-  }
-
-  /**
-   * Construct with options
-   */
-  constructor(options: MutexSynchronizerOptions = {}) {
-    super(options)
-    if (!options.timeoutHandler) {
-      options.timeoutHandler = LocalMutexSynchronizer.timeoutHandler
-    }
-  }
+  protected queue: LocalLockItem[] = []
 
   /**
    * Get count of locks currently
@@ -85,12 +69,41 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
   }
 
   /**
+   * Forced unlock of worker
+   * @param id
+   */
+  public unlockForced(filter: (lock: LocalLockItem) => boolean) {
+    this.queue.filter(filter).forEach(i => this.unlock(i.hash))
+  }
+
+  /**
    * Get info about lock by hash
    * @param hash
    * @returns
    */
   public getLockInfo(hash: string): LockItemInfo {
     return getLockInfo(this.queue, hash)
+  }
+
+  /**
+   * Watchdog with phase report
+   */
+  public async watchdog(hash: string, phase?: string, args?: any, codeStack?: string) {
+    const item = this.queue.find(i => i.hash === hash)
+    if (!item) {
+      throw new MutexError(ERROR.MUTEX_WATCHDOG_REJECTION, `Item no longer exists`, undefined, { hash })
+    }
+    if (phase) {
+      if (!item.reportedPhases) {
+        item.reportedPhases = []
+      }
+      item.reportedPhases.push({ phase, codeStack, args })
+    }
+    if (item.status === WATCHDOG_STATUS.TIMEOUTED) {
+      throw new MutexError(ERROR.MUTEX_WATCHDOG_REJECTION, `Mutex scope was rejected by watchdog on phase ${phase}`, this.getLockInfo(hash), {
+        args: args,
+      })
+    }
   }
 
   /**
@@ -142,7 +155,15 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
     if (item.reject) {
       item.reject(new MutexError(ERROR.MUTEX_LOCK_TIMEOUT, `Lock timeout`, this.getLockInfo(item.hash)))
     }
-    this.options.timeoutHandler(item)
+    if (item) {
+      item.status = WATCHDOG_STATUS.TIMEOUTED as LockStatus
+    }
+
+    if (!this.options.timeoutHandler) {
+      MutexSynchronizer.timeoutHandler(item)
+    } else {
+      this.options.timeoutHandler(item)
+    }
     this.unlock(hash)
   }
 

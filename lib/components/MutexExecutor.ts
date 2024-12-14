@@ -127,6 +127,17 @@ export class MutexExecutor {
   }
 
   /**
+   * Watchdog for current scope
+   */
+  async watchdog(phase?: string, args?: any) {
+    const stack = [...(MutexExecutor.stackStorage.getStore() || [])]
+    const currentScope = stack[stack.length - 1]
+    if (currentScope?.hash) {
+      await this.synchronizer.watchdog(currentScope.hash, phase, args, getStack())
+    }
+  }
+
+  /**
    * Lock key
    * @param key
    */

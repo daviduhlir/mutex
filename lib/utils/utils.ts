@@ -113,25 +113,27 @@ export function prettyPrintError(e: MutexError) {
 
 export function getLockInfo(queue: LocalLockItem[], hash: string) {
   const item = queue.find(i => i.hash === hash)
+  if (!item) {
+    return null
+  }
   const blockedBy = queue
     .filter(l => l.isRunning && keysRelatedMatch(l.key, item.key))
     .filter(l => l.hash !== hash)
     .map(item => sanitizeLock(item))
-  if (item) {
-    return {
-      singleAccess: item.singleAccess,
-      hash: item.hash,
-      key: item.key,
-      isRunning: item.isRunning,
-      codeStack: item.codeStack,
-      blockedBy,
-      reportedPhases: item.reportedPhases,
-      tree: item.tree ? item.tree.map(l => getLockInfo(queue, l)) : undefined,
-      parents: item.parents ? item.parents.map(l => getLockInfo(queue, l)) : undefined,
-      timing: {
-        locked: item.timing.locked,
-        opened: item.timing.opened,
-      },
-    }
+
+  return {
+    singleAccess: item.singleAccess,
+    hash: item.hash,
+    key: item.key,
+    isRunning: item.isRunning,
+    codeStack: item.codeStack,
+    blockedBy,
+    reportedPhases: item.reportedPhases,
+    tree: item.tree ? item.tree.map(l => getLockInfo(queue, l)) : undefined,
+    parents: item.parents ? item.parents.map(l => getLockInfo(queue, l)) : undefined,
+    timing: {
+      locked: item.timing.locked,
+      opened: item.timing.opened,
+    },
   }
 }

@@ -1,5 +1,5 @@
 import { assert } from 'chai'
-import { Mutex } from '../dist'
+import { SharedMutex } from '../dist'
 import { RWSimulator, delay, flatten } from './utils'
 
 //SharedMutexSynchronizer.debugWithStack = true
@@ -10,13 +10,13 @@ describe('Basic lock tests', function() {
   it('Single access', async function() {
     const rwSimulator = new RWSimulator()
     const result = await Promise.all([
-      Mutex.lockSingleAccess('mutex', async () => {
+      SharedMutex.lockSingleAccess('mutex', async () => {
         const handler = rwSimulator.write()
         await delay(10)
         handler.stop()
         return true
       }),
-      Mutex.lockSingleAccess('mutex', async () => {
+      SharedMutex.lockSingleAccess('mutex', async () => {
         const handler = rwSimulator.write()
         await delay(10)
         handler.stop()
@@ -30,20 +30,20 @@ describe('Basic lock tests', function() {
     const rwSimulator = new RWSimulator()
     const result = await Promise.all([
       Promise.all([
-        Mutex.lockMultiAccess('mutex', async () => {
+        SharedMutex.lockMultiAccess('mutex', async () => {
           const handler = rwSimulator.read()
           await delay(10)
           handler.stop()
           return true
         }),
-        Mutex.lockMultiAccess('mutex', async () => {
+        SharedMutex.lockMultiAccess('mutex', async () => {
           const handler = rwSimulator.read()
           await delay(10)
           handler.stop()
           return true
         }),
       ]),
-      Mutex.lockSingleAccess('mutex', async () => {
+      SharedMutex.lockSingleAccess('mutex', async () => {
         const handler = rwSimulator.write()
         await delay(10)
         handler.stop()

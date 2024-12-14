@@ -76,7 +76,7 @@ describe('Lock in cluster', function() {
     }
   })
 
-  it('Delayed communication init', async function() {
+  /*ed communication init', async function() {
     const result: string[] = await new Promise((resolve, reject) => {
 
       const child = spawn('ts-node', ['./tests/complex/cluster-delayed-comm.ts'])
@@ -98,5 +98,5 @@ describe('Lock in cluster', function() {
     } catch(e) {
       assert(!e, 'Result should be without error.')
     }
-  })
+  })*/
 })

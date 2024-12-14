@@ -34,7 +34,7 @@ export interface MutexSynchronizerOptions {
 export class MutexSynchronizer {
   protected queue: LocalLockItem[] = []
 
-  constructor(readonly options: MutexSynchronizerOptions = {}) {}
+  constructor(public options: MutexSynchronizerOptions = {}) {}
 
   /**
    * Lock mutex

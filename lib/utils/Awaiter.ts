@@ -8,21 +8,21 @@ export class Awaiter<T = any> {
   protected resolver: (result: T) => any
   protected rejector: (error: Error) => any
 
-  constructor(timeout?: number) {
+  constructor(timeout?: number, customTimeout?: () => Error) {
     this.promise = new Promise((resolve, reject) => {
       this.resolver = resolve
       this.rejector = reject
     })
-    this.watchdog(timeout)
+    this.watchdog(timeout, customTimeout)
   }
 
   /**
    * Starts watchdog
    */
-  public watchdog(timeout?: number) {
+  public watchdog(timeout?: number, customTimeout?: () => Error) {
     clearTimeout(this.timeoutHandler)
     if (timeout) {
-      this.timeoutHandler = setTimeout(() => this.reject(new Error(`Awaiter rejected after timeout`)))
+      this.timeoutHandler = setTimeout(() => this.reject(customTimeout ? customTimeout() : new Error(`Awaiter rejected after timeout`)), timeout)
     }
   }
 

@@ -25,7 +25,16 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
   protected masterSynchronizer: LocalMutexSynchronizer
 
   // worker verify awaiter
-  protected verifyAwaiter = new Awaiter(5000)
+  protected verifyAwaiter = cluster.isWorker
+    ? new Awaiter(
+        1000,
+        () =>
+          new MutexError(
+            ERROR.MUTEX_MASTER_NOT_INITIALIZED,
+            'Master process has not initialized mutex synchronizer. usually by missing call of SharedMutex.initialize() in master process.',
+          ),
+      )
+    : null
 
   /**
    * Construct with options
@@ -78,7 +87,7 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
    * Handle master incomming message
    * @param message
    */
-  protected async handleMasterIncomingMessage(message: any, worker?: any) {
+  protected async handleMasterIncomingMessage(worker: any, message: any) {
     if (message.id) {
       if (message.action === ACTION.LOCK) {
         const result = await SharedMutexSynchronizer.executeMethod(() => this.lock(message.lock, message.codeStack))
@@ -122,6 +131,7 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
     if (message.id) {
       const item = this.messageQueue.find(item => item.id === message.id)
       if (item) {
+        this.messageQueue = this.messageQueue.filter(item => item.id !== message.id)
         if (message.error) {
           if (message.error.key) {
             item.reject(new MutexError(message.error.key, message.error.message, message.error.lock, message.error.details))
@@ -143,16 +153,17 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
       // attach events from master
       process.on('message', (message: any) => {
         if (message.__mutexMessage__ && message.__mutexIdentifier__ === this.identifier) {
-          this.messageQueue = this.messageQueue.filter(item => item.id !== message.id)
           this.handlerWorkerIncomingMessage(message)
         }
       })
 
-      const verifyResult = await this.sendProcessMessage<{ version: string }>({
+      const verifyResult = await this.sendProcessMessage<{ version: string; options: MutexSynchronizerOptions }>({
         action: ACTION.VERIFY,
         version,
       })
       if (verifyResult.version === version) {
+        // TODO check cross settings
+        this.options = verifyResult.options
         this.verifyAwaiter.resolve()
       } else {
         this.verifyAwaiter.reject(
@@ -189,12 +200,16 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
         reject,
       })
     })
-    process?.send?.({
-      __mutexMessage__: true,
-      __mutexIdentifier__: this.identifier,
-      id,
-      ...message,
-    })
+    if (process?.send) {
+      process.send({
+        __mutexMessage__: true,
+        __mutexIdentifier__: this.identifier,
+        id,
+        ...message,
+      })
+    } else {
+      throw new Error(`Process send is not defined, probably not running in cluster`)
+    }
     return waiter
   }
 

@@ -4,7 +4,6 @@ import { delay } from '../utils'
 
 ;(async function () {
   if (!cluster.isWorker) {
-    SharedMutex.initialize()
     for(let index = 0; index < 5; index++) {
       cluster.fork({ index })
         .on('exit', (e) => {

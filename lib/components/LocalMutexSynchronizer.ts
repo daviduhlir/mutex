@@ -22,7 +22,7 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
   /**
    * Construct with options
    */
-  constructor(readonly options: MutexSynchronizerOptions = {}) {
+  constructor(options: MutexSynchronizerOptions = {}) {
     super(options)
     if (!options.timeoutHandler) {
       options.timeoutHandler = LocalMutexSynchronizer.timeoutHandler

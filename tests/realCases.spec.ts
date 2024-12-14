@@ -1,5 +1,4 @@
-import { assert } from 'chai'
-import { DebugGuard, SharedMutex, SharedMutexSynchronizer } from '../dist'
+import { SharedMutex } from '../dist'
 import { delay } from './utils'
 
 /**

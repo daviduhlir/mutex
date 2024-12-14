@@ -103,6 +103,13 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
           },
           error: null,
         })
+      } else {
+        this.sendMasterMessage(worker, {
+          id: message.id,
+          error: {
+            message: `Method ${message.action} is not implemented`
+          },
+        })
       }
     }
   }

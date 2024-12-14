@@ -1,7 +1,7 @@
 import cluster from '../utils/cluster'
 import { LocalLockItem } from '../utils/interfaces'
-import { LocalMutexSynchronizer, MutexSynchronizerOptions } from './LocalMutexSynchronizer'
-import { MutexSynchronizer } from './MutexSynchronizer'
+import { LocalMutexSynchronizer } from './LocalMutexSynchronizer'
+import { MutexSynchronizer, MutexSynchronizerOptions } from './MutexSynchronizer'
 
 /**********************************
  *
@@ -14,7 +14,7 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
    * Construct with options
    */
   constructor(readonly identifier: string, readonly options: MutexSynchronizerOptions = {}) {
-    super()
+    super(options)
     this.initialize()
   }
 

@@ -3,22 +3,7 @@ import { sanitizeLock, getLockInfo } from '../utils/utils'
 import { Algorythms } from '../algorythms'
 import { MutexError } from '../utils/MutexError'
 import { ERROR } from '../utils/constants'
-import { MutexSynchronizer } from './MutexSynchronizer'
-
-export interface MutexSynchronizerOptions {
-  /**
-   * Detect dead ends
-   */
-  debugDeadEnds?: boolean
-
-  /**
-   * Timeout handler, for handling if lock was freezed for too long time
-   * You can set this handler to your own, to make decision what to do in this case
-   * You can use methods like getLockInfo or resetLockTimeout to get info and deal with this situation
-   * Default behaviour is to log it, if it's on master, it will throws error. If it's fork, it will kill it.
-   */
-  timeoutHandler?: (item: LocalLockItem) => void
-}
+import { MutexSynchronizer, MutexSynchronizerOptions } from './MutexSynchronizer'
 
 /**********************************
  *
@@ -40,7 +25,7 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
    * Construct with options
    */
   constructor(readonly options: MutexSynchronizerOptions = {}) {
-    super()
+    super(options)
     if (!options.timeoutHandler) {
       options.timeoutHandler = LocalMutexSynchronizer.timeoutHandler
     }

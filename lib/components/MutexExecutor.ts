@@ -42,7 +42,7 @@ export class MutexExecutor {
    * @param fnc
    */
   async lockSingleAccess<T>(key: LockKey, handler: () => Promise<T>, maxLockingTime?: number, codeStack?: string): Promise<T> {
-    if (!codeStack) {
+    if (!codeStack && this.synchronizer.options.debugWithStack) {
       codeStack = getStack()
     }
     return this.lockAccess(key, handler, true, maxLockingTime, codeStack)
@@ -54,7 +54,7 @@ export class MutexExecutor {
    * @param fnc
    */
   async lockMultiAccess<T>(key: LockKey, handler: () => Promise<T>, maxLockingTime?: number, codeStack?: string): Promise<T> {
-    if (!codeStack) {
+    if (!codeStack && this.synchronizer.options.debugWithStack) {
       codeStack = getStack()
     }
     return this.lockAccess(key, handler, false, maxLockingTime, codeStack)
@@ -66,7 +66,7 @@ export class MutexExecutor {
    * @param fnc
    */
   async lockAccess<T>(key: LockKey, handler: () => Promise<T>, singleAccess?: boolean, maxLockingTime?: number, codeStack?: string): Promise<T> {
-    if (!codeStack) {
+    if (!codeStack && this.synchronizer.options.debugWithStack) {
       codeStack = getStack()
     }
 
@@ -122,7 +122,7 @@ export class MutexExecutor {
    * @param key
    */
   protected async lock(key: LockKey, itemData: Omit<LocalLockItem, 'key'>, codeStack?: string): Promise<SharedMutexUnlockHandler> {
-    if (!codeStack) {
+    if (!codeStack && this.synchronizer.options.debugWithStack) {
       codeStack = getStack()
     }
 

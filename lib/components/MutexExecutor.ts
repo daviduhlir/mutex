@@ -89,7 +89,7 @@ export class MutexExecutor {
       {
         hash,
         singleAccess,
-        maxLockingTime,
+        maxLockingTime: typeof maxLockingTime === 'number' ? maxLockingTime : this.synchronizer.options.defaultMaxLockingTime,
         parents: nestedInRelatedItems.map(i => i.hash),
         tree: stack.map(i => i.hash),
       },

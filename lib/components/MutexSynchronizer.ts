@@ -18,6 +18,11 @@ export interface MutexSynchronizerOptions {
   debugWithStack?: boolean
 
   /**
+   * Default max locking time
+   */
+  defaultMaxLockingTime?: number
+
+  /**
    * Timeout handler, for handling if lock was freezed for too long time
    * You can set this handler to your own, to make decision what to do in this case
    * You can use methods like getLockInfo or resetLockTimeout to get info and deal with this situation

@@ -30,7 +30,7 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
   /**
    * Construct with options
    */
-  constructor(options: MutexSynchronizerOptions = {}, readonly identifier: string) {
+  constructor(options: MutexSynchronizerOptions = {}, readonly identifier?: string) {
     super(options)
     this.initialize()
   }
@@ -107,7 +107,7 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
         this.sendMasterMessage(worker, {
           id: message.id,
           error: {
-            message: `Method ${message.action} is not implemented`
+            message: `Method ${message.action} is not implemented`,
           },
         })
       }

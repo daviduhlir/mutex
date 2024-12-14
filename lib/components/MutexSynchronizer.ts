@@ -5,7 +5,7 @@ import { MutexError } from '../utils/MutexError'
 
 /**********************************
  *
- * Shared Mutex synchronizer
+ * Mutex synchronizer
  *
  ***********************************/
 
@@ -36,6 +36,14 @@ export interface MutexSynchronizerOptions {
 
 export class MutexSynchronizer {
   constructor(public options: MutexSynchronizerOptions = {}) {}
+
+  /**
+   * Get count of locks currently
+   * @returns
+   */
+  public getLocksCount(): number {
+    throw new Error('override it')
+  }
 
   /**
    * Lock mutex

@@ -1,13 +1,18 @@
 import { expect } from 'chai'
-import { SharedMutex, SharedMutexSynchronizer } from '../dist'
+import { SharedMutex } from '../dist'
 import { delay } from './utils'
 
 /**
  * Simple locks test
  */
 describe('Debug test', function() {
+  before(function() {
+    SharedMutex.setOptions({
+      debugDeadEnds: true
+    })
+  })
+
   it('Dead end detection', async function() {
-    SharedMutexSynchronizer.debugDeadEnds = true
     async function tt() {
       await SharedMutex.lockMultiAccess('root', async () => {
         await SharedMutex.lockSingleAccess('root', async () => {
@@ -27,10 +32,6 @@ describe('Debug test', function() {
   })
 
   it('Dead end detection #2', async function() {
-    SharedMutexSynchronizer.debugDeadEnds = true
-    await SharedMutex.initialize({
-      continueOnTimeout: true
-    })
     try {
       await Promise.all([
         SharedMutex.lockMultiAccess('root', async () => {
@@ -49,14 +50,9 @@ describe('Debug test', function() {
     } catch(e) {
       expect(e.message).to.equal('MUTEX_NOTIFIED_EXCEPTION: Dead end detected, this combination will never be unlocked. See the documentation.')
     }
-
-    await SharedMutex.initialize({
-      continueOnTimeout: false
-    })
   })
 
   it('Dead end detection #3', async function() {
-    SharedMutexSynchronizer.debugDeadEnds = true
     try {
       await Promise.all([
         (async () => {
@@ -80,7 +76,6 @@ describe('Debug test', function() {
   })
 
   it('Dead end detection #4', async function() {
-    SharedMutexSynchronizer.debugDeadEnds = true
     try {
       await Promise.all([
         (async () => {

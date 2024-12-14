@@ -1,5 +1,5 @@
 import { assert } from 'chai'
-import { SharedMutex, SharedMutexSynchronizer } from '../dist'
+import { LocalMutexSynchronizer, SharedMutex } from '../dist'
 import { delay } from './utils'
 
 /**
@@ -8,7 +8,7 @@ import { delay } from './utils'
 describe('Leaks test', function() {
 
   it('Test scopes and count whats left', async function() {
-    const before = SharedMutexSynchronizer.getLocksCount()
+    const before = (SharedMutex.synchronizer as LocalMutexSynchronizer).getLocksCount()
 
     await Promise.all(
       new Array(2).fill(null).map(() =>
@@ -24,7 +24,7 @@ describe('Leaks test', function() {
       )
     ))
 
-    const after = SharedMutexSynchronizer.getLocksCount()
+    const after = (SharedMutex.synchronizer as LocalMutexSynchronizer).getLocksCount()
 
     assert(before === after && before === 0, 'Locks count before and after test should be 0')
   })

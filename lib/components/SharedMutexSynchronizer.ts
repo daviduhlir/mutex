@@ -39,9 +39,17 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
   /**
    * Construct with options
    */
-  constructor(options: MutexSynchronizerOptions = {}, readonly identifier?: string) {
-    super(options)
+  constructor(public options: MutexSynchronizerOptions = {}, readonly identifier?: string) {
+    super()
     this.initialize()
+  }
+
+  /**
+   * Get count of locks currently
+   * @returns
+   */
+  public getLocksCount(): number {
+    return this.masterSynchronizer.getLocksCount()
   }
 
   /**
@@ -113,6 +121,7 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
    * Set options
    */
   public setOptions(options: MutexSynchronizerOptions) {
+    this.options = options
     this.masterSynchronizer.setOptions(options)
   }
 
@@ -214,7 +223,8 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
         )
       }
     } else {
-      this.masterSynchronizer = new LocalMutexSynchronizer(this.options)
+      this.masterSynchronizer = new LocalMutexSynchronizer()
+      this.masterSynchronizer.setOptions(this.options)
       // attach events from cluster
       cluster.on('exit', worker => this.workerUnlockForced(worker.id))
       cluster.on('message', (worker, message: any) => {

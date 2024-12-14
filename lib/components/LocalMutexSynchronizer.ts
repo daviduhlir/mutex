@@ -3,7 +3,7 @@ import { getLockInfo, sanitizeLock } from '../utils/utils'
 import { Algorythms } from '../algorythms'
 import { MutexError } from '../utils/MutexError'
 import { ERROR, WATCHDOG_STATUS } from '../utils/constants'
-import { MutexSynchronizer } from './MutexSynchronizer'
+import { MutexSynchronizer, MutexSynchronizerOptions } from './MutexSynchronizer'
 
 /**********************************
  *
@@ -13,11 +13,15 @@ import { MutexSynchronizer } from './MutexSynchronizer'
 export class LocalMutexSynchronizer extends MutexSynchronizer {
   protected queue: LocalLockItem[] = []
 
+  constructor(public options: MutexSynchronizerOptions = {}) {
+    super(options)
+  }
+
   /**
    * Get count of locks currently
    * @returns
    */
-  getLocksCount(): number {
+  public getLocksCount(): number {
     return this.queue.length
   }
 

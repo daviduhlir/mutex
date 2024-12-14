@@ -16,6 +16,7 @@ export interface SharedMutexUnlockHandler {
  * that will be unlocked in another fork.
  */
 export class MutexExecutor {
+  private id = randomHash()
   constructor(readonly synchronizer: MutexSynchronizer) {}
 
   /**
@@ -26,11 +27,12 @@ export class MutexExecutor {
   /**
    * storage of data for nested keys
    */
-  protected stackStorage = new AsyncLocalStorage<
+  protected static stackStorage = new AsyncLocalStorage<
     {
       hash: string
       key: string
       singleAccess: boolean
+      id: string
     }[]
   >()
 
@@ -74,11 +76,12 @@ export class MutexExecutor {
       hash,
       key: parseLockKey(key),
       singleAccess,
+      id: this.id,
     }
 
     // detect of nested locks as death ends!
-    const stack = [...(this.stackStorage.getStore() || [])]
-    const nestedInRelatedItems = stack.filter(i => keysRelatedMatch(myStackItem.key, i.key))
+    const stack = [...(MutexExecutor.stackStorage.getStore() || [])]
+    const nestedInRelatedItems = stack.filter(i => keysRelatedMatch(myStackItem.key, i.key) && i.id === this.id)
 
     // lock all sub keys
     let m = await this.lock(
@@ -102,7 +105,7 @@ export class MutexExecutor {
     // run function
     let result
     try {
-      result = await this.stackStorage.run([...stack, myStackItem], handler)
+      result = await MutexExecutor.stackStorage.run([...stack, myStackItem], handler)
     } catch (e) {
       // unlock all keys
       unlocker()

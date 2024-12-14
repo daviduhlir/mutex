@@ -7,11 +7,6 @@ import { MutexSynchronizer } from './MutexSynchronizer'
 
 export interface MutexSynchronizerOptions {
   /**
-   * Report debug info with stack
-   */
-  debugWithStack?: boolean
-
-  /**
    * Detect dead ends
    */
   debugDeadEnds?: boolean

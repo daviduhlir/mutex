@@ -2,7 +2,7 @@ import { keysRelatedMatch, parseLockKey, randomHash } from '../utils/utils'
 import { LocalLockItem, LockKey } from '../utils/interfaces'
 import AsyncLocalStorage from './AsyncLocalStorage'
 import { getStack } from '../utils/stack'
-import { MutexSynchronizer } from './MutexSynchronizer'
+import { MutexSynchronizer, MutexSynchronizerOptions } from './MutexSynchronizer'
 import cluster from '../utils/cluster'
 
 /**
@@ -117,6 +117,13 @@ export class MutexExecutor {
     unlocker()
 
     return result
+  }
+
+  /**
+   * Set options
+   */
+  public setOptions(options: MutexSynchronizerOptions) {
+    this.synchronizer?.setOptions?.(options)
   }
 
   /**

@@ -58,4 +58,11 @@ export class MutexSynchronizer {
   public unlockForced(filter: (lock: LocalLockItem) => boolean) {
     this.queue.filter(filter).forEach(i => this.unlock(i.hash))
   }
+
+  /**
+   * Set options
+   */
+  public setOptions(options: MutexSynchronizerOptions) {
+    this.options = options
+  }
 }

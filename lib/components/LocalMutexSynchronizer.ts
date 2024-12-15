@@ -11,19 +11,6 @@ import { MutexSynchronizer, MutexSynchronizerOptions } from './MutexSynchronizer
  *
  ***********************************/
 export class LocalMutexSynchronizer extends MutexSynchronizer {
-  protected queue: LocalLockItem[] = []
-  protected hashLockWaiters: {
-    [hash: string]: {
-      lockReject?: (err) => void
-      lockResolve?: () => void
-    }
-  } = {}
-  protected hashLockRejectors: {
-    [hash: string]: {
-      scopeReject?: (err) => void
-    }
-  } = {}
-
   constructor(
     public options: MutexSynchronizerOptions = {},
     readonly scopesRejector?: (item: LocalLockItem, reason: string, message: string) => void,
@@ -162,13 +149,32 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
     return Object.keys(this.hashLockRejectors).length === 0 && Object.keys(this.hashLockWaiters).length === 0 && this.queue.length === 0
   }
 
+  /************************************
+   *
+   * Internal methods
+   *
+   ************************************/
+
+  protected queue: LocalLockItem[] = []
+  protected hashLockWaiters: {
+    [hash: string]: {
+      lockReject?: (err) => void
+      lockResolve?: () => void
+    }
+  } = {}
+  protected hashLockRejectors: {
+    [hash: string]: {
+      scopeReject?: (err) => void
+    }
+  } = {}
+
   /**
    * Tick of mutex run, it will continue next mutex(es) in queue
    */
   protected mutexTickNext() {
     const changes: string[] = []
 
-    Algorythms.solveGroup(
+    ;(this.options.algorythm ? this.options.algorythm : Algorythms.simpleQueueSolve)(
       [...this.queue],
       changes,
       this.options.debugDeadEnds

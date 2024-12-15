@@ -14,33 +14,6 @@ import { Awaiter } from '../utils/Awaiter'
  *
  ***********************************/
 export class SharedMutexSynchronizer extends MutexSynchronizer {
-  // waiting messages
-  protected messageQueue: {
-    id: string
-    resolve: (result: any) => void
-    reject: (err: Error) => void
-  }[] = []
-  protected hashLockRejectors: {
-    [hash: string]: {
-      scopeReject?: (err) => void
-    }
-  } = {}
-
-  // synchronizer
-  protected masterSynchronizer: LocalMutexSynchronizer
-
-  // worker verify awaiter
-  protected verifyAwaiter = cluster.isWorker
-    ? new Awaiter(
-        1000,
-        () =>
-          new MutexError(
-            ERROR.MUTEX_MASTER_NOT_INITIALIZED,
-            'Master process has not initialized mutex synchronizer. usually by missing call of SharedMutex.initialize() in master process.',
-          ),
-      )
-    : null
-
   /**
    * Construct with options
    */
@@ -166,6 +139,39 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
     this.options = options
     this.masterSynchronizer.setOptions(options)
   }
+
+  /************************************
+   *
+   * Internal methods
+   *
+   ************************************/
+
+  // waiting messages
+  protected messageQueue: {
+    id: string
+    resolve: (result: any) => void
+    reject: (err: Error) => void
+  }[] = []
+  protected hashLockRejectors: {
+    [hash: string]: {
+      scopeReject?: (err) => void
+    }
+  } = {}
+
+  // synchronizer
+  protected masterSynchronizer: LocalMutexSynchronizer
+
+  // worker verify awaiter
+  protected verifyAwaiter = cluster.isWorker
+    ? new Awaiter(
+        1000,
+        () =>
+          new MutexError(
+            ERROR.MUTEX_MASTER_NOT_INITIALIZED,
+            'Master process has not initialized mutex synchronizer. usually by missing call of SharedMutex.initialize() in master process.',
+          ),
+      )
+    : null
 
   /**
    * Forced unlock of worker

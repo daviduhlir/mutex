@@ -129,7 +129,7 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
    * Is this clear?
    */
   isClear(): boolean {
-    return this.masterSynchronizer.isClear() && Object.keys(this.hashLockRejectors).length === 0 && Object.keys(this.messageQueue).length === 0
+    return (this.masterSynchronizer ? this.masterSynchronizer.isClear() : true) && Object.keys(this.hashLockRejectors).length === 0 && Object.keys(this.messageQueue).length === 0
   }
 
   /**
@@ -137,7 +137,9 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
    */
   setOptions(options: MutexSynchronizerOptions) {
     this.options = options
-    this.masterSynchronizer.setOptions(options)
+    if (this.masterSynchronizer) {
+      this.masterSynchronizer.setOptions(options)
+    }
   }
 
   /************************************
@@ -272,7 +274,7 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
       })
       if (verifyResult.version === version) {
         // TODO check cross settings
-        this.options = verifyResult.options
+        this.setOptions(verifyResult.options)
         this.verifyAwaiter.resolve()
       } else {
         this.verifyAwaiter.reject(

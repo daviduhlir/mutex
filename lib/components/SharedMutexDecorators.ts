@@ -1,4 +1,4 @@
-//import { SharedMutex } from '../MutexProcessor'
+import { SharedMutex } from '../index'
 import { LockKey } from '../utils/interfaces'
 
 /**
@@ -12,7 +12,7 @@ export class SharedMutexDecorators {
    * @param maxLockingTime
    */
   static lockSingleAccess(key: LockKey, maxLockingTime?: number) {
-    //return SharedMutexDecorators.lockAccess(key, true, maxLockingTime)
+    return SharedMutexDecorators.lockAccess(key, true, maxLockingTime)
   }
 
   /**
@@ -22,7 +22,7 @@ export class SharedMutexDecorators {
    * @param maxLockingTime
    */
   static lockMultiAccess(key: LockKey, maxLockingTime?: number) {
-    //return SharedMutexDecorators.lockAccess(key, false, maxLockingTime)
+    return SharedMutexDecorators.lockAccess(key, false, maxLockingTime)
   }
 
   /**
@@ -36,7 +36,7 @@ export class SharedMutexDecorators {
       if (typeof descriptor.value === 'function') {
         const original = descriptor.value
         descriptor.value = function (...args) {
-          //return SharedMutex.lockAccess(key, () => original(...args), singleAccess, maxLockingTime)
+          return SharedMutex.lockAccess(key, () => original(...args), singleAccess, maxLockingTime)
         }
       }
       return descriptor

@@ -10,6 +10,7 @@ describe('Watchdog tests', function() {
     let receivedLockInfo
 
     SharedMutex.setOptions({
+      continueOnTimeout: true,
       timeoutHandler: (item) => {
         receivedLockInfo = item
       }

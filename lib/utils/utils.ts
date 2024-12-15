@@ -131,6 +131,7 @@ export function getLockInfo(queue: LocalLockItem[], hash: string) {
     reportedPhases: item.reportedPhases,
     tree: item.tree ? item.tree.map(l => getLockInfo(queue, l)) : undefined,
     parents: item.parents ? item.parents.map(l => getLockInfo(queue, l)) : undefined,
+    workerId: item.workerId,
     timing: {
       locked: item.timing.locked,
       opened: item.timing.opened,

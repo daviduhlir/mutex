@@ -12,6 +12,10 @@ import { MutexSynchronizer, MutexSynchronizerOptions } from './MutexSynchronizer
  ***********************************/
 export class LocalMutexSynchronizer extends MutexSynchronizer {
   protected queue: LocalLockItem[] = []
+  protected hashLockWaiters: {[hash: string]: {
+    lockReject?: (err) => void
+    lockResolve?: () => void
+  }} = {}
 
   constructor(public options: MutexSynchronizerOptions = {}) {
     super(options)
@@ -39,22 +43,31 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
     }
 
     const waiter = new Promise((resolve, reject) => {
-      nItem.reject = reject
-      nItem.resolve = resolve as () => void
+      this.hashLockWaiters[nItem.hash].lockReject = reject
+      this.hashLockWaiters[nItem.hash].lockResolve = resolve as () => void
     })
 
     // next tick... unlock something, if waiting
     this.mutexTickNext()
 
     // await for continue
-    await waiter
+    let error
+    try {
+      await waiter
+    } catch(e) {
+      error = e
+    }
+    delete this.hashLockWaiters[nItem.hash]
+    if (error) {
+      throw error
+    }
   }
 
   /**
    * Unlock handler
    * @param key
    */
-  public unlock(hash?: string, codeStack?: string) {
+  public unlock(hash: string, codeStack?: string) {
     const f = this.queue.find(foundItem => foundItem.hash === hash)
     if (!f) {
       return
@@ -90,6 +103,13 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
   }
 
   /**
+   * Get lock item
+   */
+  public getLockItem(hash: string): LocalLockItem {
+    return this.queue.find(i => i.hash === hash)
+  }
+
+  /**
    * Watchdog with phase report
    */
   public async watchdog(hash: string, phase?: string, args?: any, codeStack?: string) {
@@ -121,9 +141,18 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
       changes,
       this.options.debugDeadEnds
         ? (lock, inCollisionHashes) => {
-            this.sendException(lock, 'Dead end detected, this combination will never be unlocked. See the documentation.', {
-              inCollision: inCollisionHashes.map(hash => sanitizeLock(this.getLockInfo(hash))),
-            })
+            if (this.hashLockWaiters[lock.hash]?.lockReject) {
+              this.hashLockWaiters[lock.hash].lockReject(
+                new MutexError(
+                  ERROR.MUTEX_NOTIFIED_EXCEPTION,
+                  'Dead end detected, this combination will never be unlocked. See the documentation.',
+                  this.getLockInfo(lock.hash),
+                  {
+                    inCollision: inCollisionHashes.map(hash => sanitizeLock(this.getLockInfo(hash))),
+                  },
+                ),
+              )
+            }
           }
         : null,
     )
@@ -145,10 +174,10 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
     item.isRunning = true
     item.timing.opened = Date.now()
     // emit it
-    if (!item.resolve) {
+    if (!this.hashLockWaiters[item.hash].lockResolve) {
       throw new Error(`MUTEX item ${item.hash} resolver is not set`)
     }
-    item.resolve()
+    this.hashLockWaiters[item.hash].lockResolve()
   }
 
   /**
@@ -156,9 +185,10 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
    */
   protected lockTimeout = (hash: string) => {
     const item = this.queue.find(i => i.hash === hash)
-    if (item.reject) {
-      item.reject(new MutexError(ERROR.MUTEX_LOCK_TIMEOUT, `Lock timeout`, this.getLockInfo(item.hash)))
+    if (this.hashLockWaiters[item.hash].lockReject) {
+      this.hashLockWaiters[item.hash].lockReject(new MutexError(ERROR.MUTEX_LOCK_TIMEOUT, `Lock timeout`, this.getLockInfo(item.hash)))
     }
+    // TODO this.sendException(hash, , `Lock timeout`, this.getLockInfo(item.hash))
     if (item) {
       item.status = WATCHDOG_STATUS.TIMEOUTED as LockStatus
     }
@@ -168,15 +198,7 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
     } else {
       this.options.timeoutHandler(item)
     }
-    this.unlock(hash)
-  }
 
-  /**
-   * Broadcast exception
-   */
-  protected sendException = (item: LocalLockItem, message: string, details?: any) => {
-    if (item.reject) {
-      item.reject(new MutexError(ERROR.MUTEX_NOTIFIED_EXCEPTION, message, this.getLockInfo(item.hash), details))
-    }
+    this.unlock(hash)
   }
 }

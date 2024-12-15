@@ -3,8 +3,8 @@ export const ACTION = {
   UNLOCK: 'unlock',
   VERIFY: 'verify',
   CONTINUE: 'continue',
-  VERIFY_COMPLETE: 'verify-complete',
   WATCHDOG_REPORT: 'watchdog-report',
+  NOTIFY_EXCEPTION: 'notify-exception',
 }
 
 export const REJECTION_REASON = {

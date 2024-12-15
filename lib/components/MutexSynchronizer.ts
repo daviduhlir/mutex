@@ -26,6 +26,11 @@ export interface MutexSynchronizerOptions {
   defaultMaxLockingTime?: number
 
   /**
+   * Rejects scope in timeout, error will be thrown
+   */
+  continueOnTimeout?: boolean
+
+  /**
    * Timeout handler, for handling if lock was freezed for too long time
    * You can set this handler to your own, to make decision what to do in this case
    * You can use methods like getLockInfo or resetLockTimeout to get info and deal with this situation
@@ -34,55 +39,48 @@ export interface MutexSynchronizerOptions {
   timeoutHandler?: (item: LocalLockItem) => void
 }
 
-export class MutexSynchronizer {
+export abstract class MutexSynchronizer {
   constructor(public options: MutexSynchronizerOptions = {}) {}
 
   /**
    * Get count of locks currently
    * @returns
    */
-  public getLocksCount(): number {
-    throw new Error('override it')
-  }
+  abstract getLocksCount(): number
 
   /**
    * Lock mutex
    */
-  public async lock(lock: LocalLockItem, codeStack?: string) {
-    throw new Error('override it')
-  }
+  abstract lock(lock: LocalLockItem, codeStack?: string): Promise<void>
 
   /**
    * Unlock handler
    * @param key
    */
-  public unlock(hash?: string, codeStack?: string) {
-    throw new Error('override it')
-  }
+  abstract unlock(hash?: string, codeStack?: string)
 
   /**
    * Forced unlock of worker
    * @param id
    */
-  public unlockForced(filter: (lock: LocalLockItem) => boolean) {
-    throw new Error('override it')
-  }
+  abstract unlockForced(filter: (lock: LocalLockItem) => boolean)
 
   /**
    * Get info about lock by hash
    * @param hash
    * @returns
    */
-  public getLockInfo(hash: string): LockItemInfo {
-    throw new Error('override it')
-  }
+  abstract getLockInfo(hash: string): LockItemInfo
 
   /**
    * Watchdog with phase report
    */
-  public async watchdog(hash: string, phase?: string, args?: any, codeStack?: string) {
-    throw new Error('override it')
-  }
+  abstract watchdog(hash: string, phase?: string, args?: any, codeStack?: string): Promise<void>
+
+  /**
+   * Get lock item
+   */
+  abstract getLockItem(hash: string): LocalLockItem
 
   /**
    * Set options
@@ -95,7 +93,6 @@ export class MutexSynchronizer {
    * Default handler
    */
   static timeoutHandler(item: LocalLockItem) {
-    console.log('HANDLER CALLED!!!!!!!!!!!!!!!!')
     if (item.workerId && cluster?.workers?.[item.workerId]) {
       console.error(ERROR.MUTEX_LOCK_TIMEOUT, item)
       cluster.workers[item.workerId].kill(9)

@@ -71,7 +71,7 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
    * Unlock handler
    * @param key
    */
-  public async unlock(hash?: string, codeStack?: string) {
+  public async unlock(hash: string, codeStack?: string) {
     if (this.masterSynchronizer) {
       return this.masterSynchronizer.unlock(hash, codeStack)
     }
@@ -84,11 +84,13 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
   }
 
   /**
-   * Forced unlock of worker
-   * @param id
+   * Force unlock all worker hashes
    */
-  protected workerUnlockForced(workerId: number) {
-    this.masterSynchronizer.unlockForced(i => i.workerId === workerId)
+  public unlockForced(filter: (lock: LocalLockItem) => boolean) {
+    if (this.masterSynchronizer) {
+      return this.masterSynchronizer.unlockForced(filter)
+    }
+    throw new Error(`Force unlock of workers is posible from master process only`)
   }
 
   /**
@@ -98,6 +100,13 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
    */
   public getLockInfo(hash: string): LockItemInfo {
     return this.masterSynchronizer.getLockInfo(hash)
+  }
+
+  /**
+   * Get lock item
+   */
+  public getLockItem(hash: string): LocalLockItem {
+    return this.masterSynchronizer.getLockItem(hash)
   }
 
   /**
@@ -123,6 +132,14 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
   public setOptions(options: MutexSynchronizerOptions) {
     this.options = options
     this.masterSynchronizer.setOptions(options)
+  }
+
+  /**
+   * Forced unlock of worker
+   * @param id
+   */
+  protected workerUnlockForced(workerId: number) {
+    this.unlockForced(i => i.workerId === workerId)
   }
 
   /**

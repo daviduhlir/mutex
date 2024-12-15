@@ -45,8 +45,6 @@ export interface LocalLockItem extends LockDescriptor {
     locked?: number
     opened?: number
   }
-  reject?: (err) => void
-  resolve?: () => void
 }
 
 /**

@@ -4,6 +4,9 @@ import AsyncLocalStorage from './AsyncLocalStorage'
 import { getStack } from '../utils/stack'
 import { MutexSynchronizer, MutexSynchronizerOptions } from './MutexSynchronizer'
 import cluster from '../utils/cluster'
+import { Awaiter } from '../utils/Awaiter'
+import { MutexError } from '../utils/MutexError'
+import { ERROR, REJECTION_REASON } from '../utils/constants'
 
 /**
  * Unlock handler
@@ -17,32 +20,17 @@ export interface SharedMutexUnlockHandler {
  * that will be unlocked in another fork.
  */
 export class MutexExecutor {
-  private id = randomHash()
+  /**
+   * Creates with synchronizer
+   */
   constructor(readonly synchronizer: MutexSynchronizer) {}
-
-  /**
-   * Waiting handlers
-   */
-  protected waitingMessagesHandlers: { resolve: (message: any) => void; hash: string; action: string }[] = []
-
-  /**
-   * storage of data for nested keys
-   */
-  protected static stackStorage = new AsyncLocalStorage<
-    {
-      hash: string
-      key: string
-      singleAccess: boolean
-      id: string
-    }[]
-  >()
 
   /**
    * Lock some async method
    * @param keysPath
    * @param fnc
    */
-  async lockSingleAccess<T>(key: LockKey, handler: () => Promise<T>, maxLockingTime?: number, codeStack?: string): Promise<T> {
+  public async lockSingleAccess<T>(key: LockKey, handler: () => Promise<T>, maxLockingTime?: number, codeStack?: string): Promise<T> {
     if (!codeStack && this.synchronizer.options.debugWithStack) {
       codeStack = getStack()
     }
@@ -54,7 +42,7 @@ export class MutexExecutor {
    * @param keysPath
    * @param fnc
    */
-  async lockMultiAccess<T>(key: LockKey, handler: () => Promise<T>, maxLockingTime?: number, codeStack?: string): Promise<T> {
+  public async lockMultiAccess<T>(key: LockKey, handler: () => Promise<T>, maxLockingTime?: number, codeStack?: string): Promise<T> {
     if (!codeStack && this.synchronizer.options.debugWithStack) {
       codeStack = getStack()
     }
@@ -66,13 +54,21 @@ export class MutexExecutor {
    * @param keysPath
    * @param fnc
    */
-  async lockAccess<T>(key: LockKey, handler: () => Promise<T>, singleAccess?: boolean, maxLockingTime?: number, codeStack?: string): Promise<T> {
+  public async lockAccess<T>(
+    key: LockKey,
+    handler: () => Promise<T>,
+    singleAccess?: boolean,
+    maxLockingTime?: number,
+    codeStack?: string,
+  ): Promise<T> {
     if (!codeStack && this.synchronizer.options.debugWithStack) {
       codeStack = getStack()
     }
 
+    // item hash
     const hash = randomHash()
 
+    // item for stack
     const myStackItem = {
       hash,
       key: parseLockKey(key),
@@ -104,18 +100,38 @@ export class MutexExecutor {
       m = null
     }
 
+    // awaiter for result
+    const funcAwaiter = new Awaiter()
+
+    // wait for rejection
+    if (this.synchronizer.options.continueOnTimeout) {
+      /*this.synchronizer.addRejectionCallback(hash, (reason, details) => {
+        if (reason === REJECTION_REASON.TIMEOUT) {
+          funcAwaiter.reject(new MutexError(ERROR.MUTEX_LOCK_TIMEOUT, `Continue rejected by timeout for ${key}.`))
+        }
+      })*/
+    }
+
     // run function
     let result
+    let error
     try {
-      result = await MutexExecutor.stackStorage.run([...stack, myStackItem], handler)
+      MutexExecutor.stackStorage.run([...stack, myStackItem], handler).then(
+        returnedValue => funcAwaiter.resolve(returnedValue),
+        err => funcAwaiter.reject(err),
+      )
+      result = await funcAwaiter.wait()
     } catch (e) {
-      // unlock all keys
-      unlocker()
-      throw e
+      error = e
     }
+
     // unlock all keys
     unlocker()
 
+    // result
+    if (error) {
+      throw error
+    }
     return result
   }
 
@@ -129,13 +145,41 @@ export class MutexExecutor {
   /**
    * Watchdog for current scope
    */
-  async watchdog(phase?: string, args?: any) {
+  public async watchdog(phase?: string, args?: any) {
     const stack = [...(MutexExecutor.stackStorage.getStore() || [])]
     const currentScope = stack[stack.length - 1]
     if (currentScope?.hash) {
       await this.synchronizer.watchdog(currentScope.hash, phase, args, getStack())
     }
   }
+
+  /************************************
+   *
+   * Internal methods
+   *
+   ************************************/
+
+  /**
+   * Storage id
+   */
+  private id = randomHash()
+
+  /**
+   * Waiting handlers
+   */
+  protected waitingMessagesHandlers: { resolve: (message: any) => void; hash: string; action: string }[] = []
+
+  /**
+   * storage of data for nested keys
+   */
+  protected static stackStorage = new AsyncLocalStorage<
+    {
+      hash: string
+      key: string
+      singleAccess: boolean
+      id: string
+    }[]
+  >()
 
   /**
    * Lock key
@@ -166,7 +210,7 @@ export class MutexExecutor {
    * Unlock key
    * @param key
    */
-  unlock(hash: string): void {
+  protected unlock(hash: string): void {
     this.synchronizer.unlock(hash)
   }
 }

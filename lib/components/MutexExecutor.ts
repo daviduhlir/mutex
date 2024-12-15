@@ -105,11 +105,7 @@ export class MutexExecutor {
 
     // wait for rejection
     if (this.synchronizer.options.continueOnTimeout) {
-      /*this.synchronizer.addRejectionCallback(hash, (reason, details) => {
-        if (reason === REJECTION_REASON.TIMEOUT) {
-          funcAwaiter.reject(new MutexError(ERROR.MUTEX_LOCK_TIMEOUT, `Continue rejected by timeout for ${key}.`))
-        }
-      })*/
+      this.synchronizer.setScopeRejector(hash, reason => funcAwaiter.reject(reason))
     }
 
     // run function
@@ -126,6 +122,7 @@ export class MutexExecutor {
     }
 
     // unlock all keys
+    this.synchronizer.removeScopeRejector(hash)
     unlocker()
 
     // result

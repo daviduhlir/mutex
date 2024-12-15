@@ -83,6 +83,17 @@ export abstract class MutexSynchronizer {
   abstract getLockItem(hash: string): LocalLockItem
 
   /**
+   * Set scope rejector
+   */
+  abstract setScopeRejector(hash: string, rejector: (reason) => void)
+  abstract removeScopeRejector(hash: string)
+
+  /**
+   * Check if nothing is opened here
+   */
+  abstract isClear(): boolean
+
+  /**
    * Set options
    */
   public setOptions(options: MutexSynchronizerOptions) {

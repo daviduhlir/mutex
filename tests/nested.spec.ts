@@ -1,18 +1,20 @@
 import { assert, expect } from 'chai'
-import { SharedMutex } from '../dist'
+import { Mutex, SharedMutex } from '../dist'
 import { delay, RWSimulator } from './utils'
+
+let TestedMutex = process.env.class === 'Mutex' ? Mutex : SharedMutex
 
 /**
  * Locks with nested keys test
  */
-describe('Nested locks', function() {
+describe(`Nested locks (${process.env.class})`, function() {
   it('Simple test #1', async function() {
     let marker = ''
 
-    await SharedMutex.lockSingleAccess('root', async () => {
+    await TestedMutex.lockSingleAccess('root', async () => {
       marker += 'A'
       await delay(10)
-      await SharedMutex.lockSingleAccess('root', async () => {
+      await TestedMutex.lockSingleAccess('root', async () => {
         marker += 'B'
         await delay(10)
         marker += 'C'
@@ -30,7 +32,7 @@ describe('Nested locks', function() {
     let e2: any = 'not called'
 
     setTimeout(() => {
-      SharedMutex.lockSingleAccess('root', async () => {
+      TestedMutex.lockSingleAccess('root', async () => {
         try {
           const handler = rwSimulator.write()
           await delay(10)
@@ -42,7 +44,7 @@ describe('Nested locks', function() {
       })
     }, 50)
 
-    await SharedMutex.lockSingleAccess('root', async () => {
+    await TestedMutex.lockSingleAccess('root', async () => {
       try {
         const handler = rwSimulator.write()
         await delay(100)
@@ -60,10 +62,10 @@ describe('Nested locks', function() {
 
   it('Keep locked after exit nested #1', async function() {
     let marker = ''
-    await SharedMutex.lockSingleAccess('root', async () => {
+    await TestedMutex.lockSingleAccess('root', async () => {
       marker += 'A'
 
-      SharedMutex.lockSingleAccess('root', async () => {
+      TestedMutex.lockSingleAccess('root', async () => {
         marker += 'B'
         await delay(100)
         marker += 'C'
@@ -73,7 +75,7 @@ describe('Nested locks', function() {
       marker += 'D'
     })
 
-    await SharedMutex.lockSingleAccess('root', async () => {
+    await TestedMutex.lockSingleAccess('root', async () => {
       marker += 'E'
       await delay(110)
       marker += 'F'
@@ -84,10 +86,10 @@ describe('Nested locks', function() {
 
   it('Keep locked after exit nested #2 (with nested keys)', async function() {
     let marker = ''
-    await SharedMutex.lockSingleAccess('root/index', async () => {
+    await TestedMutex.lockSingleAccess('root/index', async () => {
       marker += 'A'
 
-      SharedMutex.lockSingleAccess('root/try', async () => {
+      TestedMutex.lockSingleAccess('root/try', async () => {
         marker += 'B'
         await delay(100)
         marker += 'C'
@@ -97,7 +99,7 @@ describe('Nested locks', function() {
       marker += 'D'
     })
 
-    await SharedMutex.lockSingleAccess('root/index', async () => {
+    await TestedMutex.lockSingleAccess('root/index', async () => {
       marker += 'E'
       await delay(10)
       marker += 'F'
@@ -112,12 +114,12 @@ describe('Nested locks', function() {
   it('Lock for single access inside of multi access scope', async function() {
     let marker = ''
     await Promise.all([
-      SharedMutex.lockMultiAccess('root', async () => {
+      TestedMutex.lockMultiAccess('root', async () => {
         marker += 'A'
 
         await delay(10)
 
-        await SharedMutex.lockSingleAccess('root', async () => {
+        await TestedMutex.lockSingleAccess('root', async () => {
           marker += 'B'
           await delay(10)
           marker += 'C'
@@ -127,7 +129,7 @@ describe('Nested locks', function() {
 
         marker += 'D'
       }),
-      delay(15, () => SharedMutex.lockMultiAccess('root', async () => {
+      delay(15, () => TestedMutex.lockMultiAccess('root', async () => {
         marker += 'E'
         await delay(5)
         marker += 'F'
@@ -140,14 +142,14 @@ describe('Nested locks', function() {
   it('Nested locks with different keys', async function() {
     let marker = ''
     await Promise.all([
-      SharedMutex.lockSingleAccess('slave', async () => {
+      TestedMutex.lockSingleAccess('slave', async () => {
         marker += 'E'
         await delay(20)
         marker += 'F'
       }),
-      SharedMutex.lockSingleAccess('master', async () => {
+      TestedMutex.lockSingleAccess('master', async () => {
         marker += 'A'
-        await SharedMutex.lockSingleAccess('slave', async () => {
+        await TestedMutex.lockSingleAccess('slave', async () => {
           marker += 'B'
           await delay(5)
           marker += 'C'
@@ -162,17 +164,17 @@ describe('Nested locks', function() {
   it('Nested locks with same keys', async function() {
     let marker = ''
     await Promise.all([
-      SharedMutex.lockSingleAccess('master', async () => {
+      TestedMutex.lockSingleAccess('master', async () => {
         await delay(10)
         marker += 'A'
-        await SharedMutex.lockSingleAccess('master', async () => {
+        await TestedMutex.lockSingleAccess('master', async () => {
           marker += 'B'
           await delay(20)
           marker += 'C'
         })
         marker += 'D'
       }),
-      SharedMutex.lockSingleAccess('master', async () => {
+      TestedMutex.lockSingleAccess('master', async () => {
         marker += 'E'
         await delay(20)
         marker += 'F'
@@ -184,15 +186,15 @@ describe('Nested locks', function() {
 
   it('Nested parallel', async function() {
     let marker = ''
-    await SharedMutex.lockSingleAccess('root', async () => {
+    await TestedMutex.lockSingleAccess('root', async () => {
       marker += 'A:IN;'
       await Promise.all([
-        SharedMutex.lockSingleAccess('root/test', async () => {
+        TestedMutex.lockSingleAccess('root/test', async () => {
           marker += 'B:IN;'
           await delay(20)
           marker += 'B:OUT;'
         }),
-        SharedMutex.lockSingleAccess('root/test', async () => {
+        TestedMutex.lockSingleAccess('root/test', async () => {
           marker += 'C:IN;'
           await delay(10)
           marker += 'C:OUT;'
@@ -205,15 +207,15 @@ describe('Nested locks', function() {
 
   it('Nested parallel oposit way', async function() {
     let marker = ''
-    await SharedMutex.lockSingleAccess('root/test', async () => {
+    await TestedMutex.lockSingleAccess('root/test', async () => {
       marker += 'A:IN;'
       await Promise.all([
-        SharedMutex.lockSingleAccess('root', async () => {
+        TestedMutex.lockSingleAccess('root', async () => {
           marker += 'B:IN;'
           await delay(20)
           marker += 'B:OUT;'
         }),
-        SharedMutex.lockSingleAccess('root', async () => {
+        TestedMutex.lockSingleAccess('root', async () => {
           marker += 'C:IN;'
           await delay(10)
           marker += 'C:OUT;'
@@ -228,15 +230,15 @@ describe('Nested locks', function() {
     let marker = ''
 
     await Promise.all([
-      SharedMutex.lockMultiAccess('root', async () => {
+      TestedMutex.lockMultiAccess('root', async () => {
         marker += 'A:IN;'
         await Promise.all([
-          SharedMutex.lockSingleAccess('root/test', async () => {
+          TestedMutex.lockSingleAccess('root/test', async () => {
             marker += 'C:IN;'
             await delay(10)
             marker += 'C:OUT;'
           }),
-          SharedMutex.lockSingleAccess('root/test', async () => {
+          TestedMutex.lockSingleAccess('root/test', async () => {
             marker += 'B:IN;'
             await delay(20)
             marker += 'B:OUT;'
@@ -244,7 +246,7 @@ describe('Nested locks', function() {
         ])
         marker += 'A:OUT;'
       }),
-      SharedMutex.lockMultiAccess('root/test', async () => {
+      TestedMutex.lockMultiAccess('root/test', async () => {
         marker += 'D:IN;'
           await delay(20)
         marker += 'D:OUT;'
@@ -258,11 +260,11 @@ describe('Nested locks', function() {
   it('Break stack to lose context', async function() {
 
     function wrap(caller) {
-      return SharedMutex.lockSingleAccess('root', caller)
+      return TestedMutex.lockSingleAccess('root', caller)
     }
 
     async function m(resolve) {
-      await SharedMutex.lockMultiAccess('root', async () => 'Hello')
+      await TestedMutex.lockMultiAccess('root', async () => 'Hello')
       resolve()
     }
 
@@ -279,24 +281,22 @@ describe('Nested locks', function() {
     })
   })
 
-  /*it('Skip wait after timeout', async function() {
-
-    await SharedMutex.initialize({
-      continueOnTimeout: true
-    })
+  it('Skip wait after timeout #1', async function() {
 
     let timeoutedItem
-    const originalHandler = SharedMutexSynchronizer.timeoutHandler
-    SharedMutexSynchronizer.timeoutHandler = (hash: string) => {
-      timeoutedItem = SharedMutexSynchronizer.getLockInfo(hash)
-    }
+    TestedMutex.setOptions({
+      continueOnTimeout: true,
+      timeoutHandler: (item) => {
+        timeoutedItem = item
+      }
+    })
 
     try {
       await Promise.all([
-        setTimeout(() => SharedMutex.lockSingleAccess('root', async () => {
+        setTimeout(() => TestedMutex.lockSingleAccess('root', async () => {
           await delay(10)
         }, 1000), 100),
-        SharedMutex.lockSingleAccess('root', async () => {
+        TestedMutex.lockSingleAccess('root', async () => {
           await new Promise((resolve) => 0)
         }, 2000),
       ])
@@ -304,13 +304,54 @@ describe('Nested locks', function() {
       // Error expected
     }
 
-    SharedMutexSynchronizer.timeoutHandler = originalHandler
+    TestedMutex.setOptions({
+      timeoutHandler: undefined
+    })
 
     expect(timeoutedItem.key).to.equal('/root')
 
-    await SharedMutex.initialize({
-      continueOnTimeout: false
+  })
+
+  it('Skip wait after timeout #2', async function() {
+
+    let timeoutedItem
+    let errScopeA
+    let errScopeB
+    TestedMutex.setOptions({
+      continueOnTimeout: true,
+      timeoutHandler: (item) => {
+        timeoutedItem = item
+      }
     })
 
-  })*/
+    let time = Date.now()
+    try {
+      await TestedMutex.lockSingleAccess('root', async () => {
+        await delay(1000)
+      }, 10)
+    } catch(e) {
+      errScopeA = e
+    }
+    const timeDeltaA = Date.now() - time
+    time = Date.now()
+    try {
+      await TestedMutex.lockSingleAccess('root', async () => {
+        await delay(10)
+      }, 1000)
+    } catch(e) {
+      errScopeB = e
+    }
+    const timeDeltaB = Date.now() - time
+
+    TestedMutex.setOptions({
+      timeoutHandler: undefined
+    })
+
+    assert(timeDeltaA >= 10 && timeDeltaA < 50, `Time of scope A should be ~10ms`)
+    assert(timeDeltaB >= 10 && timeDeltaB < 50, `Time of scope B should be ~10ms`)
+    expect(errScopeA.key).to.equal('MUTEX_LOCK_TIMEOUT')
+    expect(errScopeB).to.equal(undefined)
+    expect(timeoutedItem.key).to.equal('/root')
+    expect(TestedMutex.synchronizer.isClear()).to.equal(true)
+  })
 })

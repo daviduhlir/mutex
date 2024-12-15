@@ -20,6 +20,11 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
     resolve: (result: any) => void
     reject: (err: Error) => void
   }[] = []
+  protected hashLockRejectors: {
+    [hash: string]: {
+      scopeReject?: (err) => void
+    }
+  } = {}
 
   // synchronizer
   protected masterSynchronizer: LocalMutexSynchronizer
@@ -127,6 +132,34 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
   }
 
   /**
+   * Set scope rejector
+   */
+  public setScopeRejector(hash: string, rejector: (reason) => void) {
+    if (this.masterSynchronizer) {
+      this.masterSynchronizer.setScopeRejector(hash, rejector)
+    } else {
+      this.hashLockRejectors[hash] = {
+        scopeReject: rejector,
+      }
+    }
+  }
+
+  public removeScopeRejector(hash: string) {
+    if (this.masterSynchronizer) {
+      this.masterSynchronizer.removeScopeRejector(hash)
+    } else {
+      delete this.hashLockRejectors[hash]
+    }
+  }
+
+  /**
+   * Is this clear?
+   */
+  public isClear(): boolean {
+    return this.masterSynchronizer.isClear() && Object.keys(this.hashLockRejectors).length === 0 && Object.keys(this.messageQueue).length === 0
+  }
+
+  /**
    * Set options
    */
   public setOptions(options: MutexSynchronizerOptions) {
@@ -208,6 +241,10 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
           item.resolve(message.result)
         }
       }
+    } else if (message.action === ACTION.NOTIFY_EXCEPTION) {
+      if (this.hashLockRejectors[message.hash]) {
+        this.hashLockRejectors[message.hash].scopeReject(new MutexError(message.reason, message.message))
+      }
     }
   }
 
@@ -240,7 +277,7 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
         )
       }
     } else {
-      this.masterSynchronizer = new LocalMutexSynchronizer()
+      this.masterSynchronizer = new LocalMutexSynchronizer(this.options)
       this.masterSynchronizer.setOptions(this.options)
       // attach events from cluster
       cluster.on('exit', worker => this.workerUnlockForced(worker.id))
@@ -248,6 +285,21 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
         if (message.__mutexMessage__ && message.__mutexIdentifier__ === this.identifier) {
           this.handleMasterIncomingMessage(worker, message)
         }
+      })
+    }
+  }
+
+  /**
+   * Rejects all scopes handler
+   */
+  protected scopesRejector(item: LocalLockItem, reason: string, message: string) {
+    // if we are in master, but this is not registred here
+    if (this.masterSynchronizer && !this.hashLockRejectors[item.hash] && item.workerId) {
+      this.sendMasterMessage(cluster.workers[item.workerId], {
+        action: ACTION.NOTIFY_EXCEPTION,
+        hash: item.hash,
+        reason,
+        message,
       })
     }
   }

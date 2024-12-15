@@ -12,12 +12,22 @@ import { MutexSynchronizer, MutexSynchronizerOptions } from './MutexSynchronizer
  ***********************************/
 export class LocalMutexSynchronizer extends MutexSynchronizer {
   protected queue: LocalLockItem[] = []
-  protected hashLockWaiters: {[hash: string]: {
-    lockReject?: (err) => void
-    lockResolve?: () => void
-  }} = {}
+  protected hashLockWaiters: {
+    [hash: string]: {
+      lockReject?: (err) => void
+      lockResolve?: () => void
+    }
+  } = {}
+  protected hashLockRejectors: {
+    [hash: string]: {
+      scopeReject?: (err) => void
+    }
+  } = {}
 
-  constructor(public options: MutexSynchronizerOptions = {}) {
+  constructor(
+    public options: MutexSynchronizerOptions = {},
+    readonly scopesRejector?: (item: LocalLockItem, reason: string, message: string) => void,
+  ) {
     super(options)
   }
 
@@ -43,8 +53,10 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
     }
 
     const waiter = new Promise((resolve, reject) => {
-      this.hashLockWaiters[nItem.hash].lockReject = reject
-      this.hashLockWaiters[nItem.hash].lockResolve = resolve as () => void
+      this.hashLockWaiters[nItem.hash] = {
+        lockReject: reject,
+        lockResolve: resolve as () => void,
+      }
     })
 
     // next tick... unlock something, if waiting
@@ -54,7 +66,7 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
     let error
     try {
       await waiter
-    } catch(e) {
+    } catch (e) {
       error = e
     }
     delete this.hashLockWaiters[nItem.hash]
@@ -131,6 +143,26 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
   }
 
   /**
+   * Set scope rejector
+   */
+  public setScopeRejector(hash: string, rejector: (reason) => void) {
+    this.hashLockRejectors[hash] = {
+      scopeReject: rejector,
+    }
+  }
+
+  public removeScopeRejector(hash: string) {
+    delete this.hashLockRejectors[hash]
+  }
+
+  /**
+   * Is this clear?
+   */
+  public isClear(): boolean {
+    return Object.keys(this.hashLockRejectors).length === 0 && Object.keys(this.hashLockWaiters).length === 0 && this.queue.length === 0
+  }
+
+  /**
    * Tick of mutex run, it will continue next mutex(es) in queue
    */
   protected mutexTickNext() {
@@ -174,7 +206,7 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
     item.isRunning = true
     item.timing.opened = Date.now()
     // emit it
-    if (!this.hashLockWaiters[item.hash].lockResolve) {
+    if (!this.hashLockWaiters[item.hash]?.lockResolve) {
       throw new Error(`MUTEX item ${item.hash} resolver is not set`)
     }
     this.hashLockWaiters[item.hash].lockResolve()
@@ -185,10 +217,17 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
    */
   protected lockTimeout = (hash: string) => {
     const item = this.queue.find(i => i.hash === hash)
-    if (this.hashLockWaiters[item.hash].lockReject) {
+    if (this.hashLockWaiters[item.hash]?.lockReject) {
       this.hashLockWaiters[item.hash].lockReject(new MutexError(ERROR.MUTEX_LOCK_TIMEOUT, `Lock timeout`, this.getLockInfo(item.hash)))
     }
-    // TODO this.sendException(hash, , `Lock timeout`, this.getLockInfo(item.hash))
+
+    if (this.hashLockRejectors[item.hash]) {
+      if (this.scopesRejector) {
+        this.scopesRejector(item, ERROR.MUTEX_LOCK_TIMEOUT, `Lock timeout`)
+      }
+      this.hashLockRejectors[item.hash].scopeReject(new MutexError(ERROR.MUTEX_LOCK_TIMEOUT, `Lock timeout`, this.getLockInfo(item.hash)))
+    }
+
     if (item) {
       item.status = WATCHDOG_STATUS.TIMEOUTED as LockStatus
     }

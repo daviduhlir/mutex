@@ -1,21 +1,23 @@
 import { expect } from 'chai'
-import { SharedMutex } from '../dist'
+import { Mutex, SharedMutex } from '../dist'
 import { delay } from './utils'
+
+let TestedMutex = process.env.class === 'Mutex' ? Mutex : SharedMutex
 
 /**
  * Simple locks test
  */
-describe('Debug test', function() {
+describe(`Debug test (${process.env.class})`, function() {
   before(function() {
-    SharedMutex.setOptions({
+    TestedMutex.setOptions({
       debugDeadEnds: true
     })
   })
 
   it('Dead end detection', async function() {
     async function tt() {
-      await SharedMutex.lockMultiAccess('root', async () => {
-        await SharedMutex.lockSingleAccess('root', async () => {
+      await TestedMutex.lockMultiAccess('root', async () => {
+        await TestedMutex.lockSingleAccess('root', async () => {
           await delay(10)
         })
       })
@@ -34,15 +36,15 @@ describe('Debug test', function() {
   it('Dead end detection #2', async function() {
     try {
       await Promise.all([
-        SharedMutex.lockMultiAccess('root', async () => {
-          await SharedMutex.lockMultiAccess('root', async () => {
-            await SharedMutex.lockSingleAccess('root', async () => {
+        TestedMutex.lockMultiAccess('root', async () => {
+          await TestedMutex.lockMultiAccess('root', async () => {
+            await TestedMutex.lockSingleAccess('root', async () => {
               await delay(5000)
             })
           })
         }),
-        SharedMutex.lockMultiAccess('root', async () => {
-          await SharedMutex.lockSingleAccess('root', async () => {
+        TestedMutex.lockMultiAccess('root', async () => {
+          await TestedMutex.lockSingleAccess('root', async () => {
             await delay(10)
           })
         })
@@ -56,15 +58,15 @@ describe('Debug test', function() {
     try {
       await Promise.all([
         (async () => {
-          await SharedMutex.lockSingleAccess('A', async () => {
-            await SharedMutex.lockMultiAccess('B', async () => {
+          await TestedMutex.lockSingleAccess('A', async () => {
+            await TestedMutex.lockMultiAccess('B', async () => {
               await delay(1000)
             })
           })
         })(),
         (async () => {
-          await SharedMutex.lockSingleAccess('B', async () => {
-            await SharedMutex.lockMultiAccess('A', async () => {
+          await TestedMutex.lockSingleAccess('B', async () => {
+            await TestedMutex.lockMultiAccess('A', async () => {
               await delay(1000)
             })
           })
@@ -79,15 +81,15 @@ describe('Debug test', function() {
     try {
       await Promise.all([
         (async () => {
-          await SharedMutex.lockMultiAccess('A', async () => {
-            await SharedMutex.lockSingleAccess('B', async () => {
+          await TestedMutex.lockMultiAccess('A', async () => {
+            await TestedMutex.lockSingleAccess('B', async () => {
               await delay(1000)
             })
           })
         })(),
         (async () => {
-          await SharedMutex.lockMultiAccess('B', async () => {
-            await SharedMutex.lockSingleAccess('A', async () => {
+          await TestedMutex.lockMultiAccess('B', async () => {
+            await TestedMutex.lockSingleAccess('A', async () => {
               await delay(1000)
             })
           })

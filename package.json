@@ -11,7 +11,7 @@
     "test": "class=Mutex npm run test:single-class && class=SharedMutex npm run test:single-class",
     "test:single-class": "ts-mocha --timeout 10000 --type-check -p ./tsconfig.json tests/**/*.spec.ts",
     "build:release": "rimraf ./dist && tsc --p tsconfig.release.json",
-    "test:release": "class=Mutex npm run test:release:single-class && class=SharedMutex npm run test:release:single-class ",
+    "test:release": "npm run build:release && class=Mutex npm run test:release:single-class && class=SharedMutex npm run test:release:single-class ",
     "test:release:single-class": "ts-mocha --timeout 10000 --type-check -p ./tsconfig.json tests/**/*.spec.ts",
     "release": "./scripts/release.sh"
   },

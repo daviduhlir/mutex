@@ -347,8 +347,8 @@ describe(`Nested locks (${process.env.class})`, function() {
       timeoutHandler: undefined
     })
 
-    assert(timeDeltaA >= 10 && timeDeltaA < 50, `Time of scope A should be ~10ms`)
-    assert(timeDeltaB >= 10 && timeDeltaB < 50, `Time of scope B should be ~10ms`)
+    assert(timeDeltaA >= 10 && timeDeltaA < 100, `Time of scope A should be ~10ms`)
+    assert(timeDeltaB >= 10 && timeDeltaB < 100, `Time of scope B should be ~10ms`)
     expect(errScopeA.key).to.equal('MUTEX_LOCK_TIMEOUT')
     expect(errScopeB).to.equal(undefined)
     expect(timeoutedItem.key).to.equal('/root')

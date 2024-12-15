@@ -73,14 +73,14 @@ export abstract class MutexSynchronizer {
   abstract getLockInfo(hash: string): LockItemInfo
 
   /**
-   * Watchdog with phase report
-   */
-  abstract watchdog(hash: string, phase?: string, args?: any, codeStack?: string): Promise<void>
-
-  /**
    * Get lock item
    */
   abstract getLockItem(hash: string): LocalLockItem
+
+  /**
+   * Watchdog with phase report
+   */
+  abstract watchdog(hash: string, phase?: string, args?: any, codeStack?: string): Promise<void>
 
   /**
    * Set scope rejector
@@ -96,7 +96,7 @@ export abstract class MutexSynchronizer {
   /**
    * Set options
    */
-  public setOptions(options: MutexSynchronizerOptions) {
+  setOptions(options: MutexSynchronizerOptions) {
     this.options = options
   }
 

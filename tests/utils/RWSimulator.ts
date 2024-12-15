@@ -2,7 +2,7 @@ export class RWSimulator {
   protected lockedWrite: boolean = false
   protected lockedRead: boolean[] = []
 
-  public read(): {stop: () => void} {
+  read(): {stop: () => void} {
     if (this.isLockedForWrite()) {
       throw new Error('Already locked for write.')
     }
@@ -11,7 +11,7 @@ export class RWSimulator {
     return { stop: () => this.lockedRead[index] = false }
   }
 
-  public write(): {stop: () => void} {
+  write(): {stop: () => void} {
     if (this.isLockedForRead()) {
       throw new Error('Already locked for read.')
     }
@@ -22,11 +22,11 @@ export class RWSimulator {
     return { stop: () => this.lockedWrite = false }
   }
 
-  public isLockedForRead() {
+  isLockedForRead() {
     return this.lockedRead.findIndex(i => i) >= 0
   }
 
-  public isLockedForWrite() {
+  isLockedForWrite() {
     return this.lockedWrite
   }
 }

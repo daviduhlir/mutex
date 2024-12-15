@@ -35,14 +35,14 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
    * Get count of locks currently
    * @returns
    */
-  public getLocksCount(): number {
+  getLocksCount(): number {
     return this.queue.length
   }
 
   /**
    * Lock mutex
    */
-  public async lock(lock: LocalLockItem, codeStack?: string) {
+  async lock(lock: LocalLockItem, codeStack?: string) {
     // add it to locks
     const nItem = { ...lock, codeStack, timing: { locked: Date.now() } }
     this.queue.push(nItem)
@@ -79,7 +79,7 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
    * Unlock handler
    * @param key
    */
-  public unlock(hash: string, codeStack?: string) {
+  unlock(hash: string, codeStack?: string) {
     const f = this.queue.find(foundItem => foundItem.hash === hash)
     if (!f) {
       return
@@ -101,7 +101,7 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
    * Forced unlock of worker
    * @param id
    */
-  public unlockForced(filter: (lock: LocalLockItem) => boolean) {
+  unlockForced(filter: (lock: LocalLockItem) => boolean) {
     this.queue.filter(filter).forEach(i => this.unlock(i.hash))
   }
 
@@ -110,21 +110,21 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
    * @param hash
    * @returns
    */
-  public getLockInfo(hash: string): LockItemInfo {
+  getLockInfo(hash: string): LockItemInfo {
     return getLockInfo(this.queue, hash)
   }
 
   /**
    * Get lock item
    */
-  public getLockItem(hash: string): LocalLockItem {
+  getLockItem(hash: string): LocalLockItem {
     return this.queue.find(i => i.hash === hash)
   }
 
   /**
    * Watchdog with phase report
    */
-  public async watchdog(hash: string, phase?: string, args?: any, codeStack?: string) {
+  async watchdog(hash: string, phase?: string, args?: any, codeStack?: string) {
     const item = this.queue.find(i => i.hash === hash)
     if (!item) {
       throw new MutexError(ERROR.MUTEX_WATCHDOG_REJECTION, `Item no longer exists`, undefined, { hash })
@@ -145,20 +145,20 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
   /**
    * Set scope rejector
    */
-  public setScopeRejector(hash: string, rejector: (reason) => void) {
+  setScopeRejector(hash: string, rejector: (reason) => void) {
     this.hashLockRejectors[hash] = {
       scopeReject: rejector,
     }
   }
 
-  public removeScopeRejector(hash: string) {
+  removeScopeRejector(hash: string) {
     delete this.hashLockRejectors[hash]
   }
 
   /**
    * Is this clear?
    */
-  public isClear(): boolean {
+  isClear(): boolean {
     return Object.keys(this.hashLockRejectors).length === 0 && Object.keys(this.hashLockWaiters).length === 0 && this.queue.length === 0
   }
 

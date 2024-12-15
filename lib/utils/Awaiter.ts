@@ -19,7 +19,7 @@ export class Awaiter<T = any> {
   /**
    * Starts watchdog
    */
-  public watchdog(timeout?: number, customTimeout?: () => Error) {
+  watchdog(timeout?: number, customTimeout?: () => Error) {
     clearTimeout(this.timeoutHandler)
     if (timeout) {
       this.timeoutHandler = setTimeout(() => this.reject(customTimeout ? customTimeout() : new Error(`Awaiter rejected after timeout`)), timeout)
@@ -29,7 +29,7 @@ export class Awaiter<T = any> {
   /**
    * Wrap promise by awaiter
    */
-  public static wrap<T>(promise: Promise<T>): Awaiter<T> {
+  static wrap<T>(promise: Promise<T>): Awaiter<T> {
     const awaiter = new Awaiter<T>()
     promise.then(
       result => awaiter.resolve(result),
@@ -43,7 +43,7 @@ export class Awaiter<T = any> {
    *
    * eg. await waiter.wait()
    */
-  public async wait() {
+  async wait() {
     if (this.result) {
       if (this.result.error) {
         throw this.result.error
@@ -56,14 +56,14 @@ export class Awaiter<T = any> {
   /**
    * Get if it's already resolved
    */
-  public get resolved(): Boolean {
+  get resolved(): Boolean {
     return !!this.result
   }
 
   /**
    * Resolved it, and go forward
    */
-  public resolve(value?: T) {
+  resolve(value?: T) {
     this.result = {
       value,
     }
@@ -75,7 +75,7 @@ export class Awaiter<T = any> {
   /**
    * Reject it, and go forward
    */
-  public reject(error: Error) {
+  reject(error: Error) {
     this.result = {
       error,
     }

@@ -30,7 +30,7 @@ export class MutexExecutor {
    * @param keysPath
    * @param fnc
    */
-  public async lockSingleAccess<T>(key: LockKey, handler: () => Promise<T>, maxLockingTime?: number, codeStack?: string): Promise<T> {
+  async lockSingleAccess<T>(key: LockKey, handler: () => Promise<T>, maxLockingTime?: number, codeStack?: string): Promise<T> {
     if (!codeStack && this.synchronizer.options.debugWithStack) {
       codeStack = getStack()
     }
@@ -42,7 +42,7 @@ export class MutexExecutor {
    * @param keysPath
    * @param fnc
    */
-  public async lockMultiAccess<T>(key: LockKey, handler: () => Promise<T>, maxLockingTime?: number, codeStack?: string): Promise<T> {
+  async lockMultiAccess<T>(key: LockKey, handler: () => Promise<T>, maxLockingTime?: number, codeStack?: string): Promise<T> {
     if (!codeStack && this.synchronizer.options.debugWithStack) {
       codeStack = getStack()
     }
@@ -54,7 +54,7 @@ export class MutexExecutor {
    * @param keysPath
    * @param fnc
    */
-  public async lockAccess<T>(
+  async lockAccess<T>(
     key: LockKey,
     handler: () => Promise<T>,
     singleAccess?: boolean,
@@ -135,14 +135,14 @@ export class MutexExecutor {
   /**
    * Set options
    */
-  public setOptions(options: MutexSynchronizerOptions) {
+  setOptions(options: MutexSynchronizerOptions) {
     this.synchronizer?.setOptions?.(options)
   }
 
   /**
    * Watchdog for current scope
    */
-  public async watchdog(phase?: string, args?: any) {
+  async watchdog(phase?: string, args?: any) {
     const stack = [...(MutexExecutor.stackStorage.getStore() || [])]
     const currentScope = stack[stack.length - 1]
     if (currentScope?.hash) {

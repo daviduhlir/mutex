@@ -53,14 +53,14 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
    * Get count of locks currently
    * @returns
    */
-  public getLocksCount(): number {
+  getLocksCount(): number {
     return this.masterSynchronizer.getLocksCount()
   }
 
   /**
    * Lock mutex
    */
-  public async lock(lock: LocalLockItem, codeStack?: string) {
+  async lock(lock: LocalLockItem, codeStack?: string) {
     if (this.masterSynchronizer) {
       return this.masterSynchronizer.lock(lock, codeStack)
     }
@@ -76,7 +76,7 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
    * Unlock handler
    * @param key
    */
-  public async unlock(hash: string, codeStack?: string) {
+  async unlock(hash: string, codeStack?: string) {
     if (this.masterSynchronizer) {
       return this.masterSynchronizer.unlock(hash, codeStack)
     }
@@ -91,7 +91,7 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
   /**
    * Force unlock all worker hashes
    */
-  public unlockForced(filter: (lock: LocalLockItem) => boolean) {
+  unlockForced(filter: (lock: LocalLockItem) => boolean) {
     if (this.masterSynchronizer) {
       return this.masterSynchronizer.unlockForced(filter)
     }
@@ -103,21 +103,21 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
    * @param hash
    * @returns
    */
-  public getLockInfo(hash: string): LockItemInfo {
+  getLockInfo(hash: string): LockItemInfo {
     return this.masterSynchronizer.getLockInfo(hash)
   }
 
   /**
    * Get lock item
    */
-  public getLockItem(hash: string): LocalLockItem {
+  getLockItem(hash: string): LocalLockItem {
     return this.masterSynchronizer.getLockItem(hash)
   }
 
   /**
    * Watchdog with phase report
    */
-  public async watchdog(hash: string, phase?: string, args?: any, codeStack?: string) {
+  async watchdog(hash: string, phase?: string, args?: any, codeStack?: string) {
     if (this.masterSynchronizer) {
       return this.masterSynchronizer.watchdog(hash, phase, args, codeStack)
     }
@@ -134,7 +134,7 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
   /**
    * Set scope rejector
    */
-  public setScopeRejector(hash: string, rejector: (reason) => void) {
+  setScopeRejector(hash: string, rejector: (reason) => void) {
     if (this.masterSynchronizer) {
       this.masterSynchronizer.setScopeRejector(hash, rejector)
     } else {
@@ -144,7 +144,7 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
     }
   }
 
-  public removeScopeRejector(hash: string) {
+  removeScopeRejector(hash: string) {
     if (this.masterSynchronizer) {
       this.masterSynchronizer.removeScopeRejector(hash)
     } else {
@@ -155,14 +155,14 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
   /**
    * Is this clear?
    */
-  public isClear(): boolean {
+  isClear(): boolean {
     return this.masterSynchronizer.isClear() && Object.keys(this.hashLockRejectors).length === 0 && Object.keys(this.messageQueue).length === 0
   }
 
   /**
    * Set options
    */
-  public setOptions(options: MutexSynchronizerOptions) {
+  setOptions(options: MutexSynchronizerOptions) {
     this.options = options
     this.masterSynchronizer.setOptions(options)
   }

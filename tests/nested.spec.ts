@@ -354,6 +354,12 @@ describe(`Nested locks (${process.env.class})`, function() {
       console.log('Delta time B', timeDeltaB)
     }
 
+    if (!(timeDeltaA >= 10 && timeDeltaA < 100)) {
+      console.log('Delta A', timeDeltaA)
+    }
+    if (!(timeDeltaB >= 10 && timeDeltaB < 100)) {
+      console.log('Delta B', timeDeltaB)
+    }
     assert(timeDeltaA >= 10 && timeDeltaA < 100, `Time of scope A should be ~10ms`)
     assert(timeDeltaB >= 10 && timeDeltaB < 100, `Time of scope B should be ~10ms`)
     expect(errScopeA.key).to.equal('MUTEX_LOCK_TIMEOUT')

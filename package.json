@@ -16,7 +16,7 @@
     "test:release": "npm run build:release && class=Mutex npm run test:release:single-class && class=SharedMutex npm run test:release:single-class ",
     "test:release:single-class": "ts-mocha --timeout 10000 --type-check -p ./tsconfig.json tests/**/*.spec.ts",
     "release": "./scripts/release.sh",
-    "test:debugger": "npm run build && class=SharedMutex ts-mocha --timeout 10000 --type-check -p ./tsconfig.json tests/debugger.spec.ts"
+    "test:debugger": "npm run build && class=Mutex ts-mocha --timeout 10000 --type-check -p ./tsconfig.json tests/debugger.spec.ts"
   },
   "repository": {
     "type": "git",

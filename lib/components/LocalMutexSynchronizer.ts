@@ -143,9 +143,9 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
   }
 
   /**
-   * Is this clear?
+   * Is this clean?
    */
-  isClear(): boolean {
+  isClean(): boolean {
     return Object.keys(this.hashLockRejectors).length === 0 && Object.keys(this.hashLockWaiters).length === 0 && this.queue.length === 0
   }
 
@@ -177,7 +177,7 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
     ;(this.options.algorythm ? this.options.algorythm : Algorythms.simpleQueueSolve)(
       [...this.queue],
       changes,
-      this.options.debugDeadEnds
+      /*this.options.debugDeadEnds
         ? (lock, inCollisionHashes) => {
             if (this.hashLockWaiters[lock.hash]?.lockReject) {
               this.hashLockWaiters[lock.hash].lockReject(
@@ -192,7 +192,7 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
               )
             }
           }
-        : null,
+        : null,*/
     )
 
     for (const hash of changes) {

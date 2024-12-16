@@ -43,7 +43,7 @@ describe(`Debug test (${process.env.class})`, function() {
         TestedMutex.lockMultiAccess('root', async () => {
           await TestedMutex.lockMultiAccess('root', async () => {
             await TestedMutex.lockSingleAccess('root', async () => {
-              await delay(5000)
+              await delay(100)
             })
           })
         }),
@@ -64,14 +64,14 @@ describe(`Debug test (${process.env.class})`, function() {
         (async () => {
           await TestedMutex.lockSingleAccess('A', async () => {
             await TestedMutex.lockMultiAccess('B', async () => {
-              await delay(1000)
+              await delay(100)
             })
           })
         })(),
         (async () => {
           await TestedMutex.lockSingleAccess('B', async () => {
             await TestedMutex.lockMultiAccess('A', async () => {
-              await delay(1000)
+              await delay(100)
             })
           })
         })()
@@ -116,7 +116,7 @@ describe(`Debug test (${process.env.class})`, function() {
   })
 
   if (TestedMutex === SharedMutex) {
-    it('Dead end detection #5', async function() {
+    it('Dead end detection #5 (Combined Mutex and SharedMutex)', async function() {
       Mutex.setOptions({
         debugDeadEnds: true
       })
@@ -124,26 +124,38 @@ describe(`Debug test (${process.env.class})`, function() {
         debugDeadEnds: true
       })
 
+      let e0, e1, e2
+
       try {
         await Promise.all([
           (async () => {
-            await SharedMutex.lockMultiAccess('A', async () => {
-              await Mutex.lockSingleAccess('B', async () => {
-                await delay(1000)
+            try {
+              await SharedMutex.lockMultiAccess('A', async () => {
+                await Mutex.lockSingleAccess('B', async () => {
+                  await delay(100)
+                })
               })
-            })
+            } catch(e) {
+              e1 = e
+            }
           })(),
           (async () => {
-            await Mutex.lockMultiAccess('B', async () => {
-              await SharedMutex.lockSingleAccess('A', async () => {
-                await delay(1000)
+            try {
+              await Mutex.lockMultiAccess('B', async () => {
+                await SharedMutex.lockSingleAccess('A', async () => {
+                  await delay(100)
+                })
               })
-            })
+            } catch(e) {
+              e2 = e
+            }
           })()
         ])
       } catch(e) {
-        expect(e.message).to.equal('MUTEX_NOTIFIED_EXCEPTION: Dead end detected, this combination will never be unlocked. See the documentation.')
+        e0 = e
       }
+
+      expect((e0 || e1 || e2).message).to.equal('MUTEX_NOTIFIED_EXCEPTION: Dead end detected, this combination will never be unlocked. See the documentation.')
 
       Mutex.setOptions({})
       SharedMutex.setOptions({})

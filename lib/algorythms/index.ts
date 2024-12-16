@@ -2,7 +2,7 @@ import { LocalLockItem } from '../utils/interfaces'
 import { keysRelatedMatch } from '../utils/utils'
 
 export class Algorythms {
-  static simpleQueueSolve(queue: LocalLockItem[], changes: string[], deadEndNotify: (lock: LocalLockItem, inCollisionHashes: string[]) => void) {
+  static simpleQueueSolve(queue: LocalLockItem[], changes: string[], deadEndNotify?: (lock: LocalLockItem, inCollisionHashes: string[]) => void) {
     let deadEndnalyzis = []
     for (let i = 0; i < queue.length; i++) {
       const lock = queue[i]

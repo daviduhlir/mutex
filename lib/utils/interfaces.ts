@@ -51,3 +51,15 @@ export interface LocalLockItem extends LockDescriptor {
  * Mutex keey
  */
 export type LockKey = string | string[]
+
+/**
+ * Local stack item
+ */
+export interface MutexStackItem {
+  hash: string
+  key: string
+  singleAccess: boolean
+  id: string
+  running?: boolean
+  tree: MutexStackItem[]
+}

@@ -1,5 +1,4 @@
-import { ERROR } from './constants'
-import { LocalLockItem, LockItemInfo, LockKey } from './interfaces'
+import { LocalLockItem, LockItemInfo, LockKey, MutexStackItem } from './interfaces'
 import { MutexError } from './MutexError'
 
 /**
@@ -137,4 +136,18 @@ export function getLockInfo(queue: LocalLockItem[], hash: string) {
       opened: item.timing.opened,
     },
   }
+}
+
+export function searchBlockers(item: MutexStackItem, queue: MutexStackItem[], acc = []) {
+  for(const i of queue) {
+    if (i.running && i.id === item.id && keysRelatedMatch(i.key, item.key) && (item.singleAccess || (!item.singleAccess && !i.singleAccess))) {
+      if (acc.findIndex(accI => accI.hash === i.hash) === -1 && item.tree.findIndex(treeI => treeI.hash === i.hash) === -1){
+        acc.push(i)
+      }
+    }
+    if (i.tree) {
+      searchBlockers(item, i.tree, acc)
+    }
+  }
+  return acc
 }

@@ -244,6 +244,8 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
       this.options.timeoutHandler(item)
     }
 
-    this.unlock(hash)
+    if (this.options.continueOnTimeout) {
+      this.unlock(hash)
+    }
   }
 }

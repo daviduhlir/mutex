@@ -1,12 +1,12 @@
-import { keysRelatedMatch, parseLockKey, randomHash } from '../utils/utils'
-import { LocalLockItem, LockKey } from '../utils/interfaces'
+import { keysRelatedMatch, parseLockKey, randomHash, searchBlockers } from '../utils/utils'
+import { LocalLockItem, LockKey, MutexStackItem } from '../utils/interfaces'
 import AsyncLocalStorage from './AsyncLocalStorage'
 import { getStack } from '../utils/stack'
 import { MutexSynchronizer, MutexSynchronizerOptions } from './MutexSynchronizer'
 import cluster from '../utils/cluster'
 import { Awaiter } from '../utils/Awaiter'
 import { MutexError } from '../utils/MutexError'
-import { ERROR, REJECTION_REASON } from '../utils/constants'
+import { ERROR } from '../utils/constants'
 
 /**
  * Unlock handler
@@ -30,11 +30,11 @@ export class MutexExecutor {
    * @param keysPath
    * @param fnc
    */
-  async lockSingleAccess<T>(key: LockKey, handler: () => Promise<T>, maxLockingTime?: number, codeStack?: string): Promise<T> {
+  async lockSingleAccess<T>(lockKey: LockKey, handler: () => Promise<T>, maxLockingTime?: number, codeStack?: string): Promise<T> {
     if (!codeStack && this.synchronizer.options.debugWithStack) {
       codeStack = getStack()
     }
-    return this.lockAccess(key, handler, true, maxLockingTime, codeStack)
+    return this.lockAccess(lockKey, handler, true, maxLockingTime, codeStack)
   }
 
   /**
@@ -42,11 +42,11 @@ export class MutexExecutor {
    * @param keysPath
    * @param fnc
    */
-  async lockMultiAccess<T>(key: LockKey, handler: () => Promise<T>, maxLockingTime?: number, codeStack?: string): Promise<T> {
+  async lockMultiAccess<T>(lockKey: LockKey, handler: () => Promise<T>, maxLockingTime?: number, codeStack?: string): Promise<T> {
     if (!codeStack && this.synchronizer.options.debugWithStack) {
       codeStack = getStack()
     }
-    return this.lockAccess(key, handler, false, maxLockingTime, codeStack)
+    return this.lockAccess(lockKey, handler, false, maxLockingTime, codeStack)
   }
 
   /**
@@ -55,7 +55,7 @@ export class MutexExecutor {
    * @param fnc
    */
   async lockAccess<T>(
-    key: LockKey,
+    lockKey: LockKey,
     handler: () => Promise<T>,
     singleAccess?: boolean,
     maxLockingTime?: number,
@@ -67,32 +67,62 @@ export class MutexExecutor {
 
     // item hash
     const hash = randomHash()
-
-    // item for stack
-    const myStackItem = {
-      hash,
-      key: parseLockKey(key),
-      singleAccess,
-      id: this.id,
-    }
+    const key = parseLockKey(lockKey)
 
     // detect of nested locks as death ends!
     const stack = [...(MutexExecutor.stackStorage.getStore() || [])]
-    const nestedInRelatedItems = stack.filter(i => keysRelatedMatch(myStackItem.key, i.key) && i.id === this.id)
+    const nestedInRelatedItems = stack.filter(i => keysRelatedMatch(key, i.key) && i.id === this.id)
+
+     // item for stack
+     const myStackItem: MutexStackItem = {
+      hash,
+      key,
+      singleAccess,
+      id: this.id,
+      tree: stack,
+    }
+
+    // dead end detects
+    if (this.synchronizer.options.debugDeadEnds) {
+      //basicaly who is blocking me
+      const blockers = searchBlockers(myStackItem, MutexExecutor.allLocks)
+      for(const i of blockers) {
+        // children of blocker
+        const children = MutexExecutor.allLocks.filter(ai => ai.tree.find(it => it.hash === i.hash))
+
+        // some children is my parent tree
+        const foundKiller = children.find(child => myStackItem.tree.find(myParent => myParent.running && child.id === myParent.id && keysRelatedMatch(child.key, myParent.key)))
+        if (foundKiller) {
+          throw new MutexError(ERROR.MUTEX_NOTIFIED_EXCEPTION, 'Dead end detected, this combination will never be unlocked. See the documentation.')
+        }
+      }
+    }
+
+    // register to all locks in this worker
+    MutexExecutor.allLocks.push(myStackItem)
 
     // lock all sub keys
-    let m = await this.lock(
-      key,
-      {
-        hash,
-        singleAccess,
-        maxLockingTime: typeof maxLockingTime === 'number' ? maxLockingTime : this.synchronizer.options.defaultMaxLockingTime,
-        parents: nestedInRelatedItems.map(i => i.hash),
-        tree: stack.map(i => i.hash),
-        workerId: cluster.worker?.id,
-      },
-      codeStack,
-    )
+    let m
+    try {
+      m = await this.lock(
+        key,
+        {
+          hash,
+          singleAccess,
+          maxLockingTime: typeof maxLockingTime === 'number' ? maxLockingTime : this.synchronizer.options.defaultMaxLockingTime,
+          parents: nestedInRelatedItems.map(i => i.hash),
+          tree: stack.map(i => i.hash),
+          workerId: cluster.worker?.id,
+        },
+        codeStack,
+      )
+    } catch(e) {
+      MutexExecutor.allLocks = MutexExecutor.allLocks.filter(item => item.hash !== myStackItem.hash)
+      throw e
+    }
+
+    // set it running
+    MutexExecutor.allLocks.find(item => item.hash === myStackItem.hash).running = true
 
     // unlock function with clearing mutex ref
     const unlocker = () => {
@@ -121,9 +151,13 @@ export class MutexExecutor {
       error = e
     }
 
+    // remove it from running locks
+    MutexExecutor.allLocks = MutexExecutor.allLocks.filter(item => item.hash !== myStackItem.hash)
+
     // unlock all keys
-    this.synchronizer.removeScopeRejector(hash)
     unlocker()
+
+    this.synchronizer.removeScopeRejector(hash)
 
     // result
     if (error) {
@@ -169,14 +203,8 @@ export class MutexExecutor {
   /**
    * storage of data for nested keys
    */
-  protected static stackStorage = new AsyncLocalStorage<
-    {
-      hash: string
-      key: string
-      singleAccess: boolean
-      id: string
-    }[]
-  >()
+  protected static stackStorage = new AsyncLocalStorage<MutexStackItem[]>()
+  protected static allLocks: MutexStackItem[] = []
 
   /**
    * Lock key

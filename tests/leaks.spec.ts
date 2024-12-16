@@ -10,7 +10,7 @@ let TestedMutex = process.env.class === 'Mutex' ? Mutex : SharedMutex
 describe(`Leaks test (${process.env.class})`, function() {
 
   it('Test scopes and count whats left', async function() {
-    const before = TestedMutex.synchronizer.isClear()
+    const before = TestedMutex.synchronizer.isClean()
 
     await Promise.all(
       new Array(2).fill(null).map(() =>
@@ -26,10 +26,10 @@ describe(`Leaks test (${process.env.class})`, function() {
       )
     ))
 
-    const after = TestedMutex.synchronizer.isClear()
+    const after = TestedMutex.synchronizer.isClean()
 
     assert(before === after && before === true, 'Locks count before and after test should be 0')
-    expect(TestedMutex.synchronizer.isClear()).to.equal(true)
+    expect(TestedMutex.synchronizer.isClean()).to.equal(true)
   })
 
 })

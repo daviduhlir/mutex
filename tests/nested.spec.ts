@@ -294,11 +294,11 @@ describe(`Nested locks (${process.env.class})`, function() {
     try {
       await Promise.all([
         setTimeout(() => TestedMutex.lockSingleAccess('root', async () => {
-          await delay(10)
-        }, 1000), 100),
+          await delay(1)
+        }, 100), 10),
         TestedMutex.lockSingleAccess('root', async () => {
           await new Promise((resolve) => 0)
-        }, 2000),
+        }, 100),
       ])
     } catch(e) {
       // Error expected
@@ -359,6 +359,6 @@ describe(`Nested locks (${process.env.class})`, function() {
     expect(errScopeA.key).to.equal('MUTEX_LOCK_TIMEOUT')
     expect(errScopeB).to.equal(undefined)
     expect(timeoutedItem.key).to.equal('/root')
-    expect(TestedMutex.synchronizer.isClear()).to.equal(true)
+    expect(TestedMutex.synchronizer.isClean()).to.equal(true)
   })
 })

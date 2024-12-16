@@ -96,7 +96,7 @@ export abstract class MutexSynchronizer {
   /**
    * Check if nothing is opened here
    */
-  abstract isClear(): boolean
+  abstract isClean(): boolean
 
   /**
    * Set options

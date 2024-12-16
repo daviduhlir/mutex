@@ -89,7 +89,7 @@ describe(`Debug test (${process.env.class})`, function() {
           try {
             await TestedMutex.lockMultiAccess('A', async () => {
               await TestedMutex.lockSingleAccess('B', async () => {
-                await delay(1000)
+                await delay(100)
               })
             })
           } catch(e) {
@@ -100,7 +100,7 @@ describe(`Debug test (${process.env.class})`, function() {
           try {
             await TestedMutex.lockMultiAccess('B', async () => {
               await TestedMutex.lockSingleAccess('A', async () => {
-                await delay(1000)
+                await delay(100)
               })
             })
           } catch(e) {

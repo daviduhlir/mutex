@@ -128,8 +128,8 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
   /**
    * Is this clear?
    */
-  isClear(): boolean {
-    return (this.masterSynchronizer ? this.masterSynchronizer.isClear() : true) && Object.keys(this.hashLockRejectors).length === 0 && Object.keys(this.messageQueue).length === 0
+  isClean(): boolean {
+    return (this.masterSynchronizer ? this.masterSynchronizer.isClean() : true) && Object.keys(this.hashLockRejectors).length === 0 && Object.keys(this.messageQueue).length === 0
   }
 
   /**

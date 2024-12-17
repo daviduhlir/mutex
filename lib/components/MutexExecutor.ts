@@ -1,4 +1,4 @@
-import { keysRelatedMatch, parseLockKey, randomHash, searchBlockers } from '../utils/utils'
+import { keysRelatedMatch, parseLockKey, randomHash, searchKiller } from '../utils/utils'
 import { LocalLockItem, LockKey, MutexStackItem } from '../utils/interfaces'
 import AsyncLocalStorage from './AsyncLocalStorage'
 import { getStack } from '../utils/stack'
@@ -54,13 +54,7 @@ export class MutexExecutor {
    * @param keysPath
    * @param fnc
    */
-  async lockAccess<T>(
-    lockKey: LockKey,
-    handler: () => Promise<T>,
-    singleAccess?: boolean,
-    maxLockingTime?: number,
-    codeStack?: string,
-  ): Promise<T> {
+  async lockAccess<T>(lockKey: LockKey, handler: () => Promise<T>, singleAccess?: boolean, maxLockingTime?: number, codeStack?: string): Promise<T> {
     if (!codeStack && this.synchronizer.options.debugWithStack) {
       codeStack = getStack()
     }
@@ -73,8 +67,8 @@ export class MutexExecutor {
     const stack = [...(MutexExecutor.stackStorage.getStore() || [])]
     const nestedInRelatedItems = stack.filter(i => keysRelatedMatch(key, i.key) && i.id === this.id)
 
-     // item for stack
-     const myStackItem: MutexStackItem = {
+    // item for stack
+    const myStackItem: MutexStackItem = {
       hash,
       key,
       singleAccess,
@@ -84,17 +78,9 @@ export class MutexExecutor {
 
     // dead end detects
     if (this.synchronizer.options.debugDeadEnds) {
-      //basicaly who is blocking me
-      const blockers = searchBlockers(myStackItem, MutexExecutor.allLocks)
-      for(const i of blockers) {
-        // children of blocker
-        const children = MutexExecutor.allLocks.filter(ai => ai.tree.find(it => it.hash === i.hash))
-
-        // some children is my parent tree
-        const foundKiller = children.find(child => myStackItem.tree.find(myParent => myParent.running && child.id === myParent.id && keysRelatedMatch(child.key, myParent.key)))
-        if (foundKiller) {
-          throw new MutexError(ERROR.MUTEX_NOTIFIED_EXCEPTION, 'Dead end detected, this combination will never be unlocked. See the documentation.')
-        }
+      const foundKiller = searchKiller(myStackItem, MutexExecutor.allLocks)
+      if (foundKiller) {
+        throw new MutexError(ERROR.MUTEX_NOTIFIED_EXCEPTION, 'Dead end detected, this combination will never be unlocked. See the documentation.')
       }
     }
 
@@ -116,7 +102,7 @@ export class MutexExecutor {
         },
         codeStack,
       )
-    } catch(e) {
+    } catch (e) {
       MutexExecutor.allLocks = MutexExecutor.allLocks.filter(item => item.hash !== myStackItem.hash)
       throw e
     }

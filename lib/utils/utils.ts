@@ -138,16 +138,31 @@ export function getLockInfo(queue: LocalLockItem[], hash: string) {
   }
 }
 
+/**
+ * Search all blocking items
+ */
 export function searchBlockers(item: MutexStackItem, queue: MutexStackItem[], acc = []) {
-  for(const i of queue) {
+  for (const i of queue) {
     if (i.running && i.id === item.id && keysRelatedMatch(i.key, item.key) && (item.singleAccess || (!item.singleAccess && i.singleAccess))) {
-      if (acc.findIndex(accI => accI.hash === i.hash) === -1 && item.tree.findIndex(treeI => treeI.hash === i.hash) === -1){
+      if (acc.findIndex(accI => accI.hash === i.hash) === -1 && item.tree.findIndex(treeI => treeI.hash === i.hash) === -1) {
         acc.push(i)
       }
     }
-    if (i.tree) {
-      searchBlockers(item, i.tree, acc)
-    }
   }
   return acc
+}
+
+/**
+ * Search deadlock in it
+ */
+export function searchKiller(myStackItem: MutexStackItem, queue: MutexStackItem[]) {
+  return searchBlockers(myStackItem, queue).find((blocker) => {
+    return queue.find(
+      child =>
+        // is block in treee
+        child.tree.find(it => it.hash === blocker.hash) &&
+        // is it related and running
+        myStackItem.tree.find(myParent => myParent.running && child.id === myParent.id && keysRelatedMatch(child.key, myParent.key)),
+    )
+  })
 }

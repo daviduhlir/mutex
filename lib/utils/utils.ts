@@ -187,10 +187,10 @@ export async function deadEndRetrier<T>(handler: () => Promise<T>, options: Part
     ...deadEndRetrierDefaultOptions,
     ...options,
   }
-  for(let i = 0; i < mergedOptions.attemps; i++) {
+  for (let i = 0; i < mergedOptions.attemps; i++) {
     try {
       return await handler()
-    } catch(e) {
+    } catch (e) {
       if (e instanceof MutexError && e.key === ERROR.MUTEX_NOTIFIED_EXCEPTION && e.details.reason === REJECTION_REASON.DEAD_END) {
         if (mergedOptions.cleanupCallback) {
           mergedOptions.cleanupCallback(e)

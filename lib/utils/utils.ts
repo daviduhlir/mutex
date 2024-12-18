@@ -1,3 +1,4 @@
+import { ERROR, REJECTION_REASON } from './constants'
 import { LocalLockItem, LockItemInfo, LockKey, MutexStackItem } from './interfaces'
 import { MutexError } from './MutexError'
 
@@ -77,7 +78,8 @@ export function parseLockKey(key: LockKey): string {
   )
 }
 
-export function prettyPrintLock(lock: LockItemInfo, spaces: number = 0, printTree?: boolean) {
+export function prettyPrintLock(inputLock: LockItemInfo | MutexStackItem, spaces: number = 0, printTree?: boolean) {
+  const lock: LockItemInfo = inputLock as any
   const spacesString = new Array(spaces).fill('  ').join('')
   console.log(
     `${spacesString}\x1b[1m${lock.singleAccess ? 'Single access' : 'Multi access'} key ${lock.key} ${lock.isRunning ? '(currently openned)' : ''}${
@@ -93,7 +95,7 @@ export function prettyPrintLock(lock: LockItemInfo, spaces: number = 0, printTre
     )
   }
 
-  if (lock.tree.length && printTree) {
+  if (lock.tree?.length && printTree) {
     console.log(`${spacesString}  Lock tree:`)
     lock.tree.forEach(parent => prettyPrintLock(parent, spaces + 2))
   }
@@ -165,4 +167,38 @@ export function searchKiller(myStackItem: MutexStackItem, queue: MutexStackItem[
         myStackItem.tree.find(myParent => myParent.running && child.id === myParent.id && keysRelatedMatch(child.key, myParent.key)),
     )
   })
+}
+
+/**
+ * Dead end retrier will helps with handling dead locks by retrying it after some time,
+ * this requires to have deadEnd detection on
+ */
+export interface DeadEndRetrierOptions {
+  attemps: number
+  delay: number
+  cleanupCallback?: (e: MutexError) => void
+}
+export const deadEndRetrierDefaultOptions: DeadEndRetrierOptions = {
+  attemps: 5,
+  delay: 200,
+}
+export async function deadEndRetrier<T>(handler: () => Promise<T>, options: Partial<DeadEndRetrierOptions> = null): Promise<T> {
+  const mergedOptions = {
+    ...deadEndRetrierDefaultOptions,
+    ...options,
+  }
+  for(let i = 0; i < mergedOptions.attemps; i++) {
+    try {
+      return await handler()
+    } catch(e) {
+      if (e instanceof MutexError && e.key === ERROR.MUTEX_NOTIFIED_EXCEPTION && e.details.reason === REJECTION_REASON.DEAD_END) {
+        if (mergedOptions.cleanupCallback) {
+          mergedOptions.cleanupCallback(e)
+        }
+        await new Promise(resolve => setTimeout(resolve, mergedOptions.delay))
+        continue
+      }
+      throw e
+    }
+  }
 }

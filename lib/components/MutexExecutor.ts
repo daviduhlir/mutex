@@ -57,7 +57,7 @@ export class MutexExecutor {
    * @param fnc
    */
   async lockAccess<T>(lockKey: LockKey, handler: MutexHandler<T>, singleAccess?: boolean, maxLockingTime?: number, codeStack?: string): Promise<T> {
-    if (!codeStack) { // && this.synchronizer.options.debugWithStack) {
+    if (!codeStack && this.synchronizer.options.debugWithStack) {
       codeStack = getStack()
     }
 

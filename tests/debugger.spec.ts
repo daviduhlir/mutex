@@ -20,65 +20,83 @@ describe(`Debug test (${process.env.class})`, function() {
 
   it('Dead end detection', async function() {
     async function tt() {
-      await TestedMutex.lockMultiAccess('root', async () => {
-        await TestedMutex.lockSingleAccess('root', async () => {
-          await delay(10)
-        })
-      })
-    }
-
-    try {
-      await Promise.all([
-        tt(),
-        tt(),
-      ])
-    } catch(e) {
-      expect(e.message).to.equal('MUTEX_NOTIFIED_EXCEPTION: Dead end detected, this combination will never be unlocked. See the documentation.')
-    }
-  })
-
-  it('Dead end detection #2', async function() {
-    try {
-      await Promise.all([
-        TestedMutex.lockMultiAccess('root', async () => {
-          await TestedMutex.lockMultiAccess('root', async () => {
-            await TestedMutex.lockSingleAccess('root', async () => {
-              await delay(100)
-            })
-          })
-        }),
-        TestedMutex.lockMultiAccess('root', async () => {
+      try {
+        await TestedMutex.lockMultiAccess('root', async () => {
           await TestedMutex.lockSingleAccess('root', async () => {
             await delay(10)
           })
         })
-      ])
-    } catch(e) {
-      expect(e.message).to.equal('MUTEX_NOTIFIED_EXCEPTION: Dead end detected, this combination will never be unlocked. See the documentation.')
+      } catch(e) {
+        err = e
+      }
     }
+
+    let err
+    await Promise.all([
+      tt(),
+      tt(),
+    ])
+    expect(err?.message).to.equal('MUTEX_NOTIFIED_EXCEPTION: Dead end detected, this combination will never be unlocked. See the documentation.')
+  })
+
+  it('Dead end detection #2', async function() {
+    let err
+      await Promise.all([
+        (async () => {
+          try {
+            TestedMutex.lockMultiAccess('root', async () => {
+              await TestedMutex.lockMultiAccess('root', async () => {
+                await TestedMutex.lockSingleAccess('root', async () => {
+                  await delay(100)
+                })
+              })
+            })
+          } catch(e) {
+            err = e
+          }
+        })(),
+        (async () => {
+          try {
+            TestedMutex.lockMultiAccess('root', async () => {
+              await TestedMutex.lockSingleAccess('root', async () => {
+                await delay(10)
+              })
+            })
+          } catch(e) {
+            err = e
+          }
+        })()
+      ])
+    expect(err?.message).to.equal(undefined)
   })
 
   it('Dead end detection #3', async function() {
-    try {
+    let err
       await Promise.all([
         (async () => {
-          await TestedMutex.lockSingleAccess('A', async () => {
-            await TestedMutex.lockMultiAccess('B', async () => {
-              await delay(100)
+          try {
+            await TestedMutex.lockSingleAccess('A', async () => {
+              await TestedMutex.lockMultiAccess('B', async () => {
+                await delay(100)
+              })
             })
-          })
+          } catch(e) {
+            err = e
+          }
         })(),
         (async () => {
-          await TestedMutex.lockSingleAccess('B', async () => {
-            await TestedMutex.lockMultiAccess('A', async () => {
-              await delay(100)
+          try {
+            await TestedMutex.lockSingleAccess('B', async () => {
+              await TestedMutex.lockMultiAccess('A', async () => {
+                await delay(100)
+              })
             })
-          })
+          } catch(e) {
+            err = e
+          }
         })()
       ])
-    } catch(e) {
-      expect(e.message).to.equal('MUTEX_NOTIFIED_EXCEPTION: Dead end detected, this combination will never be unlocked. See the documentation.')
-    }
+    expect(err?.message).to.equal('MUTEX_NOTIFIED_EXCEPTION: Dead end detected, this combination will never be unlocked. See the documentation.')
   })
 
   it('Dead end detection #4', async function() {
@@ -115,8 +133,63 @@ describe(`Debug test (${process.env.class})`, function() {
     expect((e0 || e1 || e2).message).to.equal('MUTEX_NOTIFIED_EXCEPTION: Dead end detected, this combination will never be unlocked. See the documentation.')
   })
 
+
+  it('Dead end detection #5', async function() {
+    let err
+    await Promise.all([
+      (async () => {
+        try {
+          await TestedMutex.lockSingleAccess(['A', 'B'], async () => {
+            await delay(100)
+          })
+        } catch(e) {
+          err = e
+        }
+      })(),
+      (async () => {
+        try {
+          await TestedMutex.lockSingleAccess(['B', 'A'], async () => {
+            await delay(100)
+          })
+        } catch(e) {
+          err = e
+        }
+      })()
+    ])
+    expect(err?.message).to.equal(undefined)
+  })
+
+  it('Dead end detection #6', async function() {
+    let err
+      await Promise.all([
+        (async () => {
+          try {
+            await TestedMutex.lockSingleAccess('A', async () => {
+              await TestedMutex.lockSingleAccess('B', async () => {
+                await delay(100)
+              })
+            })
+          } catch(e) {
+            err = e
+          }
+        })(),
+        (async () => {
+          try {
+            await TestedMutex.lockSingleAccess('B', async () => {
+              await TestedMutex.lockSingleAccess('A', async () => {
+                await delay(100)
+              })
+            })
+          } catch(e) {
+            err = e
+          }
+        })()
+      ])
+    expect(err?.message).to.equal('MUTEX_NOTIFIED_EXCEPTION: Dead end detected, this combination will never be unlocked. See the documentation.')
+  })
+
   if (TestedMutex === SharedMutex) {
-    it('Dead end detection #5 (Combined Mutex and SharedMutex)', async function() {
+    it('Dead end detection #7 (Combined Mutex and SharedMutex)', async function() {
       Mutex.setOptions({
         debugDeadEnds: true
       })

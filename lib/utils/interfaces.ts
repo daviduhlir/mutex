@@ -4,7 +4,7 @@
 export interface LockDescriptor {
   singleAccess: boolean
   hash: string
-  key: string
+  key: string[]
   maxLockingTime?: number
   workerId: number | undefined
 }
@@ -57,7 +57,7 @@ export type LockKey = string | string[]
  */
 export interface MutexStackItem {
   hash: string
-  key: string
+  key: string[]
   singleAccess: boolean
   id: string
   running?: boolean

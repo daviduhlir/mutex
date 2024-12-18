@@ -35,7 +35,7 @@ export function isChildOf(key: string, parentKey: string): boolean {
 /**
  * Match two keys, if it's same, parental or child of second key
  */
-export function keysRelatedMatch(key1: string | string[], key2: string | string[]): boolean {
+export function singleKeysRelatedMatch(key1: string, key2: string): boolean {
   // try if it's child or parent
   const key1Parts = (Array.isArray(key1) ? key1 : key1.split('/')).filter(Boolean)
   const key2Parts = (Array.isArray(key2) ? key2 : key2.split('/')).filter(Boolean)
@@ -45,6 +45,10 @@ export function keysRelatedMatch(key1: string | string[], key2: string | string[
     }
   }
   return true
+}
+
+export function keysRelatedMatch(key1: string[], key2: string[]): boolean {
+  return key1.some(k1 => key2.some(k2 => singleKeysRelatedMatch(k1, k2)))
 }
 
 /**
@@ -68,14 +72,18 @@ export function sanitizeLock(input: any): LocalLockItem {
 /**
  * Parse key of lock
  */
-export function parseLockKey(key: LockKey): string {
-  return (
-    '/' +
-    (Array.isArray(key) ? key.join('/') : key)
-      .split('/')
+export function parseSingleLockKey(key: string): string {
+   return '/' +
+    key.split('/')
       .filter(i => !!i)
       .join('/')
-  )
+}
+
+export function parseLockKey(key: LockKey): string[] {
+  if (Array.isArray(key)) {
+    return key.map(i => parseSingleLockKey(i))
+  }
+  return [parseSingleLockKey(key)]
 }
 
 export function prettyPrintLock(inputLock: LockItemInfo | MutexStackItem, spaces: number = 0, printTree?: boolean) {

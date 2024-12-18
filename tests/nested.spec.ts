@@ -308,7 +308,7 @@ describe(`Nested locks (${process.env.class})`, function() {
       timeoutHandler: undefined
     })
 
-    expect(timeoutedItem.key).to.equal('/root')
+    expect(timeoutedItem.key[0]).to.equal('/root')
 
   })
 
@@ -364,7 +364,7 @@ describe(`Nested locks (${process.env.class})`, function() {
     assert(timeDeltaB >= 6 && timeDeltaB < 25, `Time of scope B should be ~10ms`)
     expect(errScopeA.key).to.equal('MUTEX_LOCK_TIMEOUT')
     expect(errScopeB).to.equal(undefined)
-    expect(timeoutedItem.key).to.equal('/root')
+    expect(timeoutedItem.key[0]).to.equal('/root')
     expect(TestedMutex.synchronizer.isClean()).to.equal(true)
   })
 })

@@ -15,7 +15,7 @@ export interface SharedMutexUnlockHandler {
   unlock(): void
 }
 
-export type MutexHandler<T> = (interrupt: <K>(handler: () => Promise<K>) => Promise<K>) => Promise<T>
+export type MutexHandler<T> = () => Promise<T>
 
 /**
  * Shared mutex class can lock some worker and wait for key,
@@ -131,32 +131,6 @@ export class MutexExecutor {
       m = null
     }
 
-    let finished = false
-    let interuptCallable = true
-    const interrupt = async (interruptHandler) => {
-      if (!interuptCallable) {
-        throw new MutexError(ERROR.MUTEX_CALL_REJECTED, 'Interrupt is callable only in mutex scope, where it was obtained.')
-      }
-      unlock()
-      let result
-      let error
-      try {
-        interuptCallable = false
-        result = await interruptHandler()
-      } catch(e) {
-        error = e
-      }
-      if (finished) {
-        throw new MutexError(ERROR.MUTEX_CALL_REJECTED, 'Interrupt is callable only in mutex scope, where it was obtained.')
-      }
-      await lock()
-      interuptCallable = true
-      if (error) {
-        throw error
-      }
-      return result
-    }
-
     // awaiter for result
     const funcAwaiter = new Awaiter()
 
@@ -169,7 +143,7 @@ export class MutexExecutor {
     let result
     let error
     try {
-      MutexExecutor.stackStorage.run([...stack, myStackItem], async () => handler(interrupt)).then(
+      MutexExecutor.stackStorage.run([...stack, myStackItem], handler).then(
         returnedValue => funcAwaiter.resolve(returnedValue),
         err => funcAwaiter.reject(err),
       )
@@ -177,7 +151,6 @@ export class MutexExecutor {
     } catch (e) {
       error = e
     }
-    finished = true
 
     // unlock all keys
     unlock()

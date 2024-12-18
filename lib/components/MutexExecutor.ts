@@ -15,6 +15,8 @@ export interface SharedMutexUnlockHandler {
   unlock(): void
 }
 
+export type MutexHandler<T> = (interrupt: <K>(handler: () => Promise<K>) => Promise<K>) => Promise<T>
+
 /**
  * Shared mutex class can lock some worker and wait for key,
  * that will be unlocked in another fork.
@@ -30,7 +32,7 @@ export class MutexExecutor {
    * @param keysPath
    * @param fnc
    */
-  async lockSingleAccess<T>(lockKey: LockKey, handler: () => Promise<T>, maxLockingTime?: number, codeStack?: string): Promise<T> {
+  async lockSingleAccess<T>(lockKey: LockKey, handler: MutexHandler<T>, maxLockingTime?: number, codeStack?: string): Promise<T> {
     if (!codeStack && this.synchronizer.options.debugWithStack) {
       codeStack = getStack()
     }
@@ -42,7 +44,7 @@ export class MutexExecutor {
    * @param keysPath
    * @param fnc
    */
-  async lockMultiAccess<T>(lockKey: LockKey, handler: () => Promise<T>, maxLockingTime?: number, codeStack?: string): Promise<T> {
+  async lockMultiAccess<T>(lockKey: LockKey, handler: MutexHandler<T>, maxLockingTime?: number, codeStack?: string): Promise<T> {
     if (!codeStack && this.synchronizer.options.debugWithStack) {
       codeStack = getStack()
     }
@@ -54,8 +56,8 @@ export class MutexExecutor {
    * @param keysPath
    * @param fnc
    */
-  async lockAccess<T>(lockKey: LockKey, handler: () => Promise<T>, singleAccess?: boolean, maxLockingTime?: number, codeStack?: string): Promise<T> {
-    if (!codeStack && this.synchronizer.options.debugWithStack) {
+  async lockAccess<T>(lockKey: LockKey, handler: MutexHandler<T>, singleAccess?: boolean, maxLockingTime?: number, codeStack?: string): Promise<T> {
+    if (!codeStack) { // && this.synchronizer.options.debugWithStack) {
       codeStack = getStack()
     }
 
@@ -89,36 +91,70 @@ export class MutexExecutor {
       }
     }
 
-    // register to all locks in this worker
-    MutexExecutor.allLocks.push(myStackItem)
-
     // lock all sub keys
     let m
-    try {
-      m = await this.lock(
-        key,
-        {
-          hash,
-          singleAccess,
-          maxLockingTime: typeof maxLockingTime === 'number' ? maxLockingTime : this.synchronizer.options.defaultMaxLockingTime,
-          parents: nestedInRelatedItems.map(i => i.hash),
-          tree: stack.map(i => i.hash),
-          workerId: cluster.worker?.id,
-        },
-        codeStack,
-      )
-    } catch (e) {
-      MutexExecutor.allLocks = MutexExecutor.allLocks.filter(item => item.hash !== myStackItem.hash)
-      throw e
+
+    const lock = async () => {
+      // register to all locks in this worker
+      MutexExecutor.allLocks.push(myStackItem)
+      try {
+        m = await this.lock(
+          key,
+          {
+            hash,
+            singleAccess,
+            maxLockingTime: typeof maxLockingTime === 'number' ? maxLockingTime : this.synchronizer.options.defaultMaxLockingTime,
+            parents: nestedInRelatedItems.map(i => i.hash),
+            tree: stack.map(i => i.hash),
+            workerId: cluster.worker?.id,
+          },
+          codeStack,
+        )
+      } catch (e) {
+        MutexExecutor.allLocks = MutexExecutor.allLocks.filter(item => item.hash !== myStackItem.hash)
+        throw e
+      }
     }
+
+    // lock it
+    await lock()
 
     // set it running
     MutexExecutor.allLocks.find(item => item.hash === myStackItem.hash).running = true
 
     // unlock function with clearing mutex ref
-    const unlocker = () => {
+    const unlock = () => {
+      // remove it from running locks
+      MutexExecutor.allLocks = MutexExecutor.allLocks.filter(item => item.hash !== myStackItem.hash)
+
       m?.unlock()
       m = null
+    }
+
+    let finished = false
+    let interuptCallable = true
+    const interrupt = async (interruptHandler) => {
+      if (!interuptCallable) {
+        throw new MutexError(ERROR.MUTEX_CALL_REJECTED, 'Interrupt is callable only in mutex scope, where it was obtained.')
+      }
+      unlock()
+      let result
+      let error
+      try {
+        interuptCallable = false
+        result = await interruptHandler()
+      } catch(e) {
+        error = e
+      }
+      if (finished) {
+        throw new MutexError(ERROR.MUTEX_CALL_REJECTED, 'Interrupt is callable only in mutex scope, where it was obtained.')
+      }
+      await lock()
+      interuptCallable = true
+      if (error) {
+        throw error
+      }
+      return result
     }
 
     // awaiter for result
@@ -133,7 +169,7 @@ export class MutexExecutor {
     let result
     let error
     try {
-      MutexExecutor.stackStorage.run([...stack, myStackItem], handler).then(
+      MutexExecutor.stackStorage.run([...stack, myStackItem], async () => handler(interrupt)).then(
         returnedValue => funcAwaiter.resolve(returnedValue),
         err => funcAwaiter.reject(err),
       )
@@ -141,12 +177,10 @@ export class MutexExecutor {
     } catch (e) {
       error = e
     }
-
-    // remove it from running locks
-    MutexExecutor.allLocks = MutexExecutor.allLocks.filter(item => item.hash !== myStackItem.hash)
+    finished = true
 
     // unlock all keys
-    unlocker()
+    unlock()
 
     this.synchronizer.removeScopeRejector(hash)
 

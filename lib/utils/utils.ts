@@ -201,4 +201,5 @@ export async function deadEndRetrier<T>(handler: () => Promise<T>, options: Part
       throw e
     }
   }
+  throw new MutexError(ERROR.MUTEX_CALL_REJECTED, `All attemps was fired with no luck`)
 }

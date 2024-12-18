@@ -10,6 +10,7 @@ export const ACTION = {
 export const REJECTION_REASON = {
   TIMEOUT: 'timeout',
   EXCEPTION: 'exception',
+  DEAD_END: 'dead-end',
 }
 
 export const WATCHDOG_STATUS = {

@@ -156,7 +156,7 @@ export function searchBlockers(item: MutexStackItem, queue: MutexStackItem[], ac
  * Search deadlock in it
  */
 export function searchKiller(myStackItem: MutexStackItem, queue: MutexStackItem[]) {
-  return searchBlockers(myStackItem, queue).find((blocker) => {
+  return searchBlockers(myStackItem, queue).find(blocker => {
     return queue.find(
       child =>
         // is block in treee

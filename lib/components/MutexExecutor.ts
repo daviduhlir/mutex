@@ -6,7 +6,7 @@ import { MutexSynchronizer, MutexSynchronizerOptions } from './MutexSynchronizer
 import cluster from '../utils/cluster'
 import { Awaiter } from '../utils/Awaiter'
 import { MutexError } from '../utils/MutexError'
-import { ERROR } from '../utils/constants'
+import { ERROR, REJECTION_REASON } from '../utils/constants'
 
 /**
  * Unlock handler
@@ -80,7 +80,12 @@ export class MutexExecutor {
     if (this.synchronizer.options.debugDeadEnds) {
       const foundKiller = searchKiller(myStackItem, MutexExecutor.allLocks)
       if (foundKiller) {
-        throw new MutexError(ERROR.MUTEX_NOTIFIED_EXCEPTION, 'Dead end detected, this combination will never be unlocked. See the documentation.')
+        throw new MutexError(
+          ERROR.MUTEX_NOTIFIED_EXCEPTION,
+          'Dead end detected, this combination will never be unlocked. See the documentation.',
+          myStackItem,
+          { reason: REJECTION_REASON.DEAD_END, inCollision: foundKiller, detectedFromStack: true },
+        )
       }
     }
 

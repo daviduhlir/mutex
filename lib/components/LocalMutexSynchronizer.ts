@@ -2,7 +2,7 @@ import { LocalLockItem, LockItemInfo, LockStatus } from '../utils/interfaces'
 import { getLockInfo, sanitizeLock } from '../utils/utils'
 import { Algorythms } from '../algorythms'
 import { MutexError } from '../utils/MutexError'
-import { ERROR, WATCHDOG_STATUS } from '../utils/constants'
+import { ERROR, REJECTION_REASON, WATCHDOG_STATUS } from '../utils/constants'
 import { MutexSynchronizer, MutexSynchronizerOptions } from './MutexSynchronizer'
 
 /**********************************
@@ -177,7 +177,7 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
     ;(this.options.algorythm ? this.options.algorythm : Algorythms.simpleQueueSolve)(
       [...this.queue],
       changes,
-      /*this.options.debugDeadEnds
+      this.options.debugDeadEnds
         ? (lock, inCollisionHashes) => {
             if (this.hashLockWaiters[lock.hash]?.lockReject) {
               this.hashLockWaiters[lock.hash].lockReject(
@@ -186,13 +186,14 @@ export class LocalMutexSynchronizer extends MutexSynchronizer {
                   'Dead end detected, this combination will never be unlocked. See the documentation.',
                   this.getLockInfo(lock.hash),
                   {
+                    reason: REJECTION_REASON.DEAD_END,
                     inCollision: inCollisionHashes.map(hash => sanitizeLock(this.getLockInfo(hash))),
                   },
                 ),
               )
             }
           }
-        : null,*/
+        : null,
     )
 
     for (const hash of changes) {

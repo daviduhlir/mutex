@@ -9,13 +9,27 @@ let TestedMutex = process.env.class === 'Mutex' ? Mutex : SharedMutex
  */
 describe(`Debug test (${process.env.class})`, function() {
   before(function() {
-    TestedMutex.setOptions({
-      debugDeadEnds: true
-    })
+    if (TestedMutex === SharedMutex) {
+      Mutex.setOptions({
+        debugDeadEnds: true
+      })
+      SharedMutex.setOptions({
+        debugDeadEnds: true
+      })
+    } else {
+      TestedMutex.setOptions({
+        debugDeadEnds: true
+      })
+    }
   })
 
   after(function() {
-    TestedMutex.setOptions({})
+    if (TestedMutex === SharedMutex) {
+      Mutex.setOptions({})
+      SharedMutex.setOptions({})
+    } else {
+      TestedMutex.setOptions({})
+    }
   })
 
   it('Dead end detection', async function() {
@@ -190,13 +204,6 @@ describe(`Debug test (${process.env.class})`, function() {
 
   if (TestedMutex === SharedMutex) {
     it('Dead end detection #7 (Combined Mutex and SharedMutex)', async function() {
-      Mutex.setOptions({
-        debugDeadEnds: true
-      })
-      SharedMutex.setOptions({
-        debugDeadEnds: true
-      })
-
       let e0, e1, e2
 
       try {
@@ -229,9 +236,6 @@ describe(`Debug test (${process.env.class})`, function() {
       }
 
       expect((e0 || e1 || e2).message).to.equal('MUTEX_NOTIFIED_EXCEPTION: Dead end detected, this combination will never be unlocked. See the documentation.')
-
-      Mutex.setOptions({})
-      SharedMutex.setOptions({})
     })
   }
 })

@@ -1,44 +1,12 @@
-import { MutexCommLayer } from '../components/comm/MutexCommLayer'
-
-/**
- * Configuration
- */
-export interface SharedMutexConfiguration {
-  /**
-   * Default locking time, which will be used for all locks, if it's undefined, it will keep it unset
-   */
-  defaultMaxLockingTime: number
-
-  /**
-   * Timeout behaviour
-   */
-  continueOnTimeout?: boolean
-
-  /**
-   * Communication layer
-   */
-  communicationLayer: MutexCommLayer | 'IPC' | null
-}
-
-/**
- * Single lock configuration
- */
-export interface LockConfiguration {
-  singleAccess?: boolean
-  maxLockingTime?: number
-  parents: string[]
-  tree: string[]
-}
-
 /**
  * Internal lock descriptor
  */
 export interface LockDescriptor {
-  workerId: number | 'master'
   singleAccess: boolean
   hash: string
-  key: string
+  key: string[]
   maxLockingTime?: number
+  workerId: number | undefined
 }
 
 export interface LockItemInfo extends LockDescriptor {
@@ -83,3 +51,15 @@ export interface LocalLockItem extends LockDescriptor {
  * Mutex keey
  */
 export type LockKey = string | string[]
+
+/**
+ * Local stack item
+ */
+export interface MutexStackItem {
+  hash: string
+  key: string[]
+  singleAccess: boolean
+  id: string
+  running?: boolean
+  tree: MutexStackItem[]
+}

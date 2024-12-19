@@ -1,12 +1,10 @@
-import { SharedMutex } from './SharedMutex'
-export * from './SharedMutex'
+export * from './components/MutexExecutor'
 export * from './components/SharedMutexDecorators'
-export * from './components/SharedMutexSynchronizer'
-export * from './components/DebugGuard'
-export * from './components/comm/MutexCommLayer'
+export * from './components/LocalMutexSynchronizer'
+export * from './components/MutexSynchronizer'
 export * from './utils/interfaces'
+export * from './utils/constants'
 export * from './utils/Awaiter'
-export { MutexSafeCallbackHandler } from './components/MutexSafeCallbackHandler'
+export * from './Mutex'
+export * from './SharedMutex'
 export { prettyPrintError } from './utils/utils'
-
-SharedMutex.initialize()

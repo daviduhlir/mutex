@@ -1,73 +1,101 @@
 import { expect } from 'chai'
-import { SharedMutex, SharedMutexSynchronizer } from '../dist'
+import { Mutex, SharedMutex } from '../dist'
 import { delay } from './utils'
 
-SharedMutexSynchronizer.debugWithStack = true
+let TestedMutex = process.env.class === 'Mutex' ? Mutex : SharedMutex
+
 /**
  * Simple locks test
  */
-describe('Watchdog tests', function() {
+describe(`Watchdog tests (${process.env.class})`, function() {
   it('Simulate timeout to see reported phase', async function() {
     let receivedLockInfo
     let receivedError
-    const originalHandler = SharedMutexSynchronizer.timeoutHandler
-    SharedMutexSynchronizer.timeoutHandler = (hash: string) => {
-      receivedLockInfo = SharedMutexSynchronizer.getLockInfo(hash)
-    }
+
+    TestedMutex.setOptions({
+      continueOnTimeout: true,
+      timeoutHandler: (item) => {
+        receivedLockInfo = item
+      }
+    })
+
     try {
-      await SharedMutex.lockSingleAccess('mutexO', async () => {
-        await SharedMutex.lockSingleAccess('mutex', async () => {
-          await SharedMutex.watchdog('Phase1')
-          await delay(200)
-          await SharedMutex.watchdog('Phase2')
-          await delay(200)
-          await SharedMutex.watchdog('Phase3')
-          await delay(200)
-          await SharedMutex.watchdog('Phase4')
-          await delay(200)
-          await SharedMutex.watchdog('Phase5')
-          await delay(200)
-          await SharedMutex.watchdog('Phase6')
-          await delay(200)
-          await SharedMutex.watchdog('Phase7')
-          await delay(200)
-          await SharedMutex.watchdog('Phase8')
-          await delay(200)
-          await SharedMutex.watchdog('Phase9')
-          await delay(200)
-          await SharedMutex.watchdog('Phase10')
-        }, 1000)
-      }, 2000)
+      await TestedMutex.lockSingleAccess('mutexO', async () => {
+        await TestedMutex.lockSingleAccess('mutex', async () => {
+          await TestedMutex.watchdog('Phase1')
+          await delay(100)
+          await TestedMutex.watchdog('Phase2')
+          await delay(100)
+          await TestedMutex.watchdog('Phase3')
+          await delay(100)
+          await TestedMutex.watchdog('Phase4')
+          await delay(100)
+          await TestedMutex.watchdog('Phase5')
+          await delay(100)
+          await TestedMutex.watchdog('Phase6')
+          await delay(100)
+          await TestedMutex.watchdog('Phase7')
+          await delay(100)
+          await TestedMutex.watchdog('Phase8')
+          await delay(100)
+          await TestedMutex.watchdog('Phase9')
+          await delay(100)
+          await TestedMutex.watchdog('Phase10')
+        }, 500)
+      }, 1000)
     } catch (e) {
       receivedError = e
     }
 
-    SharedMutexSynchronizer.timeoutHandler = originalHandler
+    TestedMutex.setOptions({
+      continueOnTimeout: false,
+      timeoutHandler: undefined
+    })
 
-    expect(receivedError.message).to.equal('MUTEX_WATCHDOG_REJECTION')
+    expect(receivedError.key).to.equal('MUTEX_LOCK_TIMEOUT')
     const lastPhase = receivedLockInfo.reportedPhases[receivedLockInfo.reportedPhases.length - 1].phase
     expect(lastPhase).to.equal('Phase5')
   })
 
 
   it('Timeout unlocks mutex', async function() {
-    const originalHandler = SharedMutexSynchronizer.timeoutHandler
-    SharedMutexSynchronizer.timeoutHandler = (hash: string) => {}
 
+    TestedMutex.setOptions({
+      continueOnTimeout: true,
+      timeoutHandler: (item) => {}
+    })
+
+    let scopeAVisited = false
     let scopeBVisited = false
+    let receivedError
 
-    await Promise.all([
-      SharedMutex.lockSingleAccess('mutex', async () => {
-        await delay(2000)
-      }, 10),
-      SharedMutex.lockSingleAccess('mutex/b', async () => {
-        scopeBVisited = true
-        await delay(10)
-      }, 50)
-    ])
+    try {
+      await Promise.all([
+        (async () => {
+          await TestedMutex.lockSingleAccess('mutex', async () => {
+            scopeAVisited = true
+            await delay(2000)
+          }, 20)
+        })(),
+        (async () => {
+          await delay(5)
+          await TestedMutex.lockSingleAccess('mutex', async () => {
+            scopeBVisited = true
+            await delay(10)
+          }, 50)
+        })()
+      ])
+    } catch(e) {
+      receivedError = e
+    }
 
+    TestedMutex.setOptions({
+      continueOnTimeout: false,
+      timeoutHandler: undefined
+    })
+
+    expect(receivedError.key).to.equal('MUTEX_LOCK_TIMEOUT')
+    expect(scopeAVisited).to.equal(true)
     expect(scopeBVisited).to.equal(true)
-
-    SharedMutexSynchronizer.timeoutHandler = originalHandler
   })
 })

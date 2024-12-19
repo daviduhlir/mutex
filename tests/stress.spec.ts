@@ -1,26 +1,28 @@
 import { assert } from 'chai'
-import { SharedMutex } from '../dist'
+import { Mutex, SharedMutex } from '../dist'
 import { delay } from './utils'
 import { spawn } from 'child_process'
 import { checkLocksResults } from './utils'
 
+let TestedMutex = process.env.class === 'Mutex' ? Mutex : SharedMutex
+
 /**
  * Locks with nested keys test
  */
-describe('Stress test', function() {
+describe(`Stress test (${process.env.class})`, function() {
   it('Big amount in parallel', async function() {
 
     let failed = false
     let counter = 0
 
-    const int = setInterval(() => SharedMutex.lockMultiAccess('stress1', async () => {
+    const int = setInterval(() => TestedMutex.lockMultiAccess('stress1', async () => {
       counter++
       await delay(2)
       counter--
     }), 2)
 
     await Promise.all(new Array(100).fill(null).map(() =>
-      SharedMutex.lockSingleAccess('stress1', async () => {
+      TestedMutex.lockSingleAccess('stress1', async () => {
         if (counter !== 0) {
           failed = true
         }
@@ -39,12 +41,12 @@ describe('Stress test', function() {
     let failed = false
 
     let counter = 0
-    const int1 = setInterval(() => SharedMutex.lockSingleAccess('stress2', async () => {
+    const int1 = setInterval(() => TestedMutex.lockSingleAccess('stress2', async () => {
       counter++
       await delay(2)
       counter--
     }), 5)
-    const int2 = setInterval(() => SharedMutex.lockSingleAccess('stress2', async () => {
+    const int2 = setInterval(() => TestedMutex.lockSingleAccess('stress2', async () => {
       counter++
       await delay(2)
       counter--
@@ -63,7 +65,7 @@ describe('Stress test', function() {
     let failed = false
 
     let counter = 0
-    const int1 = setInterval(() => SharedMutex.lockSingleAccess('stress3', async () => {
+    const int1 = setInterval(() => TestedMutex.lockSingleAccess('stress3', async () => {
       if (counter !== 0) {
         failed = true
       }
@@ -71,7 +73,7 @@ describe('Stress test', function() {
       await delay(2)
       counter--
     }), 5)
-    const int2 = setInterval(() => SharedMutex.lockSingleAccess('stress3', async () => {
+    const int2 = setInterval(() => TestedMutex.lockSingleAccess('stress3', async () => {
       if (counter !== 0) {
         failed = true
       }
@@ -81,7 +83,7 @@ describe('Stress test', function() {
     }), 5)
 
     await Promise.all(new Array(50).fill(null).map(() =>
-      SharedMutex.lockMultiAccess('stress3', async () => {
+      TestedMutex.lockMultiAccess('stress3', async () => {
         counter++
         await delay(1)
         counter--

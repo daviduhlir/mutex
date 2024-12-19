@@ -1,5 +1,5 @@
-import { ERROR } from './constants'
-import { LocalLockItem, LockItemInfo, LockKey } from './interfaces'
+import { ERROR, REJECTION_REASON } from './constants'
+import { LocalLockItem, LockItemInfo, LockKey, MutexStackItem } from './interfaces'
 import { MutexError } from './MutexError'
 
 /**
@@ -35,7 +35,7 @@ export function isChildOf(key: string, parentKey: string): boolean {
 /**
  * Match two keys, if it's same, parental or child of second key
  */
-export function keysRelatedMatch(key1: string | string[], key2: string | string[]): boolean {
+export function singleKeysRelatedMatch(key1: string, key2: string): boolean {
   // try if it's child or parent
   const key1Parts = (Array.isArray(key1) ? key1 : key1.split('/')).filter(Boolean)
   const key2Parts = (Array.isArray(key2) ? key2 : key2.split('/')).filter(Boolean)
@@ -47,12 +47,15 @@ export function keysRelatedMatch(key1: string | string[], key2: string | string[
   return true
 }
 
+export function keysRelatedMatch(key1: string[], key2: string[]): boolean {
+  return key1.some(k1 => key2.some(k2 => singleKeysRelatedMatch(k1, k2)))
+}
+
 /**
  * Sanitize lock structure
  */
 export function sanitizeLock(input: any): LocalLockItem {
   return {
-    workerId: input.workerId,
     singleAccess: input.singleAccess,
     hash: input.hash,
     key: input.key,
@@ -60,6 +63,7 @@ export function sanitizeLock(input: any): LocalLockItem {
     parents: input.parents,
     tree: input.tree,
     codeStack: input.codeStack,
+    workerId: input.workerId,
     ...(input.maxLockingTime ? { maxLockingTime: input.maxLockingTime } : {}),
     ...(input.timeout ? { timeout: input.timeout } : {}),
   }
@@ -68,17 +72,22 @@ export function sanitizeLock(input: any): LocalLockItem {
 /**
  * Parse key of lock
  */
-export function parseLockKey(key: LockKey): string {
-  return (
-    '/' +
-    (Array.isArray(key) ? key.join('/') : key)
-      .split('/')
+export function parseSingleLockKey(key: string): string {
+   return '/' +
+    key.split('/')
       .filter(i => !!i)
       .join('/')
-  )
 }
 
-export function prettyPrintLock(lock: LockItemInfo, spaces: number = 0, printTree?: boolean) {
+export function parseLockKey(key: LockKey): string[] {
+  if (Array.isArray(key)) {
+    return key.map(i => parseSingleLockKey(i))
+  }
+  return [parseSingleLockKey(key)]
+}
+
+export function prettyPrintLock(inputLock: LockItemInfo | MutexStackItem, spaces: number = 0, printTree?: boolean) {
+  const lock: LockItemInfo = inputLock as any
   const spacesString = new Array(spaces).fill('  ').join('')
   console.log(
     `${spacesString}\x1b[1m${lock.singleAccess ? 'Single access' : 'Multi access'} key ${lock.key} ${lock.isRunning ? '(currently openned)' : ''}${
@@ -94,7 +103,7 @@ export function prettyPrintLock(lock: LockItemInfo, spaces: number = 0, printTre
     )
   }
 
-  if (lock.tree.length && printTree) {
+  if (lock.tree?.length && printTree) {
     console.log(`${spacesString}  Lock tree:`)
     lock.tree.forEach(parent => prettyPrintLock(parent, spaces + 2))
   }
@@ -109,4 +118,96 @@ export function prettyPrintError(e: MutexError) {
       e.details?.inCollision.forEach(item => prettyPrintLock(item, 2, true))
     }
   }
+}
+
+export function getLockInfo(queue: LocalLockItem[], hash: string) {
+  const item = queue.find(i => i.hash === hash)
+  if (!item) {
+    return null
+  }
+  const blockedBy = queue
+    .filter(l => l.isRunning && keysRelatedMatch(l.key, item.key))
+    .filter(l => l.hash !== hash)
+    .map(item => sanitizeLock(item))
+
+  return {
+    singleAccess: item.singleAccess,
+    hash: item.hash,
+    key: item.key,
+    isRunning: item.isRunning,
+    codeStack: item.codeStack,
+    blockedBy,
+    reportedPhases: item.reportedPhases,
+    tree: item.tree ? item.tree.map(l => getLockInfo(queue, l)) : undefined,
+    parents: item.parents ? item.parents.map(l => getLockInfo(queue, l)) : undefined,
+    workerId: item.workerId,
+    timing: {
+      locked: item.timing.locked,
+      opened: item.timing.opened,
+    },
+  }
+}
+
+/**
+ * Search all blocking items
+ */
+export function searchBlockers(item: MutexStackItem, queue: MutexStackItem[], acc = []) {
+  for (const i of queue) {
+    if (i.running && i.id === item.id && keysRelatedMatch(i.key, item.key) && (item.singleAccess || (!item.singleAccess && i.singleAccess))) {
+      if (acc.findIndex(accI => accI.hash === i.hash) === -1 && item.tree.findIndex(treeI => treeI.hash === i.hash) === -1) {
+        acc.push(i)
+      }
+    }
+  }
+  return acc
+}
+
+/**
+ * Search deadlock in it
+ */
+export function searchKiller(myStackItem: MutexStackItem, queue: MutexStackItem[]) {
+  return searchBlockers(myStackItem, queue).find(blocker => {
+    return queue.find(
+      child =>
+        // is block in treee
+        child.tree.find(it => it.hash === blocker.hash) &&
+        // is it related and running
+        myStackItem.tree.find(myParent => myParent.running && child.id === myParent.id && keysRelatedMatch(child.key, myParent.key)),
+    )
+  })
+}
+
+/**
+ * Dead end retrier will helps with handling dead locks by retrying it after some time,
+ * this requires to have deadEnd detection on
+ */
+export interface DeadEndRetrierOptions {
+  attemps: number
+  delay: number
+  cleanupCallback?: (e: MutexError) => void
+}
+export const deadEndRetrierDefaultOptions: DeadEndRetrierOptions = {
+  attemps: 5,
+  delay: 200,
+}
+export async function deadEndRetrier<T>(handler: () => Promise<T>, options: Partial<DeadEndRetrierOptions> = null): Promise<T> {
+  const mergedOptions = {
+    ...deadEndRetrierDefaultOptions,
+    ...options,
+  }
+  for (let i = 0; i < mergedOptions.attemps; i++) {
+    try {
+      return await handler()
+    } catch (e) {
+      if (e instanceof MutexError && e.key === ERROR.MUTEX_NOTIFIED_EXCEPTION && e.details.reason === REJECTION_REASON.DEAD_END) {
+        if (mergedOptions.cleanupCallback) {
+          mergedOptions.cleanupCallback(e)
+        }
+        await new Promise(resolve => setTimeout(resolve, mergedOptions.delay))
+        continue
+      }
+      throw e
+    }
+  }
+  throw new MutexError(ERROR.MUTEX_CALL_REJECTED, `All attemps was fired with no luck`)
 }

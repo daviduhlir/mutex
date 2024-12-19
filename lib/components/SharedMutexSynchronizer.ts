@@ -1,78 +1,74 @@
-import { EventEmitter } from 'events'
 import cluster from '../utils/cluster'
-import { LocalLockItem, LockItemInfo, LockKey, LockStatus } from '../utils/interfaces'
-import { sanitizeLock, keysRelatedMatch } from '../utils/utils'
-import { ACTION, DEBUG_INFO_REPORTS, ERROR, MASTER_ID, REJECTION_REASON, WATCHDOG_STATUS } from '../utils/constants'
+import { ACTION, ERROR } from '../utils/constants'
+import { LocalLockItem, LockItemInfo } from '../utils/interfaces'
 import { MutexError } from '../utils/MutexError'
-import { MutexGlobalStorage } from './MutexGlobalStorage'
+import { randomHash } from '../utils/utils'
+import { LocalMutexSynchronizer } from './LocalMutexSynchronizer'
+import { MutexSynchronizer, MutexSynchronizerOptions } from './MutexSynchronizer'
 import version from '../utils/version'
-import { SharedMutexConfigManager } from './SharedMutexConfigManager'
+import { Awaiter } from '../utils/Awaiter'
 
 /**********************************
  *
- * cluster synchronizer
+ * Shared Mutex synchronizer
  *
  ***********************************/
-export class SharedMutexSynchronizer {
+export class SharedMutexSynchronizer extends MutexSynchronizer {
   /**
-   * Report debug info, you can use console log inside to track, whats going on
+   * Construct with options
    */
-  static reportDebugInfo: (state: string, item: LocalLockItem, codeStack?: string) => void
-
-  /**
-   * Report debug info with stack
-   */
-  static debugWithStack: boolean = false
-
-  /**
-   * Detect dead ends
-   */
-  static debugDeadEnds: boolean = false
-
-  /**
-   * configuration checked
-   */
-  protected static usingCustomConfiguration: boolean
-
-  /**
-   * Handlers for master process to work
-   * with mutexes
-   */
-  static readonly masterHandler: {
-    masterIncomingMessage: (message: any) => void
-    emitter: EventEmitter
-  } = {
-    masterIncomingMessage: null,
-    emitter: new EventEmitter(),
+  constructor(options: Partial<MutexSynchronizerOptions> = {}, readonly identifier?: string) {
+    super(options)
+    this.initialize()
   }
 
   /**
-   * Timeout handler, for handling if lock was freezed for too long time
-   * You can set this handler to your own, to make decision what to do in this case
-   * You can use methods like getLockInfo or resetLockTimeout to get info and deal with this situation
-   * Default behaviour is to log it, if it's on master, it will throws error. If it's fork, it will kill it.
-   * @param hash
+   * Get count of locks currently
+   * @returns
    */
-  static timeoutHandler: (hash: string) => void = (hash: string) => {
-    const info = SharedMutexSynchronizer.getLockInfo(hash)
-    if (!info) {
-      return // this lock does not exsists
-    }
+  getLocksCount(): number {
+    return this.masterSynchronizer.getLocksCount()
+  }
 
-    // debug info
-    if (SharedMutexSynchronizer.reportDebugInfo) {
-      SharedMutexSynchronizer.reportDebugInfo(
-        DEBUG_INFO_REPORTS.LOCK_TIMEOUT,
-        MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === hash),
-      )
+  /**
+   * Lock mutex
+   */
+  async lock(lock: LocalLockItem, codeStack?: string) {
+    if (this.masterSynchronizer) {
+      return this.masterSynchronizer.lock(lock, codeStack)
     }
+    await this.verifyAwaiter.wait()
+    await this.sendProcessMessage({
+      action: ACTION.LOCK,
+      lock,
+      codeStack,
+    })
+  }
 
-    console.error(ERROR.MUTEX_LOCK_TIMEOUT, info)
-    if (info.workerId === MASTER_ID) {
-      throw new MutexError(ERROR.MUTEX_LOCK_TIMEOUT)
-    } else {
-      process.kill(cluster.workers?.[info.workerId]?.process.pid, 9)
+  /**
+   * Unlock handler
+   * @param key
+   */
+  async unlock(hash: string, codeStack?: string) {
+    if (this.masterSynchronizer) {
+      return this.masterSynchronizer.unlock(hash, codeStack)
     }
+    await this.verifyAwaiter.wait()
+    await this.sendProcessMessage({
+      action: ACTION.UNLOCK,
+      hash,
+      codeStack,
+    })
+  }
+
+  /**
+   * Force unlock all worker hashes
+   */
+  unlockForced(filter: (lock: LocalLockItem) => boolean) {
+    if (this.masterSynchronizer) {
+      return this.masterSynchronizer.unlockForced(filter)
+    }
+    throw new Error(`Force unlock of workers is posible from master process only`)
   }
 
   /**
@@ -80,392 +76,317 @@ export class SharedMutexSynchronizer {
    * @param hash
    * @returns
    */
-  static getLockInfo(hash: string): LockItemInfo {
-    const queue = MutexGlobalStorage.getLocalLocksQueue()
-    const item = queue.find(i => i.hash === hash)
-    const blockedBy = queue
-      .filter(l => l.isRunning && keysRelatedMatch(l.key, item.key))
-      .filter(l => l.hash !== hash)
-      .map(item => sanitizeLock(item))
-    if (item) {
-      return {
-        workerId: item.workerId,
-        singleAccess: item.singleAccess,
-        hash: item.hash,
-        key: item.key,
-        isRunning: item.isRunning,
-        codeStack: item.codeStack,
-        blockedBy,
-        reportedPhases: item.reportedPhases,
-        tree: item.tree ? item.tree.map(l => SharedMutexSynchronizer.getLockInfo(l)) : undefined,
-        parents: item.parents ? item.parents.map(l => SharedMutexSynchronizer.getLockInfo(l)) : undefined,
-        timing: {
-          locked: item.timing.locked,
-          opened: item.timing.opened,
-        },
-      }
-    }
+  getLockInfo(hash: string): LockItemInfo {
+    return this.masterSynchronizer.getLockInfo(hash)
   }
 
   /**
-   * Reset watchdog for lock
-   * @param hash
-   * @returns
+   * Get lock item
    */
-  static resetLockTimeout(hash: string, newMaxLockingTime?: number) {
-    const item = MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === hash)
-    if (item) {
-      if (typeof newMaxLockingTime === 'number') {
-        item.maxLockingTime = newMaxLockingTime
-      }
-      if (item.timeout) {
-        clearTimeout(item.timeout)
-      }
-      if (item.maxLockingTime) {
-        item.timeout = setTimeout(() => SharedMutexSynchronizer.lockTimeout(hash), item.maxLockingTime)
-      }
-    }
+  getLockItem(hash: string): LocalLockItem {
+    return this.masterSynchronizer.getLockItem(hash)
   }
 
   /**
-   * Initialize master handler
+   * Watchdog with phase report
    */
-  static async initializeMaster() {
-    // skip double init
-    if (MutexGlobalStorage.getInitialized() || !cluster.isMaster) {
-      return
+  async watchdog(hash: string, phase?: string, args?: any, codeStack?: string) {
+    if (this.masterSynchronizer) {
+      return this.masterSynchronizer.watchdog(hash, phase, args, codeStack)
     }
-
-    // reset queue
-    MutexGlobalStorage.setLocalLocksQueue([])
-
-    // already initialized
-    MutexGlobalStorage.setInitialized()
-
-    // if we are using clusters at all
-    if (cluster && typeof cluster.on === 'function') {
-      ;(await SharedMutexConfigManager.getComm()).onClusterMessage(SharedMutexSynchronizer.handleClusterMessage)
-
-      cluster.on('exit', worker => SharedMutexSynchronizer.workerUnlockForced(worker.id))
-    }
-
-    // setup functions for master
-    SharedMutexSynchronizer.masterHandler.masterIncomingMessage = SharedMutexSynchronizer.masterIncomingMessage
+    await this.verifyAwaiter.wait()
+    await this.sendProcessMessage({
+      action: ACTION.WATCHDOG_REPORT,
+      hash,
+      phase,
+      args,
+      codeStack,
+    })
   }
 
   /**
-   * Get count of locks currently
-   * @returns
+   * Set scope rejector
    */
-  static getLocksCount(): number {
-    return MutexGlobalStorage.getLocalLocksQueue().length
-  }
-
-  /**
-   * Unlock force all keys with related key
-   */
-  static dangerouslyForceUnlockKeys(key: LockKey) {
-    if (!cluster.isMaster) {
-      throw new Error(`Force unlock can be called only on master process.`)
-    }
-    MutexGlobalStorage.getLocalLocksQueue()
-      .filter(l => l.isRunning && keysRelatedMatch(l.key, key))
-      .forEach(i => SharedMutexSynchronizer.unlock(i.hash))
-  }
-
-  /**
-   * Is key free to open by single lock
-   */
-  static isKeyFree(key: LockKey, singleAccess: boolean) {
-    const queue = MutexGlobalStorage.getLocalLocksQueue()
-    const foundRunningLocks = queue.filter(l => l.isRunning && keysRelatedMatch(l.key, key))
-    if (singleAccess) {
-      return foundRunningLocks.length === 0
+  setScopeRejector(hash: string, rejector: (reason) => void) {
+    if (this.masterSynchronizer) {
+      this.masterSynchronizer.setScopeRejector(hash, rejector)
     } else {
-      return foundRunningLocks.every(l => !l.singleAccess)
-    }
-  }
-
-  /**
-   * Lock mutex
-   */
-  protected static lock(item: LocalLockItem, codeStack?: string) {
-    // add it to locks
-    const nItem = { ...item, codeStack, timing: { locked: Date.now() } }
-    MutexGlobalStorage.getLocalLocksQueue().push(nItem)
-
-    // set timeout if provided
-    if (nItem.maxLockingTime) {
-      nItem.timeout = setTimeout(() => SharedMutexSynchronizer.lockTimeout(nItem.hash), nItem.maxLockingTime)
-    }
-
-    // debug info
-    if (SharedMutexSynchronizer.reportDebugInfo) {
-      SharedMutexSynchronizer.reportDebugInfo(DEBUG_INFO_REPORTS.SCOPE_WAITING, nItem, codeStack)
-    }
-
-    // next tick... unlock something, if waiting
-    SharedMutexSynchronizer.mutexTickNext()
-  }
-
-  /**
-   * Unlock handler
-   * @param key
-   * @param workerId
-   */
-  protected static unlock(hash?: string, codeStack?: string) {
-    const f = MutexGlobalStorage.getLocalLocksQueue().find(foundItem => foundItem.hash === hash)
-    if (!f) {
-      return
-    }
-
-    // clear timeout, if exists
-    if (f.timeout) {
-      clearTimeout(f.timeout)
-    }
-
-    // report debug info
-    if (SharedMutexSynchronizer.reportDebugInfo) {
-      SharedMutexSynchronizer.reportDebugInfo(DEBUG_INFO_REPORTS.SCOPE_EXIT, f, codeStack)
-    }
-
-    // remove from queue
-    MutexGlobalStorage.setLocalLocksQueue(MutexGlobalStorage.getLocalLocksQueue().filter(item => item.hash !== hash))
-
-    // next tick... unlock something, if waiting
-    SharedMutexSynchronizer.mutexTickNext()
-  }
-
-  /**
-   * Tick of mutex run, it will continue next mutex(es) in queue
-   */
-  protected static mutexTickNext() {
-    const queue = MutexGlobalStorage.getLocalLocksQueue()
-    const changes: string[] = []
-
-    SharedMutexSynchronizer.solveGroup([...queue], changes)
-
-    for (const hash of changes) {
-      SharedMutexSynchronizer.continue(hash)
-    }
-    if (changes.length) {
-      SharedMutexSynchronizer.mutexTickNext()
-    }
-  }
-
-  protected static solveGroup(queue: LocalLockItem[], changes: string[]) {
-    let deadEndnalyzis = []
-    for (let i = 0; i < queue.length; i++) {
-      const lock = queue[i]
-      if (lock.isRunning) {
-        continue
-      }
-
-      const foundRunningLocks = queue.filter(l => l.isRunning && keysRelatedMatch(l.key, lock.key))
-      const isParentTreeRunning = lock.parents?.length && lock.parents.every(hash => foundRunningLocks.find(l => l.hash === hash))
-
-      // if single access group is on top, break it anyway
-      if (lock.singleAccess) {
-        if (foundRunningLocks.length === 0 || (isParentTreeRunning && foundRunningLocks.filter(l => !lock.parents.includes(l.hash)).length === 0)) {
-          changes.push(lock.hash)
-          lock.isRunning = true
-        } else {
-          const outterLocks = foundRunningLocks.filter(l => !lock.parents.includes(l.hash))
-
-          if (SharedMutexSynchronizer.debugDeadEnds) {
-            deadEndnalyzis.push({
-              hash: lock.hash,
-              tree: lock.tree,
-              blockedBy: outterLocks.map(l => l.hash),
-            })
-          }
-        }
-      } else {
-        if (foundRunningLocks.every(lock => !lock.singleAccess) || isParentTreeRunning) {
-          changes.push(lock.hash)
-          lock.isRunning = true
-        } else {
-          const outterLocks = foundRunningLocks.filter(l => !lock.parents.includes(l.hash))
-
-          if (SharedMutexSynchronizer.debugDeadEnds) {
-            deadEndnalyzis.push({
-              hash: lock.hash,
-              tree: lock.tree,
-              blockedBy: outterLocks.map(l => l.hash),
-            })
-          }
-        }
-      }
-    }
-
-    if (SharedMutexSynchronizer.debugDeadEnds) {
-      for (const item of deadEndnalyzis) {
-        const blockingItems = deadEndnalyzis.filter(l => l.blockedBy.some(b => item.tree.includes(b)))
-        const blockingMe = blockingItems.filter(l => l.tree.some(b => item.blockedBy.includes(b)))
-        if (blockingMe.length) {
-          const lock = MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === item.hash)
-          SharedMutexSynchronizer.sendException(lock, 'Dead end detected, this combination will never be unlocked. See the documentation.', {
-            inCollision: blockingMe.map(l => sanitizeLock(SharedMutexSynchronizer.getLockInfo(l.hash))),
-          })
-        }
+      this.hashLockRejectors[hash] = {
+        scopeReject: rejector,
       }
     }
   }
 
-  /**
-   * Continue worker in queue
-   * @param key
-   */
-  protected static continue(hash: string, originalStack?: string) {
-    const item = MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === hash)
-    item.isRunning = true
-    item.timing.opened = Date.now()
-
-    // report debug info
-    if (SharedMutexSynchronizer.reportDebugInfo) {
-      SharedMutexSynchronizer.reportDebugInfo(DEBUG_INFO_REPORTS.SCOPE_CONTINUE, item, originalStack)
+  removeScopeRejector(hash: string) {
+    if (this.masterSynchronizer) {
+      this.masterSynchronizer.removeScopeRejector(hash)
+    } else {
+      delete this.hashLockRejectors[hash]
     }
-
-    const message = {
-      action: ACTION.CONTINUE,
-      hash: item.hash,
-    }
-
-    // emit it
-    SharedMutexSynchronizer.masterHandler.emitter.emit('message', message)
-    Object.keys(cluster.workers).forEach(workerId => SharedMutexSynchronizer.send(cluster.workers?.[workerId], message))
   }
 
   /**
-   * Handle incomming message from whole cluster
+   * Is this clear?
    */
-  protected static handleClusterMessage(worker: any, message: any) {
-    SharedMutexSynchronizer.masterIncomingMessage(message, worker)
+  isClean(): boolean {
+    return (
+      (this.masterSynchronizer ? this.masterSynchronizer.isClean() : true) &&
+      Object.keys(this.hashLockRejectors).length === 0 &&
+      Object.keys(this.messageQueue).length === 0
+    )
+  }
+
+  /**
+   * Set options
+   */
+  setOptions(options: Partial<MutexSynchronizerOptions>) {
+    super.setOptions(options)
+    if (this.masterSynchronizer) {
+      this.masterSynchronizer.setOptions(this.options)
+    }
+  }
+
+  /************************************
+   *
+   * Internal methods
+   *
+   ************************************/
+
+  // waiting messages
+  protected messageQueue: {
+    id: string
+    resolve: (result: any) => void
+    reject: (err: Error) => void
+  }[] = []
+  protected hashLockRejectors: {
+    [hash: string]: {
+      scopeReject?: (err) => void
+    }
+  } = {}
+
+  // synchronizer
+  protected masterSynchronizer: LocalMutexSynchronizer
+
+  // worker verify awaiter
+  protected verifyAwaiter = cluster.isWorker
+    ? new Awaiter(
+        1000,
+        () =>
+          new MutexError(
+            ERROR.MUTEX_MASTER_NOT_INITIALIZED,
+            'Master process has not initialized mutex synchronizer. usually by missing call of SharedMutex.initialize() in master process.',
+          ),
+      )
+    : null
+
+  /**
+   * Forced unlock of worker
+   * @param id
+   */
+  protected workerUnlockForced(workerId: number) {
+    this.unlockForced(i => i.workerId === workerId)
   }
 
   /**
    * Handle master incomming message
    * @param message
    */
-  protected static masterIncomingMessage(message: any, worker?: any) {
-    if (!message.action) {
-      return
+  protected async handleMasterIncomingMessage(worker: any, message: any) {
+    if (message.id) {
+      if (message.action === ACTION.LOCK) {
+        const result = await SharedMutexSynchronizer.executeMethod(() => this.lock(message.lock, message.codeStack))
+        this.sendMasterMessage(worker, {
+          id: message.id,
+          result: result.result,
+          error: result.error,
+        })
+      } else if (message.action === ACTION.UNLOCK) {
+        const result = await SharedMutexSynchronizer.executeMethod(() => this.unlock(message.hash, message.codeStack))
+        this.sendMasterMessage(worker, {
+          id: message.id,
+          result: result.result,
+          error: result.error,
+        })
+      } else if (message.action === ACTION.WATCHDOG_REPORT) {
+        const result = await SharedMutexSynchronizer.executeMethod(() => this.watchdog(message.hash, message.phase, message.args, message.codeStack))
+        this.sendMasterMessage(worker, {
+          id: message.id,
+          result: result.result,
+          error: result.error,
+        })
+      } else if (message.action === ACTION.VERIFY) {
+        this.sendMasterMessage(worker, {
+          id: message.id,
+          result: {
+            version,
+            options: this.options,
+          },
+          error: null,
+        })
+      } else {
+        this.sendMasterMessage(worker, {
+          id: message.id,
+          error: {
+            message: `Method ${message.action} is not implemented`,
+          },
+        })
+      }
     }
+  }
 
-    // lock
-    if (message.action === ACTION.LOCK) {
-      SharedMutexSynchronizer.lock(sanitizeLock(message), message.codeStack)
-      // unlock
-    } else if (message.action === ACTION.UNLOCK) {
-      SharedMutexSynchronizer.unlock(message.hash, message.codeStack)
-      // verify master handler
-    } else if (message.action === ACTION.WATCHDOG_REPORT) {
-      SharedMutexSynchronizer.watchdogResponse(message.hash, message.phase, message.codeStack, message.args)
-      // unlock
-    } else if (message.action === ACTION.VERIFY) {
-      // check if somebody overrided default config
-      if (typeof SharedMutexSynchronizer.usingCustomConfiguration === 'undefined') {
-        SharedMutexSynchronizer.usingCustomConfiguration = message.usingCustomConfig
-      } else if (SharedMutexSynchronizer.usingCustomConfiguration !== message.usingCustomConfig) {
-        // and if somebody changed it and somebody not, it should crash with it
-        throw new MutexError(
-          ERROR.MUTEX_CUSTOM_CONFIGURATION,
-          'This is usually caused by setting custom configuration by calling initialize({...}) only in some of forks, or only in master. You need to call it everywhere with same (*or compatible) config.',
+  /**
+   * Handle worker incomming message
+   * @param message
+   */
+  protected handlerWorkerIncomingMessage(message: any) {
+    if (message.id) {
+      const item = this.messageQueue.find(item => item.id === message.id)
+      if (item) {
+        this.messageQueue = this.messageQueue.filter(item => item.id !== message.id)
+        if (message.error) {
+          if (message.error.key) {
+            item.reject(new MutexError(message.error.key, message.error.message, message.error.lock, message.error.details))
+          } else {
+            item.reject(new Error(message.error.message))
+          }
+        } else {
+          item.resolve(message.result)
+        }
+      }
+    } else if (message.action === ACTION.NOTIFY_EXCEPTION) {
+      if (this.hashLockRejectors[message.hash]) {
+        this.hashLockRejectors[message.hash].scopeReject(new MutexError(message.reason, message.message))
+      }
+    }
+  }
+
+  /**
+   * Worker/master init
+   */
+  protected async initialize() {
+    if (cluster.isWorker) {
+      // attach events from master
+      process.on('message', (message: any) => {
+        if (message.__mutexMessage__ && message.__mutexIdentifier__ === this.identifier) {
+          this.handlerWorkerIncomingMessage(message)
+        }
+      })
+
+      const verifyResult = await this.sendProcessMessage<{ version: string; options: MutexSynchronizerOptions }>({
+        action: ACTION.VERIFY,
+        version,
+      })
+      if (verifyResult.version === version) {
+        // TODO check cross settings
+        this.setOptions(verifyResult.options)
+        this.verifyAwaiter.resolve()
+      } else {
+        this.verifyAwaiter.reject(
+          new MutexError(
+            ERROR.MUTEX_DIFFERENT_VERSIONS,
+            'This is usually caused by more than one instance of SharedMutex package installed together.',
+          ),
         )
       }
-
-      SharedMutexSynchronizer.send(worker, {
-        action: ACTION.VERIFY_COMPLETE,
-        version,
+    } else {
+      this.masterSynchronizer = new LocalMutexSynchronizer(this.options)
+      this.masterSynchronizer.setOptions(this.options)
+      // attach events from cluster
+      cluster.on('exit', worker => this.workerUnlockForced(worker.id))
+      cluster.on('message', (worker, message: any) => {
+        if (message.__mutexMessage__ && message.__mutexIdentifier__ === this.identifier) {
+          this.handleMasterIncomingMessage(worker, message)
+        }
       })
     }
   }
 
   /**
-   * Push phase to lock
+   * Rejects all scopes handler
    */
-  protected static watchdogResponse(hash: string, phase?: string, codeStack?: string, args?: any) {
-    const item = MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === hash)
-    const message = {
-      action: ACTION.WATCHDOG_STATUS,
-      hash: hash,
-      status: item ? item.status : WATCHDOG_STATUS.TIMEOUTED,
+  protected scopesRejector(item: LocalLockItem, reason: string, message: string) {
+    // if we are in master, but this is not registred here
+    if (this.masterSynchronizer && !this.hashLockRejectors[item.hash] && item.workerId) {
+      this.sendMasterMessage(cluster.workers[item.workerId], {
+        action: ACTION.NOTIFY_EXCEPTION,
+        hash: item.hash,
+        reason,
+        message,
+      })
     }
+  }
 
-    if (item) {
-      if (phase) {
-        if (!item.reportedPhases) {
-          item.reportedPhases = []
+  /**
+   * Send message and wait response
+   */
+  protected async sendProcessMessage<T>(message: any): Promise<T> {
+    if (!cluster.isWorker) {
+      throw new Error(`Send process message is for worker only`)
+    }
+    const id = randomHash()
+    const waiter = new Promise<T>((resolve, reject) => {
+      this.messageQueue.push({
+        id,
+        resolve,
+        reject,
+      })
+    })
+    if (process?.send) {
+      process.send({
+        __mutexMessage__: true,
+        __mutexIdentifier__: this.identifier,
+        id,
+        ...message,
+      })
+    } else {
+      throw new Error(`Process send is not defined, probably not running in cluster`)
+    }
+    return waiter
+  }
+
+  /**
+   * Send message and wait response
+   */
+  protected sendMasterMessage(worker: any, message: any) {
+    if (cluster.isWorker) {
+      throw new Error(`Send process message is for master only`)
+    }
+    worker.send({
+      __mutexMessage__: true,
+      __mutexIdentifier__: this.identifier,
+      ...message,
+    })
+  }
+
+  /**
+   * Execute method with handlings
+   */
+  protected static async executeMethod<T>(
+    handler: () => Promise<T> | T,
+  ): Promise<{ result: T | null; error: { message: string; [prop: string]: any } | null }> {
+    let result: T | null = null
+    let error: { message: string; [prop: string]: any } | null = null
+    try {
+      result = await handler()
+    } catch (e) {
+      if (e instanceof MutexError) {
+        error = {
+          key: e.key,
+          lock: e.lock,
+          message: e.message,
+          details: e.details,
+          stack: e.stack,
         }
-        item.reportedPhases.push({ phase, codeStack, args })
+      } else {
+        error = {
+          message: e.message,
+          stack: e.stack,
+        }
       }
-      if (item.workerId && cluster.workers[item.workerId]) {
-        SharedMutexSynchronizer.send(cluster.workers[item.workerId], message)
-      }
     }
-
-    SharedMutexSynchronizer.masterHandler.emitter.emit('message', message)
-  }
-
-  /**
-   * Forced unlock of worker
-   * @param id
-   */
-  protected static workerUnlockForced(workerId: number) {
-    MutexGlobalStorage.getLocalLocksQueue()
-      .filter(i => i.workerId === workerId)
-      .forEach(i => SharedMutexSynchronizer.unlock(i.hash))
-  }
-
-  /**
-   * Send message to worker
-   */
-  protected static async send(worker: any, message: any) {
-    if (worker) {
-      ;(await SharedMutexConfigManager.getComm()).workerSend(worker, message)
-    }
-  }
-
-  /**
-   * Lock timeout handler
-   */
-  protected static lockTimeout = (hash: string) => {
-    const item = MutexGlobalStorage.getLocalLocksQueue().find(i => i.hash === hash)
-    if (item) {
-      item.status = WATCHDOG_STATUS.TIMEOUTED as LockStatus
-      SharedMutexSynchronizer.watchdogResponse(hash)
-    }
-    SharedMutexSynchronizer.timeoutHandler(hash)
-
-    // send continue with rejection
-    const message = {
-      action: ACTION.CONTINUE,
-      hash: item.hash,
-      rejected: REJECTION_REASON.TIMEOUT,
-    }
-    SharedMutexSynchronizer.masterHandler.emitter.emit('message', message)
-    if (item.workerId !== 'master' && cluster.workers?.[item.workerId]) {
-      SharedMutexSynchronizer.send(cluster.workers?.[item.workerId], message)
-    }
-
-    SharedMutexSynchronizer.unlock(hash)
-  }
-
-  /**
-   * Broadcast exception
-   */
-  protected static sendException = (item: LocalLockItem, message: string, details?: any) => {
-    // send continue with rejection
-    const messageContent = {
-      action: ACTION.CONTINUE,
-      hash: item.hash,
-      rejected: REJECTION_REASON.EXCEPTION,
-      message,
-      details,
-    }
-    SharedMutexSynchronizer.masterHandler.emitter.emit('message', messageContent)
-    if (item.workerId !== 'master' && cluster.workers?.[item.workerId]) {
-      SharedMutexSynchronizer.send(cluster.workers?.[item.workerId], messageContent)
+    return {
+      result: result,
+      error: error,
     }
   }
 }

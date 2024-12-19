@@ -4,7 +4,6 @@ import { delay } from '../utils'
 
 ;(async function () {
   if (!cluster.isWorker) {
-    await SharedMutex.initialize()
 
     await Promise.all([
       (async () => {

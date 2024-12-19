@@ -6,69 +6,63 @@ It provides 2 types of locks, single-access and multi-access.
 Multi-access means, multiple scopes can be opened - it's there for reading. If some part of code will lock same key with single access, all scopes will wait for it.
 Single-access means, only one scope can be opened in time, all other locks with same key will wait until unlock.
 
-Key in locks are used to connect locks together, if you will use same key, it will wait until other locks with same key will be unlocked - in case of single access locks. Key can be specified by 'layers', it means, if you will use '/' (or put keys to array in right order), you can specify groups of locks, that will be connected together, it means, if parent key (like `parent` in `parent/myKey/child`) will be locked, we need to wait, until it unlocks, and it works in oposite way as well, so child key (like `parent/myKey/child`), needs to be unlocked before locking of your scope.
+Key in locks are used to connect locks together, if you will use same key, it will wait until other locks with same key will be unlocked - in case of single access locks. Key can be specified by 'layers', it means, if you will use '/', you can specify groups of locks, that will be connected together, it means, if parent key (like `parent` in `parent/myKey/child`) will be locked, we need to wait, until it unlocks, and it works in oposite way as well, so child key (like `parent/myKey/child`), needs to be unlocked before locking of your scope. You can also specify array of locks, which all will be required to be free before entering the scope.
 
 If you wan't to use it with workers in cluster, keep in mind this module needs to be imported to master process to initialize synchronizer. Best way how to do it is to call initialize in very begining of your application like shown in this example. You can call it in master and forks same way, and it will do all neccessary setup:
+
 ```ts
 import { SharedMutex } from '@david.uhlir/mutex'
 import * as cluster from 'cluster'
 
-SharedMutex.initialize()
+SharedMutex.setOptions({ ... })
 ```
 
 You can also pass your own configuration during initialize. But keep in mind, in all forks (and also in master), configuration must be completly same. Example of configuration:
 
+Available options:
 ```ts
-import { SharedMutex } from '@david.uhlir/mutex'
-import * as cluster from 'cluster'
-
-SharedMutex.initialize({
-  defaultMaxLockingTime: 1000,
-  continueOnTimeout: false,
-})
-
-```
-
-configuration interface:
-```ts
-interface SharedMutexConfiguration {
+export interface MutexSynchronizerOptions {
   /**
-   * Default locking time, which will be used for all locks, if it's undefined, it will keep it unset
+   * Detect dead ends
    */
-  defaultMaxLockingTime: number
+  debugDeadEnds?: boolean
+
   /**
-   * Timeout behaviour
+   * Report debug info with stack
+   */
+  debugWithStack?: boolean
+
+  /**
+   * Default max locking time
+   */
+  defaultMaxLockingTime?: number
+
+  /**
+   * Rejects scope in timeout, error will be thrown
    */
   continueOnTimeout?: boolean
+
   /**
-   * Communication layer
+   * Algorythm for unlocking
    */
-  communicationLayer?: MutexCommLayer
+  algorythm?: (queue: LocalLockItem[], changes: string[], deadEndNotify: (lock: LocalLockItem, inCollisionHashes: string[]) => void) => void
+
+  /**
+   * Timeout handler, for handling if lock was freezed for too long time
+   * You can set this handler to your own, to make decision what to do in this case
+   * You can use methods like getLockInfo or resetLockTimeout to get info and deal with this situation
+   * Default behaviour is to log it, if it's on master, it will throws error. If it's fork, it will kill it.
+   */
+  timeoutHandler?: (item: LocalLockItem) => void
 }
 ```
 
+- debugDeadEnds is flag, that will enable or disable dead ends detection, we are recommending to keep this on, if you are not facing any performance issue.
+- debugWithStack is flag, that will enable or disable keeping stack of scope for better debugging, we are recommending to keep this on, if you are not facing any performance issue.
 - defaultMaxLockingTime is time that will be set as timeout of mutex if it's not specified in the lock call
 - continueOnTimeout is setup of behaviour, what should happen with lock in case of timeout, true means, lock will throw exception and result will not be awaited anymore
-- communicationLayer setup of communication layer, by default it's IPC
-
-## Overriding IPC communication
-
-By default all forks and master are communicating by IPC messages. This behaviour is set by communicationLayer property in configuration. Default value is 'IPC', that means, it will creates IPC layer and will communicate through it. You can set your own instance of MutexCommLayer into config, and it will be used immediatly. All message operations are waiting, until complete configuration will be set. This can be used for creating this layer asynchronous. In case of asynchronous layer (like some socket), you need to set this value to null for first touch, and then you have time to create and connect your layer, after that you should call initialize again and it will unblock all messages and continue.
-
-Like in this example:
-```ts
-SharedMutex.initialize({
-  communicationLayer: null,
-})
-
-const layer = new MyOwnCommLayer()
-
-layer.on('complete', () => {
-  SharedMutex.initialize({
-    communicationLayer: layer,
-  })
-})
-```
+- algorythm is function, that is responsible for unlocking scopes in right order
+- timeoutHandler is handler called when any scope reaches timeout in execution time. By default we just throw exception, you can doo whatever you want, but unlock will be called anyway.
 
 ## Mechanics of locks
 
@@ -78,7 +72,7 @@ Lock, that can continue must have "clear way", it means, there can't by any othe
 ## Locks setup
 
 There is several flags and definitions, that can change behaviour of locks.
-Every lock can has specified maxLockingTime, it's longest time, when scope can be locked. After this time, mutex will throw exception to prevent keeping app in frozen state. This behaviour can be overrided by setting `SharedMutexSynchronizer.timeoutHandler` handler to your custom. Keep in mind, lock timeout is measured from the time when the first attempt to open scope occurs.
+Every lock can has specified maxLockingTime, it's longest time, when scope can be locked. After this time, mutex will throw exception to prevent keeping app in frozen state. This behaviour can be overrided by setting `Mutex.setOptions({ timeoutHandler: function })` resp. `SharedMutex.setOptions({ timeoutHandler: function })` handler to your custom. Keep in mind, lock timeout is measured from the time when the first attempt to open scope occurs.
 
 ## Usage of locks
 
@@ -136,21 +130,10 @@ class Test {
 }
 ```
 
-## Safe handling of frozen promises
-
-There is mechanics, that you can use in case some of your promise will be frozen and you dont want to takes a care about that (eg. some child process freezes).
-You can use MutexSafeCallbackHandler as callback in lockSingleAccess, lockMultiAccess, and lockAccess methods. There is method unlock() on this handler, you can use it to force unlock this scope. If you will provides timeout parameter, it will triggers this force unlock automaticaly. If you want to handle it by yourself, leave timeout as undefined and use onStartCallback parameter to setup your own timeout mechanics, that will be able to call unlock on it.
-
-This is example how to use it with predefined timeout:
-```ts
-const safeCallback = new MutexSafeCallbackHandler(async () => delay(1000), 100)
-const result = SharedMutex.lockSingleAccess('mutex', safeCallback, 200)
-```
-
 ## Dead ends
 
 In some cases, you can create construction, which can not be opened. We are calling it dead end, as the application is not able to recover from this state. To prevent it, we are detecting this pattern in time of processing continue stage of lock, and throwing exception in scope waiting time. Exception is based on internal notifications with key MUTEX_NOTIFIED_EXCEPTION.
-This feature must be turned on for purpose, as it's causing decrease of performance. Simple calling of `SharedMutexSynchronizer.debugDeadEnds = true` in all forks will do the trick.
+This feature must be turned on for purpose, as it's causing decrease of performance. Simple calling of `Mutex.setOptions({ debugDeadEnds: true }` resp. `SharedMutex.setOptions({ debugDeadEnds: true }` in all forks will do the trick. There is two way we are approaching dead ends detection, we are trying to detect it on worker itself first by stack, and by all mutexes running in this fork. However worker does not know nothing about other workers, we are detecting it again in synchronizer - in master process.
 
 Example of dead end case:
 ```ts
@@ -167,57 +150,5 @@ await SharedMutex.lockMultiAccess('root', async () => {
 ```
 
 And basic explanation: Both multi-access scopes will be accessed together, and inside of it, it will waits for single access scopes. Unfortunately, both inner single access scopes will wait for unlocking all multiaccess scopes with related keys. Parent scope will be solved easily, as we know, its parent of it, but there is another one, which is not parent, and we should wait for it as well. It resulting in never ending wait for unlock of all keys, to access single access scope.
-
-
-## Debugging
-
-This is experimental feature, but in case you want extra level of info, what's going on inside of scopes, you can use reportDebugInfo function on SharedMutexSynchronizer class. This method is callen when any of mutexes changing it's state. To better see, how mutexes entering scopes, you can use DebugGuard class, which will provides you all neccessary data pairing and will write it to console.
-There is posibility to write stack info in debug messages by settings `SharedMutexSynchronizer.debugWithStack` to true.
-
-To use debugger features, just write this to begining of your code:
-
-```ts
-SharedMutexSynchronizer.reportDebugInfo = DebugGuard.reportDebugInfo
-```
-
-It will writes you messages in this format `{STATE} {KEY} {message}`, where key is exactly key of mutex, message is human readable representation of state and state is constant, which defines state, where we are pushing mutex. This states can be:
-```
-LOCK_TIMEOUT
-SCOPE_WAITING
-SCOPE_EXIT
-SCOPE_CONTINUE
-```
-
-This is example of output of guard:
-
-```
-MUTEX_DEBUG mutex (S) Entering scope
-MUTEX_DEBUG mutex/deepx (S) Waiting outside of scope. Posible blockers:  mutex
-MUTEX_DEBUG mutexx (S) Leaving scope
-MUTEX_DEBUG mutex/deepx (S) Continue into scope
-MUTEX_DEBUG mutex/deepx (S) Leaving scope
-```
-
-You can use your own debugger report method, and handle states by yourself.
-DebugGuard can be also configured, to prevent messy log, and log only important messages, like scopes, that was locked too long, or scopes, that was waiting for unlock too long. It can be setup by changing flags in `DebugGuard.options`.
-
-This is options interface:
-
-```ts
-interface DebugGuardOptions {
-  logEnterScope: boolean
-  logWaitingOutside: boolean
-  logContinue: boolean
-  logLeave: boolean
-  logDetail: boolean
-  logContinueMinTime: number
-  logLeaveMinTime: number
-}
-```
-
-All the times is in miliseconds.
-
-There is option, for simple debugging, which will collects all info about locks with stack, where the lock was called. It can be simply turned on by calling `SharedMutexSynchronizer.debugWithStack = true` in all proccesses. This will mainly shows stack trace in case, where lock failed due to MUTEX_TIMEOUT error. With this flag, it's easy to read, who blocked the lock, and if it was blocked by running locks, or waiting locks.
-
 
 ISC

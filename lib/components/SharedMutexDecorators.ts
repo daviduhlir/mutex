@@ -1,4 +1,4 @@
-import { SharedMutex } from '../SharedMutex'
+import { SharedMutex } from '../index'
 import { LockKey } from '../utils/interfaces'
 
 /**

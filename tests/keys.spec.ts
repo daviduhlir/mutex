@@ -1,21 +1,23 @@
 import { assert } from 'chai'
-import { SharedMutex } from '../dist'
+import { Mutex, SharedMutex } from '../dist'
 import { RWSimulator, delay } from './utils'
+
+let TestedMutex = process.env.class === 'Mutex' ? Mutex : SharedMutex
 
 /**
  * Locks with nested keys test
  */
-describe('Lock keys', function() {
+describe(`Lock keys (${process.env.class})`, function() {
   it('Lock parent key', async function() {
     const rwSimulator = new RWSimulator()
     const result = await Promise.all([
-      SharedMutex.lockSingleAccess('root/mutex', async () => {
+      TestedMutex.lockSingleAccess('root/mutex', async () => {
         const handler = rwSimulator.write()
         await delay(10)
         handler.stop()
         return true
       }),
-      SharedMutex.lockSingleAccess('root', async () => {
+      TestedMutex.lockSingleAccess('root', async () => {
         const handler = rwSimulator.write()
         await delay(10)
         handler.stop()
@@ -28,13 +30,13 @@ describe('Lock keys', function() {
   it('Lock child key', async function() {
     const rwSimulator = new RWSimulator()
     const result = await Promise.all([
-      SharedMutex.lockSingleAccess('root', async () => {
+      TestedMutex.lockSingleAccess('root', async () => {
         const handler = rwSimulator.write()
         await delay(10)
         handler.stop()
         return true
       }),
-      SharedMutex.lockSingleAccess('root/mutex', async () => {
+      TestedMutex.lockSingleAccess('root/mutex', async () => {
         const handler = rwSimulator.write()
         await delay(10)
         handler.stop()

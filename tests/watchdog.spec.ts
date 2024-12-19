@@ -48,6 +48,7 @@ describe(`Watchdog tests (${process.env.class})`, function() {
     }
 
     TestedMutex.setOptions({
+      continueOnTimeout: false,
       timeoutHandler: undefined
     })
 
@@ -89,6 +90,7 @@ describe(`Watchdog tests (${process.env.class})`, function() {
     }
 
     TestedMutex.setOptions({
+      continueOnTimeout: false,
       timeoutHandler: undefined
     })
 

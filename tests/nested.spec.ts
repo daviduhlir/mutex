@@ -305,6 +305,7 @@ describe(`Nested locks (${process.env.class})`, function() {
     }
 
     TestedMutex.setOptions({
+      continueOnTimeout: false,
       timeoutHandler: undefined
     })
 
@@ -344,6 +345,7 @@ describe(`Nested locks (${process.env.class})`, function() {
     const timeDeltaB = Date.now() - time
 
     TestedMutex.setOptions({
+      continueOnTimeout: false,
       timeoutHandler: undefined
     })
 

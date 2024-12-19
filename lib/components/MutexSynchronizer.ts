@@ -44,8 +44,21 @@ export interface MutexSynchronizerOptions {
   timeoutHandler?: (item: LocalLockItem) => void
 }
 
+export const MUTEX_DEFAULT_SYNCHRONIZER_OPTIONS: MutexSynchronizerOptions = {
+  debugDeadEnds: true,
+  debugWithStack: true,
+  defaultMaxLockingTime: 60000,
+  continueOnTimeout: false,
+}
+
 export abstract class MutexSynchronizer {
-  constructor(public options: MutexSynchronizerOptions = {}) {}
+  protected usedOptions: MutexSynchronizerOptions
+  constructor(options: Partial<MutexSynchronizerOptions> = {}) {
+    this.usedOptions = {
+      ...MUTEX_DEFAULT_SYNCHRONIZER_OPTIONS,
+      ...options,
+    }
+  }
 
   /**
    * Get count of locks currently
@@ -99,10 +112,19 @@ export abstract class MutexSynchronizer {
   abstract isClean(): boolean
 
   /**
+   * Get options
+   */
+  get options(): MutexSynchronizerOptions {
+    return this.usedOptions
+  }
+  /**
    * Set options
    */
-  setOptions(options: MutexSynchronizerOptions) {
-    this.options = options
+  setOptions(options: Partial<MutexSynchronizerOptions>) {
+    this.usedOptions = {
+      ...MUTEX_DEFAULT_SYNCHRONIZER_OPTIONS,
+      ...options,
+    }
   }
 
   /**

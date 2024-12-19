@@ -12,7 +12,7 @@ import { MutexSynchronizer, MutexSynchronizerOptions } from './MutexSynchronizer
  ***********************************/
 export class LocalMutexSynchronizer extends MutexSynchronizer {
   constructor(
-    public options: MutexSynchronizerOptions = {},
+    options: Partial<MutexSynchronizerOptions> = {},
     readonly scopesRejector?: (item: LocalLockItem, reason: string, message: string) => void,
   ) {
     super(options)

@@ -25,10 +25,16 @@ describe(`Debug test (${process.env.class})`, function() {
 
   after(function() {
     if (TestedMutex === SharedMutex) {
-      Mutex.setOptions({})
-      SharedMutex.setOptions({})
+      Mutex.setOptions({
+        debugDeadEnds: false,
+      })
+      SharedMutex.setOptions({
+        debugDeadEnds: false,
+      })
     } else {
-      TestedMutex.setOptions({})
+      TestedMutex.setOptions({
+        debugDeadEnds: false,
+      })
     }
   })
 

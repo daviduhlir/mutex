@@ -17,8 +17,8 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
   /**
    * Construct with options
    */
-  constructor(public options: MutexSynchronizerOptions = {}, readonly identifier?: string) {
-    super()
+  constructor(options: Partial<MutexSynchronizerOptions> = {}, readonly identifier?: string) {
+    super(options)
     this.initialize()
   }
 
@@ -139,10 +139,10 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
   /**
    * Set options
    */
-  setOptions(options: MutexSynchronizerOptions) {
-    this.options = options
+  setOptions(options: Partial<MutexSynchronizerOptions>) {
+    super.setOptions(options)
     if (this.masterSynchronizer) {
-      this.masterSynchronizer.setOptions(options)
+      this.masterSynchronizer.setOptions(this.options)
     }
   }
 

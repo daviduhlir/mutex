@@ -167,7 +167,7 @@ export class MutexExecutor {
   /**
    * Set options
    */
-  setOptions(options: MutexSynchronizerOptions) {
+  setOptions(options: Partial<MutexSynchronizerOptions>) {
     this.synchronizer?.setOptions?.(options)
   }
 

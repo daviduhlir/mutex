@@ -294,10 +294,23 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
       this.masterSynchronizer = new LocalMutexSynchronizer(this.options)
       this.masterSynchronizer.setOptions(this.options)
       // attach events from cluster
-      cluster.on('exit', worker => this.workerUnlockForced(worker.id))
-      cluster.on('message', (worker, message: any) => {
-        if (message.__mutexMessage__ && message.__mutexIdentifier__ === this.identifier) {
-          this.handleMasterIncomingMessage(worker, message)
+      const workerListeners = new Map()
+      cluster.on('fork', worker => {
+        const messageHandler = message => {
+          if (message.__mutexMessage__ && message.__mutexIdentifier__ === this.identifier) {
+            this.handleMasterIncomingMessage(worker, message)
+          }
+        }
+        worker.on('message', messageHandler)
+        workerListeners.set(worker.id, messageHandler)
+      })
+
+      cluster.on('exit', (worker, code, signal) => {
+        this.workerUnlockForced(worker.id)
+        const handler = workerListeners.get(worker.id)
+        if (handler) {
+          worker.off('message', handler)
+          workerListeners.delete(worker.id)
         }
       })
     }

@@ -73,10 +73,13 @@ export function sanitizeLock(input: any): LocalLockItem {
  * Parse key of lock
  */
 export function parseSingleLockKey(key: string): string {
-   return '/' +
-    key.split('/')
+  return (
+    '/' +
+    key
+      .split('/')
       .filter(i => !!i)
       .join('/')
+  )
 }
 
 export function parseLockKey(key: LockKey): string[] {

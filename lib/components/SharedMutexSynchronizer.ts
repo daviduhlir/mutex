@@ -272,6 +272,8 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
         }
       })
 
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
       const verifyResult = await this.sendProcessMessage<{ version: string; options: MutexSynchronizerOptions }>({
         action: ACTION.VERIFY,
         version,

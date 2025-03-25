@@ -17,7 +17,7 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
   /**
    * Construct with options
    */
-  constructor(options: Partial<MutexSynchronizerOptions> = {}, readonly identifier?: string) {
+  constructor(options: Partial<MutexSynchronizerOptions> = {}, readonly identifier: string = '$SHARED_MUTEX') {
     super(options)
     this.initialize()
   }

@@ -22,7 +22,7 @@ import { delay } from '../utils'
         await delay(1)
         console.log(`S:U`)
       })))
-    await delay(1000)
+    await delay(100)
     process.exit(0)
   }
 })()

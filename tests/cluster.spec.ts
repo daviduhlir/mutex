@@ -80,6 +80,30 @@ describe('Lock in cluster', function() {
       }
     })
 
+    it('Fork start delay', async function() {
+      const result: string[] = await new Promise((resolve, reject) => {
+
+        const child = spawn('ts-node', ['./tests/complex/cluster-fork-delay.ts'])
+        let outputs: string[] = []
+        let errors: string[] = []
+        child.stdout.on('data', data => outputs.push(data.toString()))
+        child.stderr.on('data', data => errors.push(data.toString()))
+        child.on('exit', (code) => {
+          if (code === 0) {
+            resolve(outputs)
+          } else {
+            reject(errors)
+          }
+        })
+      })
+
+      try {
+        checkLocksResults(result.join('\n').split('\n').filter(i => !!i))
+      } catch(e) {
+        assert(!e, 'Result should be without error.')
+      }
+    })
+
     /*ed communication init', async function() {
       const result: string[] = await new Promise((resolve, reject) => {
 

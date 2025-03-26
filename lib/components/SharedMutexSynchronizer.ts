@@ -19,6 +19,17 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
    */
   constructor(options: Partial<MutexSynchronizerOptions> = {}, readonly identifier: string = '$SHARED_MUTEX') {
     super(options)
+    // awaiter must be very first
+    if (cluster.isWorker) {
+      this.verifyAwaiter = new Awaiter(
+        this.options.awaitInitTimeout,
+        () =>
+          new MutexError(
+            ERROR.MUTEX_MASTER_NOT_INITIALIZED,
+            'Master process has not initialized mutex synchronizer. usually by missing call of SharedMutexSynchronizer.initialize() in master process.',
+          ),
+      )
+    }
     this.initialize()
   }
 
@@ -111,9 +122,9 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
     if (this.masterSynchronizer) {
       this.masterSynchronizer.setScopeRejector(hash, rejector)
     } else {
-      this.hashLockRejectors[hash] = {
+      this.hashLockRejectors.set(hash, {
         scopeReject: rejector,
-      }
+      })
     }
   }
 
@@ -121,7 +132,7 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
     if (this.masterSynchronizer) {
       this.masterSynchronizer.removeScopeRejector(hash)
     } else {
-      delete this.hashLockRejectors[hash]
+      this.hashLockRejectors.delete(hash)
     }
   }
 
@@ -153,31 +164,14 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
    ************************************/
 
   // waiting messages
-  protected messageQueue: {
-    id: string
-    resolve: (result: any) => void
-    reject: (err: Error) => void
-  }[] = []
-  protected hashLockRejectors: {
-    [hash: string]: {
-      scopeReject?: (err) => void
-    }
-  } = {}
+  protected messageQueue: Map<string, { id: string; resolve: (result: any) => void; reject: (err: Error) => void }> = new Map()
+  protected hashLockRejectors: Map<string, { scopeReject?: (err) => void }> = new Map()
 
   // synchronizer
   protected masterSynchronizer: LocalMutexSynchronizer
 
   // worker verify awaiter
-  protected verifyAwaiter = cluster.isWorker
-    ? new Awaiter(
-        3000,
-        () =>
-          new MutexError(
-            ERROR.MUTEX_MASTER_NOT_INITIALIZED,
-            'Master process has not initialized mutex synchronizer. usually by missing call of SharedMutexSynchronizer.initialize() in master process.',
-          ),
-      )
-    : null
+  protected verifyAwaiter: Awaiter = null
 
   /**
    * Forced unlock of worker
@@ -240,9 +234,9 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
    */
   protected handlerWorkerIncomingMessage(message: any) {
     if (message.id) {
-      const item = this.messageQueue.find(item => item.id === message.id)
+      const item = this.messageQueue.get(message.id)
       if (item) {
-        this.messageQueue = this.messageQueue.filter(item => item.id !== message.id)
+        this.messageQueue.delete(message.id)
         if (message.error) {
           if (message.error.key) {
             item.reject(new MutexError(message.error.key, message.error.message, message.error.lock, message.error.details))
@@ -254,8 +248,8 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
         }
       }
     } else if (message.action === ACTION.NOTIFY_EXCEPTION) {
-      if (this.hashLockRejectors[message.hash]) {
-        this.hashLockRejectors[message.hash].scopeReject(new MutexError(message.reason, message.message))
+      if (this.hashLockRejectors.get(message.hash)) {
+        this.hashLockRejectors.get(message.hash).scopeReject(new MutexError(message.reason, message.message))
       }
     }
   }
@@ -319,7 +313,7 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
    */
   protected scopesRejector(item: LocalLockItem, reason: string, message: string) {
     // if we are in master, but this is not registred here
-    if (this.masterSynchronizer && !this.hashLockRejectors[item.hash] && item.workerId) {
+    if (this.masterSynchronizer && !this.hashLockRejectors.get(item.hash) && item.workerId) {
       this.sendMasterMessage(cluster.workers[item.workerId], {
         action: ACTION.NOTIFY_EXCEPTION,
         hash: item.hash,
@@ -338,7 +332,7 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
     }
     const id = randomHash()
     const waiter = new Promise<T>((resolve, reject) => {
-      this.messageQueue.push({
+      this.messageQueue.set(id, {
         id,
         resolve,
         reject,

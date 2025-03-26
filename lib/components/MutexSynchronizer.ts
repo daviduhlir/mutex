@@ -42,6 +42,11 @@ export interface MutexSynchronizerOptions {
    * Default behaviour is to log it, if it's on master, it will throws error. If it's fork, it will kill it.
    */
   timeoutHandler?: (item: LocalLockItem) => void
+
+  /**
+   * Timeout for waiting for init, default is 1000ms
+   */
+  awaitInitTimeout?: number
 }
 
 export const MUTEX_DEFAULT_SYNCHRONIZER_OPTIONS: MutexSynchronizerOptions = {
@@ -49,6 +54,7 @@ export const MUTEX_DEFAULT_SYNCHRONIZER_OPTIONS: MutexSynchronizerOptions = {
   debugWithStack: true,
   defaultMaxLockingTime: 60000,
   continueOnTimeout: false,
+  awaitInitTimeout: 1000,
 }
 
 export abstract class MutexSynchronizer {

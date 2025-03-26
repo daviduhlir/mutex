@@ -1,6 +1,6 @@
 {
   "name": "@david.uhlir/mutex",
-  "version": "1.3.4",
+  "version": "1.3.5",
   "description": "Mutex for node.js apllications",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

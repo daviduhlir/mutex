@@ -12,6 +12,9 @@ import { delay } from '../utils'
       })
   } else {
     const { SharedMutex } = require('../../dist')
+    SharedMutex.setOptions({
+      awaitInitTimeout: 1000,
+    })
     await SharedMutex.lockSingleAccess('mutex', async () => {
       console.log(`S:L`)
       await delay(1000)

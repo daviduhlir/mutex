@@ -7,6 +7,7 @@ export class Awaiter<T = any> {
   protected timeoutHandler
   protected resolver: (result: T) => any
   protected rejector: (error: Error) => any
+  protected isAwaitedFlag: boolean
 
   constructor(timeout?: number, customTimeout?: () => Error) {
     this.promise = new Promise((resolve, reject) => {
@@ -50,7 +51,11 @@ export class Awaiter<T = any> {
       }
       return this.result.value
     }
-    return this.promise
+    this.isAwaitedFlag = true
+    return this.promise.then((value) => {
+      this.isAwaitedFlag = false;
+      return value
+    })
   }
 
   /**
@@ -58,6 +63,13 @@ export class Awaiter<T = any> {
    */
   get resolved(): Boolean {
     return !!this.result
+  }
+
+  /**
+   * Get if awaiter is awaited
+   */
+  get isAwaited(): Boolean {
+    return this.isAwaitedFlag
   }
 
   /**

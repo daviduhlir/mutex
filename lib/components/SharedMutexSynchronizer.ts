@@ -20,16 +20,7 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
   constructor(options: Partial<MutexSynchronizerOptions> = {}, readonly identifier: string = '$SHARED_MUTEX') {
     super(options)
     // awaiter must be very first
-    if (cluster.isWorker) {
-      this.verifyAwaiter = new Awaiter(
-        this.options.awaitInitTimeout,
-        () =>
-          new MutexError(
-            ERROR.MUTEX_MASTER_NOT_INITIALIZED,
-            'Master process has not initialized mutex synchronizer. usually by missing call of SharedMutexSynchronizer.initialize() in master process.',
-          ),
-      )
-    }
+    this.resetAwaiter()
     this.initialize()
   }
 
@@ -179,6 +170,32 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
    */
   protected workerUnlockForced(workerId: number) {
     this.unlockForced(i => i.workerId === workerId)
+  }
+
+  /**
+   * Reset init awaiter
+   */
+  protected resetAwaiter(): void {
+    if (cluster.isWorker) {
+      if (this.verifyAwaiter && this.verifyAwaiter.isAwaited) {
+        this.verifyAwaiter.reject(
+          new MutexError(ERROR.MUTEX_MASTER_OPTIONS_CHANGED, 'Options changed during await for master process initialization'),
+        )
+      }
+
+      if (this.options.awaitInitTimeout) {
+        this.verifyAwaiter = new Awaiter(
+          this.options.awaitInitTimeout,
+          () =>
+            new MutexError(
+              ERROR.MUTEX_MASTER_NOT_INITIALIZED,
+              'Master process has not initialized mutex synchronizer. usually by missing call of SharedMutexSynchronizer.initialize() in master process.',
+            ),
+        )
+      } else {
+        this.verifyAwaiter = null
+      }
+    }
   }
 
   /**

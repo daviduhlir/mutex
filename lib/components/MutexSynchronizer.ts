@@ -44,7 +44,7 @@ export interface MutexSynchronizerOptions {
   timeoutHandler?: (item: LocalLockItem) => void
 
   /**
-   * Timeout for waiting for init, default is 1000ms
+   * Timeout for waiting for init, default is 5000ms
    */
   awaitInitTimeout?: number
 }
@@ -54,7 +54,7 @@ export const MUTEX_DEFAULT_SYNCHRONIZER_OPTIONS: MutexSynchronizerOptions = {
   debugWithStack: true,
   defaultMaxLockingTime: 60000,
   continueOnTimeout: false,
-  awaitInitTimeout: 1000,
+  awaitInitTimeout: 5000,
 }
 
 export abstract class MutexSynchronizer {
@@ -127,11 +127,20 @@ export abstract class MutexSynchronizer {
    * Set options
    */
   setOptions(options: Partial<MutexSynchronizerOptions>) {
+    const timeoutBefore = this.usedOptions.awaitInitTimeout
     this.usedOptions = {
       ...MUTEX_DEFAULT_SYNCHRONIZER_OPTIONS,
       ...options,
     }
+    if (options.awaitInitTimeout !== timeoutBefore) {
+      this.resetAwaiter()
+    }
   }
+
+  /**
+   * Reset init awaiter
+   */
+  protected resetAwaiter() {}
 
   /**
    * Default handler

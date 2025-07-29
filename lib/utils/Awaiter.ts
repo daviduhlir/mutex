@@ -76,6 +76,7 @@ export class Awaiter<T = any> {
    * Resolved it, and go forward
    */
   resolve(value?: T) {
+    clearTimeout(this.timeoutHandler)
     this.result = {
       value,
     }
@@ -88,6 +89,7 @@ export class Awaiter<T = any> {
    * Reject it, and go forward
    */
   reject(error: Error) {
+    clearTimeout(this.timeoutHandler)
     this.result = {
       error,
     }

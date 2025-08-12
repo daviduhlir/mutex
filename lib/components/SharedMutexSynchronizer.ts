@@ -375,6 +375,9 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
     if (cluster.isWorker) {
       throw new Error(`Send process message is for master only`)
     }
+    if (!worker || worker.isDead() || !worker.isConnected()) {
+      return;
+    }
     worker.send({
       __mutexMessage__: true,
       __mutexIdentifier__: this.identifier,

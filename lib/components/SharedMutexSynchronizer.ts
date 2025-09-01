@@ -186,11 +186,12 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
       if (this.options.awaitInitTimeout) {
         this.verifyAwaiter = new Awaiter(
           this.options.awaitInitTimeout,
-          () =>
-            new MutexError(
+          () => {
+            return new MutexError(
               ERROR.MUTEX_MASTER_NOT_INITIALIZED,
               'Master process has not initialized mutex synchronizer. usually by missing call of SharedMutexSynchronizer.initialize() in master process.',
-            ),
+            )
+          }
         )
       } else {
         this.verifyAwaiter = null
@@ -283,10 +284,37 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
         }
       })
 
-      const verifyResult = await this.sendProcessMessage<{ version: string; options: MutexSynchronizerOptions }>({
-        action: ACTION.VERIFY,
-        version,
-      })
+      let verifyResult: { version: string; options: MutexSynchronizerOptions } | null = null;
+      let lastError: Error | null = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          verifyResult = await Promise.race<{ version: string; options: MutexSynchronizerOptions }>([
+            this.sendProcessMessage<{ version: string; options: MutexSynchronizerOptions }>({
+              action: ACTION.VERIFY,
+              version,
+            }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('VERIFY timeout')), 1000))
+          ])
+          break;
+        } catch (err) {
+          lastError = err;
+          if (attempt < 3) {
+            // short delay before retry
+            await new Promise(res => setTimeout(res, 200));
+          }
+        }
+      }
+
+      if (!verifyResult) {
+        this.verifyAwaiter.reject(
+          new MutexError(
+            ERROR.MUTEX_MASTER_NOT_INITIALIZED,
+            `Master process did not respond to VERIFY after 3 attempts: ${lastError?.message}`,
+          ),
+        )
+        return;
+      }
+
       if (verifyResult.version === version) {
         // TODO check cross settings
         this.setOptions(verifyResult.options)

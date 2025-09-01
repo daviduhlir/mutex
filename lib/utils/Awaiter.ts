@@ -52,8 +52,8 @@ export class Awaiter<T = any> {
       return this.result.value
     }
     this.isAwaitedFlag = true
-    return this.promise.then((value) => {
-      this.isAwaitedFlag = false;
+    return this.promise.then(value => {
+      this.isAwaitedFlag = false
       return value
     })
   }

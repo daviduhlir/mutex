@@ -283,6 +283,10 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
 
       let verifyResult: { version: string; options: MutexSynchronizerOptions } | null = null
       let lastError: Error | null = null
+
+      // Give master time to set up handlers
+      await new Promise(res => setTimeout(res, 50))
+
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
           verifyResult = await Promise.race<{ version: string; options: MutexSynchronizerOptions }>([

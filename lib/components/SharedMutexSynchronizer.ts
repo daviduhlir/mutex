@@ -292,7 +292,7 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
                 action: ACTION.VERIFY,
                 version,
               }),
-              new Promise((_, reject) => setTimeout(() => reject(new Error('VERIFY timeout')), 5000)),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('VERIFY timeout')), 15000)),
             ])
             break
           } catch (err) {

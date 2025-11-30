@@ -281,50 +281,49 @@ export class SharedMutexSynchronizer extends MutexSynchronizer {
         }
       })
 
-      let verifyResult: { version: string; options: MutexSynchronizerOptions } | null = null
-      let lastError: Error | null = null
+      setTimeout(async () => {
+        let verifyResult: { version: string; options: MutexSynchronizerOptions } | null = null
+        let lastError: Error | null = null
 
-      // Give master time to set up handlers
-      await new Promise(res => setTimeout(res, 50))
-
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-          verifyResult = await Promise.race<{ version: string; options: MutexSynchronizerOptions }>([
-            this.sendProcessMessage<{ version: string; options: MutexSynchronizerOptions }>({
-              action: ACTION.VERIFY,
-              version,
-            }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('VERIFY timeout')), 1000)),
-          ])
-          break
-        } catch (err) {
-          lastError = err
-          if (attempt < 3) {
-            // short delay before retry
-            await new Promise(res => setTimeout(res, 200))
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            verifyResult = await Promise.race<{ version: string; options: MutexSynchronizerOptions }>([
+              this.sendProcessMessage<{ version: string; options: MutexSynchronizerOptions }>({
+                action: ACTION.VERIFY,
+                version,
+              }),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('VERIFY timeout')), 5000)),
+            ])
+            break
+          } catch (err) {
+            lastError = err
+            if (attempt < 3) {
+              // short delay before retry
+              await new Promise(res => setTimeout(res, 1000))
+            }
           }
         }
-      }
 
-      if (!verifyResult) {
-        this.verifyAwaiter.reject(
-          new MutexError(ERROR.MUTEX_MASTER_NOT_INITIALIZED, `Master process did not respond to VERIFY after 3 attempts: ${lastError?.message}`),
-        )
-        return
-      }
+        if (!verifyResult) {
+          this.verifyAwaiter.reject(
+            new MutexError(ERROR.MUTEX_MASTER_NOT_INITIALIZED, `Master process did not respond to VERIFY after 3 attempts: ${lastError?.message}`),
+          )
+          return
+        }
 
-      if (verifyResult.version === version) {
-        // TODO check cross settings
-        this.setOptions(verifyResult.options)
-        this.verifyAwaiter.resolve()
-      } else {
-        this.verifyAwaiter.reject(
-          new MutexError(
-            ERROR.MUTEX_DIFFERENT_VERSIONS,
-            'This is usually caused by more than one instance of SharedMutex package installed together.',
-          ),
-        )
-      }
+        if (verifyResult.version === version) {
+          // TODO check cross settings
+          this.setOptions(verifyResult.options)
+          this.verifyAwaiter.resolve()
+        } else {
+          this.verifyAwaiter.reject(
+            new MutexError(
+              ERROR.MUTEX_DIFFERENT_VERSIONS,
+              'This is usually caused by more than one instance of SharedMutex package installed together.',
+            ),
+          )
+        }
+      }, 100);
     } else {
       this.masterSynchronizer = new LocalMutexSynchronizer(this.options)
       this.masterSynchronizer.setOptions(this.options)
